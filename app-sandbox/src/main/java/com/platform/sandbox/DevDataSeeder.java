@@ -8,6 +8,7 @@ import com.platform.module.code.repository.CodeDetailRepository;
 import com.platform.module.code.repository.CodeGroupRepository;
 import com.platform.module.notice.event.NoticeCodeBootstrapListener;
 import com.platform.module.portal.event.PageCodeBootstrapListener;
+import com.platform.module.portal.event.PortalBootstrapListener;
 import com.platform.module.tenant.domain.Company;
 import com.platform.module.tenant.repository.CompanyRepository;
 import com.platform.module.user.domain.Role;
@@ -47,10 +48,11 @@ import org.springframework.stereotype.Component;
  *
  * ⚠️ 이 시더는 CompanyService.create()(TenantCreatedEvent 발행)를 거치지 않고 Company를 직접
  * 만든다 — 그래서 TenantBootstrapListener/NoticeCodeBootstrapListener/PageCodeBootstrapListener/
- * UserGroupCodeBootstrapListener가 실제 API로 회사를 만들 때 자동으로 해주는 일(Role/UserGroup,
- * 공지 팝업 설정 공통코드, 페이지 용도/디바이스유형 공통코드, 사용자그룹 분류 공통코드 시딩)을
- * 여기서 똑같이 직접 해줘야 한다. 실제 이벤트 리스너들과 값이 어긋나지 않도록 주의할 것 —
- * PageCodeBootstrapListener/UserGroupCodeBootstrapListener는 아예 시딩 메서드(seedDefaults())를
+ * UserGroupCodeBootstrapListener/PortalBootstrapListener가 실제 API로 회사를 만들 때 자동으로
+ * 해주는 일(Role/UserGroup, 공지 팝업 설정 공통코드, 페이지 용도/디바이스유형 공통코드, 사용자그룹
+ * 분류 공통코드, 기본 Portal/Application/ApplicationRole 시딩)을 여기서 똑같이 직접 해줘야 한다.
+ * 실제 이벤트 리스너들과 값이 어긋나지 않도록 주의할 것 — PageCodeBootstrapListener/
+ * UserGroupCodeBootstrapListener/PortalBootstrapListener는 아예 시딩 메서드(seedDefaults())를
  * 재사용하도록 열어둬서 값이 복사되지 않는다.
  *
  * 로그인 없이 회사를 만들 수 있는 API 자체가 없기 때문에(회사 생성도 인증 필요), 이 시더가
@@ -76,6 +78,7 @@ public class DevDataSeeder implements CommandLineRunner {
     private final CodeDetailRepository codeDetailRepository;
     private final PageCodeBootstrapListener pageCodeBootstrapListener;
     private final UserGroupCodeBootstrapListener userGroupCodeBootstrapListener;
+    private final PortalBootstrapListener portalBootstrapListener;
     private final PasswordEncoder passwordEncoder;
 
     public DevDataSeeder(CompanyRepository companyRepository,
@@ -88,6 +91,7 @@ public class DevDataSeeder implements CommandLineRunner {
                           CodeDetailRepository codeDetailRepository,
                           PageCodeBootstrapListener pageCodeBootstrapListener,
                           UserGroupCodeBootstrapListener userGroupCodeBootstrapListener,
+                          PortalBootstrapListener portalBootstrapListener,
                           PasswordEncoder passwordEncoder) {
         this.companyRepository = companyRepository;
         this.userRepository = userRepository;
@@ -99,6 +103,7 @@ public class DevDataSeeder implements CommandLineRunner {
         this.codeDetailRepository = codeDetailRepository;
         this.pageCodeBootstrapListener = pageCodeBootstrapListener;
         this.userGroupCodeBootstrapListener = userGroupCodeBootstrapListener;
+        this.portalBootstrapListener = portalBootstrapListener;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -134,6 +139,10 @@ public class DevDataSeeder implements CommandLineRunner {
             // 사용자그룹 분류(컨텐츠관리/시스템관리/데이터입력관리) 공통코드. 마찬가지로 리스너의
             // 시딩 로직을 재사용한다.
             userGroupCodeBootstrapListener.seedDefaults();
+
+            // 기본 Portal(BO)/Application(SYS_MGT, ROLE_SYSTEM_ADMIN 매핑). 마찬가지로 리스너의
+            // 시딩 로직을 재사용한다.
+            portalBootstrapListener.seedDefaults();
         } finally {
             TenantContext.clear();
         }

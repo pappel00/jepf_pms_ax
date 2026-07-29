@@ -256,6 +256,28 @@ CREATE TABLE prt_application (
 CREATE INDEX idx_application_tenant ON prt_application (tenant_id);
 CREATE INDEX idx_application_portal ON prt_application (portal_id);
 
+-- ApplicationRole: Application - Role 매핑(어플리케이션 1 : Role N). prt_page_role과 동일한
+-- 패턴 — 순수 매핑이라 하드 삭제로 관리된다(deleted_yn 컬럼은 BaseEntity 상속으로 존재하지만
+-- 실제로는 사용하지 않는다). role_code는 Role 엔티티의 PK가 아니라 GrantedAuthority 문자열
+-- (예: "ROLE_ADMIN")과 정확히 일치해야 하는 값이다.
+CREATE TABLE prt_application_role (
+    id              VARCHAR(64)   NOT NULL,
+    tenant_id       VARCHAR(64)   NOT NULL,
+    created_by      VARCHAR(64),
+    created_date    TIMESTAMP,
+    modified_by     VARCHAR(64),
+    modified_date   TIMESTAMP,
+    version         BIGINT,
+    deleted_yn      VARCHAR(1)    NOT NULL,
+    deleted_date    TIMESTAMP,
+    application_id  VARCHAR(64)   NOT NULL,
+    role_code       VARCHAR(50)   NOT NULL,
+    CONSTRAINT pk_prt_application_role PRIMARY KEY (id),
+    CONSTRAINT uk_apr_tenant_app_role UNIQUE (tenant_id, application_id, role_code)
+);
+CREATE INDEX idx_application_role_app ON prt_application_role (application_id);
+CREATE INDEX idx_application_role_code ON prt_application_role (role_code);
+
 CREATE TABLE prt_page (
     id                        VARCHAR(64)   NOT NULL,
     tenant_id                 VARCHAR(64)   NOT NULL,

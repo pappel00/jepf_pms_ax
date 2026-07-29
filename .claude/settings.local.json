@@ -31,7 +31,16 @@
       "Bash(npx eslint *)",
       "Bash(JAVA_HOME=\".tools/jdk-17.0.19+10\" ./gradlew :module-user:build :app-sandbox:build --offline)",
       "Bash(JAVA_HOME=\".tools/jdk-17.0.19+10\" ./gradlew :module-user:compileJava :module-user:compileTestJava :app-sandbox:compileJava --offline -q)",
-      "Bash(JAVA_HOME=\".tools/jdk-17.0.19+10\" ./gradlew :module-user:compileJava :module-user:compileTestJava :module-portal:build :app-sandbox:build --offline)"
+      "Bash(JAVA_HOME=\".tools/jdk-17.0.19+10\" ./gradlew :module-user:compileJava :module-user:compileTestJava :module-portal:build :app-sandbox:build --offline)",
+      "Bash(JAVA_HOME=\".tools/jdk-17.0.19+10\" ./gradlew :module-portal:build :app-sandbox:build --offline)",
+      "Bash(cd \"E:/framework/java-enterprise-platform-framework-step44\")",
+      "Bash(export JAVA_HOME=\"E:/framework/java-enterprise-platform-framework-step44/.tools/jdk-17.0.19+10\")",
+      "Bash(./gradlew :module-portal:build :app-sandbox:build --offline)",
+      "Bash(JAVA_HOME=\".tools/jdk-17.0.19+10\" ./gradlew --version)",
+      "Bash(\".tools/jdk-17.0.19+10/bin/java\" -version)",
+      "Bash(env)",
+      "Bash(./gradlew :module-portal:test --offline --rerun-tasks)",
+      "Bash(./gradlew :module-portal:test :app-sandbox:build --offline --rerun-tasks)"
     ]
   }
 }

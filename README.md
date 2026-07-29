@@ -233,7 +233,7 @@ UserGroup도 하나 없는 텅 빈 상태**로 시작해서 — 그 테넌트에
 `ddl-auto: update`로 Hibernate가 스키마를 알아서 맞추는 것과 별개로, 실제 PostgreSQL DB에
 쓸 수 있는 정적 SQL 스크립트를 만들어뒀다.
 
-- `01_ddl_schema.sql` — 28개 테이블(module-tenant 2개, module-user 6개, module-portal 9개,
+- `01_ddl_schema.sql` — 29개 테이블(module-tenant 2개, module-user 6개, module-portal 10개,
   module-code 2개, module-file 2개, module-terms 2개, module-notice 1개, module-privacy 2개,
   module-form 2개)
   전체 `CREATE TABLE` + 인덱스. 자바
@@ -245,8 +245,9 @@ UserGroup도 하나 없는 텅 빈 상태**로 시작해서 — 그 테넌트에
   쉬우니 앞으로 주의).
 - `02_dml_seed.sql` — `DevDataSeeder`/`TenantBootstrapListener`가 만드는 것과 같은 모양의
   기초 데이터(DEMO 회사, Role 3종, UserGroup 2종, admin 계정, **화면 선택지용 공통코드 8개
-  그룹** — `PAGE_TYPE`/`PAGE_DEVICE_TYPE`/`USER_GROUP_CATEGORY` + `NOTICE_*` 5종)를 정적 SQL로
-  옮긴 예시.
+  그룹** — `PAGE_TYPE`/`PAGE_DEVICE_TYPE`/`USER_GROUP_CATEGORY` + `NOTICE_*` 5종, **기본
+  Portal/Application/ApplicationRole** — `PortalBootstrapListener`가 시딩하는 `BO` 포탈/
+  `SYS_MGT` 어플리케이션/`ROLE_SYSTEM_ADMIN` 매핑)를 정적 SQL로 옮긴 예시.
   ⚠️ 공통코드 부분은 한동안 빠져 있었다(DDL과 마찬가지로, 부트스트랩 리스너를 새로 추가할 때
   이 스크립트 갱신을 빠뜨리기 쉬우니 주의).
   ⚠️ `id` 컬럼들은 실제로는 `PrefixedIdGenerator`가 런타임에 무작위 생성하는데 이 스크립트는
@@ -358,6 +359,16 @@ Company/Department/Role과 동일한 패턴(엔티티+리포지토리+서비스+
 - `Application.portalId`, `Menu.applicationId`/`parentMenuId`, `Page.messageResourceCode` 는
   진짜 JPA 연관관계가 아니라 `Department.parentDepartmentId`와 동일한 방식의 단순 참조 컬럼이다
   (N+1/캐스케이드 복잡도 회피).
+- ⚠️ **어플리케이션 관리에도 페이지처럼 권한(Role)을 부여할 수 있다 — 어플리케이션 1 : Role N**
+  (하나의 어플리케이션에 여러 Role을 매핑할 수 있다는 뜻이다). `Page`↔`Role`(`PageRole`)과
+  구조적으로 동일한 매핑 테이블(`ApplicationRole`)로 구현했고, 하드 삭제로 관리한다.
+  `roleCode`는 Role 엔티티의 PK가 아니라 Spring Security `GrantedAuthority` 문자열(예:
+  `"ROLE_ADMIN"`)과 정확히 일치해야 하는 값이며, `module-portal`이 `module-user`를 몰라도
+  SecurityContext의 권한 문자열과 직접 비교만 하면 되므로 교차 모듈 의존 없이 인가 로직에
+  연결된다. 매핑이 하나도 없는 어플리케이션은 로그인한 사용자 누구나 접근 가능하다고 본다
+  (매핑을 깜빡한 새 어플리케이션이 기본적으로 잠기는 것을 방지 — `PageRole`과 동일한 기본값
+  정책). `GET /api/v1/applications/{id}/access-check`로 현재 사용자가 이 어플리케이션에
+  접근 가능한지 직접 조회할 수 있다(`PageController.checkAccess()`와 동일한 패턴).
 - `Menu`는 트리 구조(`parentMenuId` 자기참조, 사진 속 화면에서는 "폴더"라고 부른다)이며,
   `linkUrl`로 외부 링크를 걸 수 있다(사진 속 화면의 "링크" 탭에 대응).
   `GET /api/v1/menus/tree?applicationId=...`로 평면 리스트가 아니라 `children`이 재귀적으로
@@ -405,6 +416,28 @@ Company/Department/Role과 동일한 패턴(엔티티+리포지토리+서비스+
 | Role → Page (역방향) | `/api/v1/pages/by-role/{roleCode}/**` — `roleCode` 문자열 기준 (Role의 PK 아님, module-portal이 module-user를 모르기 때문) | **`ADMIN`** |
 | Page 접근 체크 | `GET /api/v1/pages/{id}/access-check` — 현재 사용자가 접근 가능한지 조회 | 로그인 |
 | Menu(폴더) ↔ Page | `/api/v1/menus/{menuId}/pages/**` | 로그인 / `ADMIN` |
+| Application ↔ Role | `/api/v1/applications/{applicationId}/roles/**` — 어플리케이션 1 : Role N | **`ADMIN`** (조회 포함 — Page↔Role과 동일한 이유) |
+| Application 접근 체크 | `GET /api/v1/applications/{id}/access-check` — 현재 사용자가 접근 가능한지 조회 | 로그인 |
+
+> ⚠️ **새 테넌트에 기본 Portal/Application/ApplicationRole 자동 부트스트랩** —
+> `TenantBootstrapListener`(module-user, Role/UserGroup)/`PageCodeBootstrapListener`(페이지
+> 공통코드)와 동일한 패턴으로, `PortalBootstrapListener`(module-portal, `TenantCreatedEvent`
+> 리스닝, `AFTER_COMMIT`)가 새 테넌트가 생길 때마다 아래를 자동으로 채운다(find-or-create,
+> 멱등):
+> - `Portal`(`BO`, "BackOffice") — 관리 화면 전용 포탈
+> - `Application`(`SYS_MGT`, "시스템 관리", `BO` 포탈 소속) — 시스템 관리 화면 진입점
+> - `ApplicationRole`(`SYS_MGT` ↔ `ROLE_SYSTEM_ADMIN`) — 시스템 관리자만 접근 가능하도록 기본 매핑
+>
+> `ROLE_SYSTEM_ADMIN`은 `TenantBootstrapListener`가 신규 테넌트에 자동으로 뿌려주지 않는
+> 최상위 권한이다(테넌트를 새로 만들 수 있는 권한이라 의도적으로 제외됨). 그래서 실제
+> `POST /api/v1/companies`로 만든 새 테넌트는 이 매핑이 걸려 있어도 `ROLE_SYSTEM_ADMIN`을
+> 가진 사용자가 아직 없어 "시스템 관리" 어플리케이션에 아무도 접근하지 못하는 상태로
+> 시작한다 — **의도된 동작**이다(플랫폼 최상위 권한을 모든 테넌트에 자동으로 열어주면 안
+> 되기 때문). 이후 `SYSTEM_ADMIN` 권한을 가진 누군가가 `UserGroupUserController`/
+> `UserGroupRoleController`로 그 테넌트에 시스템 관리자를 지정해줘야 접근 가능해진다.
+> `DevDataSeeder`(로컬 샌드박스)는 `PortalBootstrapListener.seedDefaults()`를 그대로 재사용해서
+> 값이 두 곳에 복사되지 않게 했고, `DevDataSeeder`가 만드는 `admin` 계정은 `ADMIN_GROUP`을 통해
+> `ROLE_SYSTEM_ADMIN`을 이미 갖고 있어 바로 "시스템 관리"에 접근할 수 있다.
 
 - 매핑 생성 시 `pageId`가 실제 존재하는 페이지인지는 검증한다(`PageRepository` 사용, 없으면
   `ERR-PORTAL-0005`). 다만 상대방(`dataServiceId`/`messageResourceCode`)이 실제 존재하는지는
@@ -991,4 +1024,19 @@ Postman이면 Authorization 탭 → Bearer Token에 로그인 응답의 `accessT
     하드코딩된 텍스트 입력 대신 공통코드에서 불러온 셀렉트로 입력받는다. 검색조건에도 분류
     필터를 추가했다. 기존 `DEFAULT_USER`/`ADMIN_GROUP` 시드 데이터의 `category` 값("시스템")도
     실제 공통코드 값("시스템관리")으로 맞췄다.
-46. Flyway 도입, BackOffice 레이아웃 다듬기 등 이전부터 남아있던 후속 과제들
+46. ~~어플리케이션 관리에 권한(Role) 부여~~ — 완료. 요청대로 어플리케이션 1 : Role N
+    (하나의 어플리케이션에 여러 Role을 매핑) 관계로, `PageRole`과 동일한 패턴의 매핑
+    테이블 `ApplicationRole`을 추가했다(`/api/v1/applications/{applicationId}/roles/**`,
+    ADMIN 전용, 하드 삭제). `GET /api/v1/applications/{id}/access-check` 추가. 프론트
+    `ApplicationsPage.jsx`는 `Page`의 "권한" 탭과 동일하게 선택한 어플리케이션 하단에
+    `MappingPanel`로 Role 매핑 목록(추가/제거)을 보여주는 상세 섹션을 추가했다 — 검색조건
+    + 목록만 다루는 `CrudPage` 위에 얹었다(`PagesPage.jsx`가 `CrudPage` 대신 커스텀 화면을
+    쓰는 것과 같은 이유 — 매핑 탭이 필요해지면 `CrudPage`만으로는 부족하다).
+47. ~~새 테넌트에 기본 Portal(BO)/Application(SYS_MGT)/ApplicationRole(ROLE_SYSTEM_ADMIN 매핑)
+    자동 부트스트랩~~ — 완료. `PortalBootstrapListener`(`TenantCreatedEvent` 리스닝,
+    `AFTER_COMMIT`) 추가 — `TenantBootstrapListener`/`PageCodeBootstrapListener`와 동일한
+    패턴으로 모든 신규 테넌트에 자동 적용된다(find-or-create, 멱등). `DevDataSeeder`는 같은
+    `seedDefaults()`를 재사용, `02_dml_seed.sql`에도 동일한 모양으로 반영했다. `ROLE_SYSTEM_ADMIN`은
+    신규 테넌트에 자동 배정되지 않는 최상위 권한이라(기존 정책 유지), 이 매핑은 새 테넌트에서
+    실제 시스템 관리자가 지정되기 전까지는 아무도 접근할 수 없는 상태로 시작한다(의도된 동작).
+48. Flyway 도입, BackOffice 레이아웃 다듬기 등 이전부터 남아있던 후속 과제들

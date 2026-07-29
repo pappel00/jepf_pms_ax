@@ -26,6 +26,7 @@ export const pageRolesApi = (pageId) => createMappingApi(`/api/v1/pages/${pageId
 export const pageDataServicesApi = (pageId) => createMappingApi(`/api/v1/pages/${pageId}/data-services`)
 export const menuPagesApi = (menuId) => createMappingApi(`/api/v1/menus/${menuId}/pages`)
 export const pageMessageResourcesApi = (pageId) => createMappingApi(`/api/v1/pages/${pageId}/message-resources`)
+export const applicationRolesApi = (applicationId) => createMappingApi(`/api/v1/applications/${applicationId}/roles`)
 
 // 코드상세는 CodeGroup의 하위 리소스이자 CodeDetail 자체가 code/codeName/sortOrder/description을
 // 갖는 진짜 엔티티라(순수 매핑이 아님) createCrudApi를 그대로 재사용한다.

@@ -2,6 +2,7 @@ package com.platform.module.portal.controller;
 
 import com.platform.framework.core.common.response.ApiResponse;
 import com.platform.module.portal.dto.ApplicationDto;
+import com.platform.module.portal.service.ApplicationRoleService;
 import com.platform.module.portal.service.ApplicationService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -9,6 +10,8 @@ import java.util.List;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,9 +29,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class ApplicationController {
 
     private final ApplicationService applicationService;
+    private final ApplicationRoleService applicationRoleService;
 
-    public ApplicationController(ApplicationService applicationService) {
+    public ApplicationController(ApplicationService applicationService, ApplicationRoleService applicationRoleService) {
         this.applicationService = applicationService;
+        this.applicationRoleService = applicationRoleService;
     }
 
     @PostMapping
@@ -50,6 +55,19 @@ public class ApplicationController {
                 ? applicationService.getListByPortal(portalId, pageable)
                 : applicationService.getList(pageable);
         return ApiResponse.successList(result.content(), result.pageInfo());
+    }
+
+    /**
+     * 현재 로그인한 사용자가 이 어플리케이션에 접근 가능한지 ApplicationRole 매핑 기준으로
+     * 판단한다. 매핑이 하나도 없는 어플리케이션은 로그인한 사용자 누구나 접근 가능하다고 본다
+     * (PageController.checkAccess()와 동일한 패턴).
+     */
+    @GetMapping("/{id}/access-check")
+    public ApiResponse<Boolean> checkAccess(@PathVariable String id, Authentication authentication) {
+        List<String> userAuthorities = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList();
+        return ApiResponse.success(applicationRoleService.isAccessible(id, userAuthorities));
     }
 
     @PutMapping("/{id}")

@@ -1,11 +1,12 @@
 -- =====================================================================
 -- Java Enterprise Platform Framework (JEPF) — PostgreSQL DML (기초 데이터)
 -- =====================================================================
--- DevDataSeeder(app-sandbox, 로컬 전용)와 TenantBootstrapListener(module-user, 실제
--- POST /api/v1/companies 로 새 테넌트가 생길 때마다 자동 실행)가 각각 실행됐을 때 만들어지는
--- 데이터와 동일한 모양을 정적 SQL로 옮긴 것이다. 실제 운영에서는 이 스크립트를 그대로 실행하는
--- 게 아니라, 저 둘 중 하나가 알아서 채워준다 — 이 파일은 "기초 데이터가 어떤 모양이어야 하는지"
--- 참고/검증용이다.
+-- DevDataSeeder(app-sandbox, 로컬 전용)와 각 모듈의 TenantCreatedEvent 부트스트랩 리스너
+-- (TenantBootstrapListener/NoticeCodeBootstrapListener/PageCodeBootstrapListener/
+-- UserGroupCodeBootstrapListener/PortalBootstrapListener — 실제 POST /api/v1/companies 로
+-- 새 테넌트가 생길 때마다 자동 실행)가 각각 실행됐을 때 만들어지는 데이터와 동일한 모양을
+-- 정적 SQL로 옮긴 것이다. 실제 운영에서는 이 스크립트를 그대로 실행하는 게 아니라, 저 둘 중
+-- 하나가 알아서 채워준다 — 이 파일은 "기초 데이터가 어떤 모양이어야 하는지" 참고/검증용이다.
 --
 -- ⚠️ id 컬럼들은 실제로는 PrefixedIdGenerator가 런타임에 무작위로 생성한다
 -- (예: "TNT_" + UUID 32자리). 이 스크립트에서는 재현 가능하도록 고정값을 썼다 — 그대로
@@ -169,5 +170,33 @@ VALUES
      'N', NULL, 'CDG_0000000000000000000000ntcposn', '좌상단', '좌상단', 1, NULL, 'Y'),
     ('CDT_00000000000000000000000000016', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
      'N', NULL, 'CDG_0000000000000000000000ntcposn', '부모창', '부모창', 2, NULL, 'Y');
+
+-- ---------------------------------------------------------------------
+-- 8) 기본 Portal/Application — BackOffice 진입점. PortalBootstrapListener(module-portal)가
+--    테넌트 생성 시 자동으로 채운다(find-or-create, 멱등).
+--    - Portal(BO, "BackOffice")
+--    - Application(SYS_MGT, "시스템 관리", BO 포탈 소속)
+--    - ApplicationRole(SYS_MGT ↔ ROLE_SYSTEM_ADMIN) — 시스템 관리자만 접근 가능하도록 기본 매핑
+--    ⚠️ ROLE_SYSTEM_ADMIN은 위 2)/4)에서 보듯 TenantBootstrapListener가 신규 테넌트에 자동으로
+--    뿌려주지 않는 최상위 권한이다 — 그래서 실제 POST /api/v1/companies 로 만든 새 테넌트는
+--    이 매핑이 걸려 있어도 ROLE_SYSTEM_ADMIN을 가진 사용자가 아직 없어 "시스템 관리" 화면에
+--    아무도 접근하지 못하는 상태로 시작한다(의도된 동작 — PortalBootstrapListener 주석 참고).
+--    이 DEMO 테넌트는 6)에서 admin 계정이 ADMIN_GROUP(ROLE_SYSTEM_ADMIN 매핑 포함)에 배정돼
+--    있으므로 바로 접근 가능하다.
+-- ---------------------------------------------------------------------
+INSERT INTO prt_portal (id, tenant_id, created_by, created_date, modified_by, modified_date, version,
+                         deleted_yn, deleted_date, portal_code, portal_name, device_type, description, use_yn)
+VALUES ('PRT_0000000000000000000000000000bo', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+        'N', NULL, 'BO', 'BackOffice', 'PC', '관리자용 BackOffice 포탈', 'Y');
+
+INSERT INTO prt_application (id, tenant_id, created_by, created_date, modified_by, modified_date, version,
+                              deleted_yn, deleted_date, application_code, application_name, portal_id, use_yn)
+VALUES ('APP_000000000000000000000sysmgt1', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+        'N', NULL, 'SYS_MGT', '시스템 관리', 'PRT_0000000000000000000000000000bo', 'Y');
+
+INSERT INTO prt_application_role (id, tenant_id, created_by, created_date, modified_by, modified_date, version,
+                                   deleted_yn, deleted_date, application_id, role_code)
+VALUES ('APR_00000000000000000000sysadmin1', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+        'N', NULL, 'APP_000000000000000000000sysmgt1', 'ROLE_SYSTEM_ADMIN');
 
 COMMIT;

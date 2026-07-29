@@ -12,6 +12,9 @@ public interface ApplicationRepository extends JpaRepository<Application, String
     Page<Application> findAllByDeletedYn(String deletedYn, Pageable pageable);
     Page<Application> findAllByPortalIdAndDeletedYn(String portalId, String deletedYn, Pageable pageable);
 
+    /** 다른 모듈이 부트스트랩 시 특정 어플리케이션이 이미 있는지 찾아볼 때 사용 (find-or-create). */
+    Optional<Application> findByApplicationCodeAndDeletedYn(String applicationCode, String deletedYn);
+
     /** 관리자 목록 화면은 삭제된 항목도 상태(deletedYn)와 함께 보여줘야 하므로 필터링하지 않는다. */
     Page<Application> findAllByPortalId(String portalId, Pageable pageable);
 }

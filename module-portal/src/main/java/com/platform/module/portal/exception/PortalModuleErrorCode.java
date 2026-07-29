@@ -26,4 +26,6 @@ public final class PortalModuleErrorCode {
     public static final String PAGE_ROLE_MAPPING_NOT_FOUND = "ERR-PORTAL-0018";
     public static final String MENU_PAGE_MAPPING_DUPLICATED = "ERR-PORTAL-0019";
     public static final String MENU_PAGE_MAPPING_NOT_FOUND = "ERR-PORTAL-0020";
+    public static final String APPLICATION_ROLE_MAPPING_DUPLICATED = "ERR-PORTAL-0021";
+    public static final String APPLICATION_ROLE_MAPPING_NOT_FOUND = "ERR-PORTAL-0022";
 }

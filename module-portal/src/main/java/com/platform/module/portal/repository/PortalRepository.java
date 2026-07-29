@@ -10,4 +10,7 @@ public interface PortalRepository extends JpaRepository<Portal, String> {
     boolean existsByPortalCode(String portalCode);
     Optional<Portal> findByIdAndDeletedYn(String id, String deletedYn);
     Page<Portal> findAllByDeletedYn(String deletedYn, Pageable pageable);
+
+    /** 다른 모듈이 부트스트랩 시 특정 포탈이 이미 있는지 찾아볼 때 사용 (find-or-create). */
+    Optional<Portal> findByPortalCodeAndDeletedYn(String portalCode, String deletedYn);
 }
