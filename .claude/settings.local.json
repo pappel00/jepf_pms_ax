@@ -40,7 +40,13 @@
       "Bash(\".tools/jdk-17.0.19+10/bin/java\" -version)",
       "Bash(env)",
       "Bash(./gradlew :module-portal:test --offline --rerun-tasks)",
-      "Bash(./gradlew :module-portal:test :app-sandbox:build --offline --rerun-tasks)"
+      "Bash(./gradlew :module-portal:test :app-sandbox:build --offline --rerun-tasks)",
+      "Skill(fewer-permission-prompts)",
+      "Skill(fewer-permission-prompts:*)",
+      "Bash(ls -la ~/.claude/projects/ 2>/dev/null | head -20)",
+      "Bash(where python *)",
+      "Bash(python -c ' *)",
+      "Bash(cat \"/c/Users/ADMINI~1/AppData/Local/Temp/bash_commands.txt\")"
     ]
   }
 }
