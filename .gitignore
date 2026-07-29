@@ -1,0 +1,13 @@
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+out/
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# app-sandbox의 첨부파일 실제 저장 디렉터리 (framework.file.storage.base-path 기본값)
+app-sandbox/storage/
+storage/
+.tools/

@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(java -version)",
+      "Bash(npm -v)",
+      "Bash(where psql *)",
+      "Bash(powershell -Command 'Get-Service | Where-Object {$_.Name -like '\\\\''*postgres*'\\\\''}')",
+      "PowerShell($env:PGPASSWORD='jepf'; & \"C:\\\\Program Files\\\\PostgreSQL\\\\17\\\\bin\\\\psql.exe\" -U jepf -h localhost -d jepf -c \"SELECT 1;\" 2>&1)",
+      "Bash(./gradlew.bat :app-sandbox:bootRun --console=plain)",
+      "Bash(cp .env.example .env.local)",
+      "Bash(npm install *)",
+      "Bash(./gradlew.bat :app-sandbox:bootRun --console=plain --no-daemon)",
+      "Bash(npm run *)",
+      "Bash(timeout 60 ./gradlew.bat :app-sandbox:bootRun --console=plain --no-daemon --stacktrace)",
+      "Bash(JAVA_TOOL_OPTIONS=\"-Djava.nio.channels.spi.SelectorProvider=sun.nio.ch.WindowsSelectorProvider\" timeout 60 ./gradlew.bat --version)",
+      "Bash(JAVA_TOOL_OPTIONS=\"-Djava.nio.channels.spi.SelectorProvider=sun.nio.ch.WindowsSelectorProvider\" ./gradlew.bat :app-sandbox:bootRun --console=plain)",
+      "Read(//c/Program Files/Java//**)",
+      "Read(//c/Program Files/**)",
+      "Read(//tmp/**)",
+      "Bash('/c/Program Files/Java/jdk-21.0.11/bin/javap' -v jimage_out/java.base/sun/nio/ch/PipeImpl.class)",
+      "Bash('/c/Program Files/Java/jdk-21.0.11/bin/javap' -v jimage_out/java.base/sun/nio/ch/UnixDomainSockets.class)",
+      "Bash(java /tmp/TestSelector.java)",
+      "PowerShell(java C:\\\\Users\\\\ADMINI~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\E--framework-java-enterprise-platform-framework-step44\\\\4991d7bf-f534-4f5d-a721-bdbf194e29d9\\\\scratchpad\\\\..\\\\..\\\\..\\\\..\\\\..\\\\..\\\\tmp\\\\TestSelector.java 2>&1)",
+      "Bash(JAVA_HOME=\".tools/jdk-17.0.19+10\" ./gradlew :app-sandbox:compileJava --offline -q)",
+      "Bash(JAVA_HOME=\".tools/jdk-17.0.19+10\" ./gradlew :module-notice:clean :module-notice:compileJava --offline -q)",
+      "Bash(JAVA_HOME=\".tools/jdk-17.0.19+10\" ./gradlew build --offline)",
+      "Bash(sed -i 's|^        options.encoding = \"UTF-8\"$|        // TEMP-DISABLED|' build.gradle.kts)",
+      "Bash(JAVA_HOME=\".tools/jdk-17.0.19+10\" ./gradlew :module-code:test --offline --rerun-tasks)",
+      "Bash(JAVA_HOME=\".tools/jdk-17.0.19+10\" ./gradlew :module-portal:test :app-sandbox:build --offline)",
+      "Bash(JAVA_HOME=\".tools/jdk-17.0.19+10\" ./gradlew :module-portal:build :app-sandbox:build :module-notice:build --offline)",
+      "Bash(npx eslint *)",
+      "Bash(JAVA_HOME=\".tools/jdk-17.0.19+10\" ./gradlew :module-user:build :app-sandbox:build --offline)",
+      "Bash(JAVA_HOME=\".tools/jdk-17.0.19+10\" ./gradlew :module-user:compileJava :module-user:compileTestJava :app-sandbox:compileJava --offline -q)",
+      "Bash(JAVA_HOME=\".tools/jdk-17.0.19+10\" ./gradlew :module-user:compileJava :module-user:compileTestJava :module-portal:build :app-sandbox:build --offline)"
+    ]
+  }
+}

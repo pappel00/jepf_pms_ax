@@ -1,0 +1,44 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: jepf-sandbox
+  datasource:
+    # ⚠️ 실제 PostgreSQL 접속 정보로 바꿔야 한다. 아래는 로컬 기본값 예시일 뿐이다.
+    # DB/계정을 미리 만들어둬야 한다: createdb jepf; createuser jepf (비밀번호는 아래와 맞추기)
+    url: jdbc:postgresql://localhost:5432/jepf
+    driver-class-name: org.postgresql.Driver
+    username: jepf
+    password: jepf
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      # 스키마를 Hibernate가 자동으로 맞춘다. /db/postgresql/01_ddl_schema.sql을 미리 수동으로
+      # 실행해뒀다면 validate 로 바꿔서 "스키마가 엔티티와 일치하는지 검증만" 하도록 해도 된다.
+      ddl-auto: update
+    # 반드시 false여야 한다: open-in-view(기본값 true)가 켜져 있으면 HTTP 요청 하나당
+    # Hibernate Session 하나가 요청 끝까지 재사용되면서, 첫 DB 접근 시점에 캐싱된 테넌트가
+    # 이후 TenantContext를 바꿔도 반영되지 않는 문제가 생긴다 (로그인/회원가입에서 실제로 발생했던 버그).
+    open-in-view: false
+    show-sql: true
+  servlet:
+    multipart:
+      # 첨부파일 업로드(POST /api/v1/file-groups/{groupId}/items/upload) 크기 제한.
+      # Spring Boot 기본값(파일당 1MB, 요청당 10MB)은 실사용엔 너무 작아서 늘려뒀다.
+      max-file-size: 20MB
+      max-request-size: 20MB
+
+framework:
+  security:
+    jwt:
+      secret: local-sandbox-secret-local-sandbox-secret-32b
+    cors:
+      # React(Vite) 개발 서버 기본 포트. 다른 포트/도메인을 쓰면 여기에 추가해야 CORS가 통과된다.
+      allowed-origins:
+        - http://localhost:5173
+  file:
+    storage:
+      # 첨부파일이 실제로 저장되는 위치. 상대경로면 앱 실행 디렉터리(bootRun 기준 프로젝트 루트)
+      # 기준이다. 운영 배포 시에는 반드시 절대경로(마운트된 볼륨 등)로 바꿔야 한다.
+      base-path: ./storage/files
