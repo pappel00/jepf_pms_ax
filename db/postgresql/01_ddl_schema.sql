@@ -249,6 +249,8 @@ CREATE TABLE prt_application (
     application_code    VARCHAR(30)   NOT NULL,
     application_name    VARCHAR(200)  NOT NULL,
     portal_id           VARCHAR(64)   NOT NULL,
+    -- 운영 화면 셸(어플리케이션 선택 UI)에서의 노출 순서. Menu.sort_order와 동일한 패턴.
+    sort_order          INTEGER       NOT NULL DEFAULT 0,
     use_yn              VARCHAR(1)    NOT NULL,
     CONSTRAINT pk_prt_application PRIMARY KEY (id),
     CONSTRAINT uk_app_tenant_code UNIQUE (tenant_id, application_code)

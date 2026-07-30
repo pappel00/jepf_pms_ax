@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 const NAV_SECTIONS = [
@@ -58,6 +58,9 @@ export default function Layout() {
           <span>
             {auth?.loginId} ({auth?.roles?.join(', ') || '역할 없음'})
           </span>
+          <Link className="sidebar-link" style={{ padding: '4px 10px' }} to="/workspace">
+            새 화면(베타)
+          </Link>
           <button className="secondary small" onClick={handleLogout}>
             로그아웃
           </button>

@@ -46,7 +46,10 @@
       "Bash(ls -la ~/.claude/projects/ 2>/dev/null | head -20)",
       "Bash(where python *)",
       "Bash(python -c ' *)",
-      "Bash(cat \"/c/Users/ADMINI~1/AppData/Local/Temp/bash_commands.txt\")"
+      "Bash(cat \"/c/Users/ADMINI~1/AppData/Local/Temp/bash_commands.txt\")",
+      "Bash(./gradlew :module-portal:compileJava :module-portal:compileTestJava --offline -q)",
+      "Bash(./gradlew :module-portal:build :app-sandbox:build --offline --rerun-tasks)",
+      "Bash(mkdir -p \"E:/framework/java-enterprise-platform-framework-step44/frontend/src/pages/apps/STD_MGT\")"
     ]
   }
 }

@@ -32,7 +32,7 @@ export default function ApplicationsPage() {
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState({ applicationCode: '', applicationName: '', portalId: '' })
+  const [form, setForm] = useState({ applicationCode: '', applicationName: '', portalId: '', sortOrder: 0 })
   const [formError, setFormError] = useState(null)
   const [saving, setSaving] = useState(false)
 
@@ -65,15 +65,17 @@ export default function ApplicationsPage() {
 
   const portalName = (portalId) => portals.find((p) => p.id === portalId)?.portalName || portalId
 
-  const filteredApplications = applications.filter((a) => {
-    const matchesKeyword =
-      !appliedKeyword ||
-      a.applicationCode.toLowerCase().includes(appliedKeyword.toLowerCase()) ||
-      a.applicationName.toLowerCase().includes(appliedKeyword.toLowerCase())
-    const matchesPortal = appliedPortalId === 'ALL' || a.portalId === appliedPortalId
-    const matchesUseYn = appliedUseYn === 'ALL' || a.useYn === appliedUseYn
-    return matchesKeyword && matchesPortal && matchesUseYn
-  })
+  const filteredApplications = applications
+    .filter((a) => {
+      const matchesKeyword =
+        !appliedKeyword ||
+        a.applicationCode.toLowerCase().includes(appliedKeyword.toLowerCase()) ||
+        a.applicationName.toLowerCase().includes(appliedKeyword.toLowerCase())
+      const matchesPortal = appliedPortalId === 'ALL' || a.portalId === appliedPortalId
+      const matchesUseYn = appliedUseYn === 'ALL' || a.useYn === appliedUseYn
+      return matchesKeyword && matchesPortal && matchesUseYn
+    })
+    .sort((a, b) => a.sortOrder - b.sortOrder)
 
   const handleSearch = (e) => {
     e.preventDefault()
@@ -94,7 +96,7 @@ export default function ApplicationsPage() {
   const openCreate = () => {
     setEditing(null)
     setFormError(null)
-    setForm({ applicationCode: '', applicationName: '', portalId: portals[0]?.id || '' })
+    setForm({ applicationCode: '', applicationName: '', portalId: portals[0]?.id || '', sortOrder: 0 })
     setModalOpen(true)
   }
 
@@ -105,6 +107,7 @@ export default function ApplicationsPage() {
       applicationCode: application.applicationCode,
       applicationName: application.applicationName,
       portalId: application.portalId,
+      sortOrder: application.sortOrder,
       useYn: application.useYn,
     })
     setModalOpen(true)
@@ -126,10 +129,11 @@ export default function ApplicationsPage() {
     setSaving(true)
     setFormError(null)
     try {
+      const sortOrder = Number(form.sortOrder) || 0
       if (editing) {
-        await applicationsApi.update(editing.id, { applicationName: form.applicationName, useYn: form.useYn })
+        await applicationsApi.update(editing.id, { applicationName: form.applicationName, sortOrder, useYn: form.useYn })
       } else {
-        await applicationsApi.create(form)
+        await applicationsApi.create({ ...form, sortOrder })
       }
       setModalOpen(false)
       load()
@@ -212,6 +216,7 @@ export default function ApplicationsPage() {
               <th>어플리케이션 코드</th>
               <th>어플리케이션명</th>
               <th>포탈</th>
+              <th>정렬 순서</th>
               <th>사용여부</th>
               <th>삭제여부</th>
               <th style={{ width: 120 }}>액션</th>
@@ -228,6 +233,7 @@ export default function ApplicationsPage() {
                 <td>{application.applicationCode}</td>
                 <td>{application.applicationName}</td>
                 <td>{portalName(application.portalId)}</td>
+                <td>{application.sortOrder}</td>
                 <td>{application.useYn}</td>
                 <td>{application.deletedYn}</td>
                 <td>
@@ -254,7 +260,7 @@ export default function ApplicationsPage() {
             ))}
             {filteredApplications.length === 0 && (
               <tr>
-                <td colSpan={6} className="empty-cell">
+                <td colSpan={7} className="empty-cell">
                   데이터가 없습니다.
                 </td>
               </tr>
@@ -321,6 +327,14 @@ export default function ApplicationsPage() {
                   ))}
                 </select>
               )}
+            </div>
+            <div className="field">
+              <label>정렬 순서</label>
+              <input
+                type="number"
+                value={form.sortOrder}
+                onChange={(e) => setForm({ ...form, sortOrder: e.target.value })}
+              />
             </div>
             {editing && (
               <div className="field">

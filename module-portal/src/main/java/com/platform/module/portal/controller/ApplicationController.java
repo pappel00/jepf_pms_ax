@@ -48,9 +48,24 @@ public class ApplicationController {
         return ApiResponse.success(applicationService.getById(id));
     }
 
+    /**
+     * accessibleOnly=true면 관리자용 페이지네이션 목록 대신, 현재 로그인한 사용자가 실제로
+     * 접근 가능한 어플리케이션만 sortOrder 순으로 내려준다(운영 화면 셸의 어플리케이션 선택
+     * UI 전용 — ApplicationService.getAccessibleList() 참고). 이 경로는 페이지네이션
+     * 메타데이터가 의미 없어서 pagination 없이 순수 목록만 응답한다.
+     */
     @GetMapping
     public ApiResponse<List<ApplicationDto.Response>> list(
-            @RequestParam(required = false) String portalId, Pageable pageable) {
+            @RequestParam(required = false) String portalId,
+            @RequestParam(required = false, defaultValue = "false") boolean accessibleOnly,
+            Authentication authentication,
+            Pageable pageable) {
+        if (accessibleOnly) {
+            List<String> userAuthorities = authentication.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .toList();
+            return ApiResponse.success(applicationService.getAccessibleList(portalId, userAuthorities));
+        }
         var result = portalId != null
                 ? applicationService.getListByPortal(portalId, pageable)
                 : applicationService.getList(pageable);

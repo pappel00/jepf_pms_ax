@@ -8,6 +8,8 @@ import com.platform.module.portal.domain.Application;
 import com.platform.module.portal.dto.ApplicationDto;
 import com.platform.module.portal.exception.PortalModuleErrorCode;
 import com.platform.module.portal.repository.ApplicationRepository;
+import java.util.Collection;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -18,9 +20,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class ApplicationService {
 
     private final ApplicationRepository applicationRepository;
+    private final ApplicationRoleService applicationRoleService;
 
-    public ApplicationService(ApplicationRepository applicationRepository) {
+    public ApplicationService(ApplicationRepository applicationRepository, ApplicationRoleService applicationRoleService) {
         this.applicationRepository = applicationRepository;
+        this.applicationRoleService = applicationRoleService;
     }
 
     @Transactional
@@ -30,7 +34,7 @@ public class ApplicationService {
                     "이미 존재하는 어플리케이션 코드입니다: " + request.applicationCode());
         }
         Application application = Application.create(
-                request.applicationCode(), request.applicationName(), request.portalId());
+                request.applicationCode(), request.applicationName(), request.portalId(), request.sortOrder());
         return ApplicationDto.Response.from(applicationRepository.saveAndFlush(application));
     }
 
@@ -48,10 +52,27 @@ public class ApplicationService {
         return new PagedResult<>(page.map(ApplicationDto.Response::from).getContent(), PageInfo.of(page));
     }
 
+    /**
+     * 운영 화면 셸(어플리케이션 선택 UI)용 — 현재 로그인한 사용자가 ApplicationRole 기준으로
+     * 접근 가능한 어플리케이션만, sortOrder 순으로, 사용 중(useYn=Y)인 것만 내려준다.
+     * 관리자 목록(getList/getListByPortal)과 달리 비활성/접근불가 항목은 아예 제외한다 —
+     * 실제 사용자가 보는 내비게이션이라 관리 화면과 성격이 다르다.
+     */
+    public List<ApplicationDto.Response> getAccessibleList(String portalId, Collection<String> userAuthorities) {
+        List<Application> applications = portalId != null
+                ? applicationRepository.findAllByPortalIdAndDeletedYnOrderBySortOrderAsc(portalId, "N")
+                : applicationRepository.findAllByDeletedYnOrderBySortOrderAsc("N");
+        return applications.stream()
+                .filter(app -> "Y".equals(app.getUseYn()))
+                .filter(app -> applicationRoleService.isAccessible(app.getId(), userAuthorities))
+                .map(ApplicationDto.Response::from)
+                .toList();
+    }
+
     @Transactional
     public ApplicationDto.Response update(String id, ApplicationDto.UpdateRequest request) {
         Application application = findActiveOrThrow(id);
-        application.update(request.applicationName());
+        application.update(request.applicationName(), request.sortOrder());
         if ("Y".equals(request.useYn())) {
             application.activate();
         } else {

@@ -247,7 +247,10 @@ UserGroup도 하나 없는 텅 빈 상태**로 시작해서 — 그 테넌트에
   기초 데이터(DEMO 회사, Role 3종, UserGroup 2종, admin 계정, **화면 선택지용 공통코드 8개
   그룹** — `PAGE_TYPE`/`PAGE_DEVICE_TYPE`/`USER_GROUP_CATEGORY` + `NOTICE_*` 5종, **기본
   Portal/Application/ApplicationRole** — `PortalBootstrapListener`가 시딩하는 `BO` 포탈/
-  `SYS_MGT` 어플리케이션/`ROLE_SYSTEM_ADMIN` 매핑)를 정적 SQL로 옮긴 예시.
+  `HOME`·`SYS_MGT` 어플리케이션/`ROLE_SYSTEM_ADMIN` 매핑, **HOME 메뉴** — `Menu` 폴더 1개/
+  `Page` 1개(`/workspace/home`)/`MenuPage` 매핑 1건, **시스템관리 하위 메뉴** — 같은
+  `PortalBootstrapListener`가 시딩하는 `Menu` 폴더 4개/`Page` 17개/`MenuPage` 매핑 17건)를
+  정적 SQL로 옮긴 예시.
   ⚠️ 공통코드 부분은 한동안 빠져 있었다(DDL과 마찬가지로, 부트스트랩 리스너를 새로 추가할 때
   이 스크립트 갱신을 빠뜨리기 쉬우니 주의).
   ⚠️ `id` 컬럼들은 실제로는 `PrefixedIdGenerator`가 런타임에 무작위 생성하는데 이 스크립트는
@@ -349,7 +352,7 @@ Company/Department/Role과 동일한 패턴(엔티티+리포지토리+서비스+
 | 엔티티 | API | 필요 권한 (GET / 나머지) |
 |---|---|---|
 | `Portal` | `/api/v1/portals/**` | 로그인 / `ADMIN` |
-| `Application` | `/api/v1/applications/**` (`?portalId=`로 포탈별 필터링) | 로그인 / `ADMIN` |
+| `Application` | `/api/v1/applications/**` (`?portalId=`로 포탈별 필터링, `?accessibleOnly=true`로 로그인 사용자가 접근 가능한 것만 sortOrder순 필터링) | 로그인 / `ADMIN` |
 | `Page` | `/api/v1/pages/**` | 로그인 / `ADMIN` |
 | `Menu` | `/api/v1/menus/**` (`?applicationId=`로 어플리케이션별 필터링, `/tree?applicationId=`로 계층 구조 조회) | 로그인 / `ADMIN` |
 | `DataService` | `/api/v1/data-services/**` | **`ADMIN`** (조회 포함 — 내부 API URL 노출) |
@@ -423,9 +426,11 @@ Company/Department/Role과 동일한 패턴(엔티티+리포지토리+서비스+
 > `TenantBootstrapListener`(module-user, Role/UserGroup)/`PageCodeBootstrapListener`(페이지
 > 공통코드)와 동일한 패턴으로, `PortalBootstrapListener`(module-portal, `TenantCreatedEvent`
 > 리스닝, `AFTER_COMMIT`)가 새 테넌트가 생길 때마다 아래를 자동으로 채운다(find-or-create,
-> 멱등):
+> 멱등, `AppSeed` 목록 하나로 관리 — 새 어플리케이션을 추가할 땐 이 목록에 항목 하나만 더하면 됨):
 > - `Portal`(`BO`, "BackOffice") — 관리 화면 전용 포탈
-> - `Application`(`SYS_MGT`, "시스템 관리", `BO` 포탈 소속) — 시스템 관리 화면 진입점
+> - `Application`(`HOME`, "홈", `BO` 포탈 소속, sortOrder=0) — `ApplicationRole` 매핑이 아예
+>   없다. 즉 로그인한 사용자 누구나 접근 가능하다(운영 화면 셸의 기본 랜딩 화면 용도).
+> - `Application`(`SYS_MGT`, "시스템 관리", `BO` 포탈 소속, sortOrder=1) — 시스템 관리 화면 진입점
 > - `ApplicationRole`(`SYS_MGT` ↔ `ROLE_SYSTEM_ADMIN`) — 시스템 관리자만 접근 가능하도록 기본 매핑
 >
 > `ROLE_SYSTEM_ADMIN`은 `TenantBootstrapListener`가 신규 테넌트에 자동으로 뿌려주지 않는
@@ -435,9 +440,80 @@ Company/Department/Role과 동일한 패턴(엔티티+리포지토리+서비스+
 > 시작한다 — **의도된 동작**이다(플랫폼 최상위 권한을 모든 테넌트에 자동으로 열어주면 안
 > 되기 때문). 이후 `SYSTEM_ADMIN` 권한을 가진 누군가가 `UserGroupUserController`/
 > `UserGroupRoleController`로 그 테넌트에 시스템 관리자를 지정해줘야 접근 가능해진다.
-> `DevDataSeeder`(로컬 샌드박스)는 `PortalBootstrapListener.seedDefaults()`를 그대로 재사용해서
-> 값이 두 곳에 복사되지 않게 했고, `DevDataSeeder`가 만드는 `admin` 계정은 `ADMIN_GROUP`을 통해
-> `ROLE_SYSTEM_ADMIN`을 이미 갖고 있어 바로 "시스템 관리"에 접근할 수 있다.
+> `HOME`은 반대로 처음부터 누구나 접근 가능해야 하는 랜딩 화면이라 `ApplicationRole` 자체를
+> 안 만든다. `DevDataSeeder`(로컬 샌드박스)는 `PortalBootstrapListener.seedDefaults()`를
+> 그대로 재사용해서 값이 두 곳에 복사되지 않게 했고, `DevDataSeeder`가 만드는 `admin` 계정은
+> `ADMIN_GROUP`을 통해 `ROLE_SYSTEM_ADMIN`을 이미 갖고 있어 바로 "시스템 관리"에 접근할 수 있다.
+>
+> ⚠️ find-or-create라 **이미 부트스트랩된 테넌트의 기존 행은 값이 안 바뀐다** — `SYS_MGT`의
+> sortOrder를 0→1로 바꾼 것처럼 기존 시딩 값 자체를 바꾸는 변경은, 이미 `SYS_MGT`가 만들어진
+> 로컬 DB(예: DEMO 테넌트)에는 자동 반영되지 않는다. 이미 돌려본 적이 있다면 수동으로
+> 맞춰줘야 한다:
+> ```sql
+> UPDATE prt_application SET sort_order = 1 WHERE application_code = 'SYS_MGT';
+> ```
+
+> ⚠️ **"시스템관리 하위 메뉴의 DB화" — 프론트 사이드바를 하드코딩에서 데이터로** — `PortalBootstrapListener`가
+> 위 Portal/Application/ApplicationRole에 이어서 `Menu`(폴더 4개: 조직 관리/User Management/
+> Portal Management/Data Management) + `Page`(기존 관리 화면 17개) + `MenuPage` 매핑까지
+> 함께 시딩한다. 이건 프론트 `Layout.jsx`에 하드코딩돼 있던 `NAV_SECTIONS` 사이드바 구성을
+> 그대로 DB로 옮긴 것이다. 각 `Page.pageFile`은 `module-notice`의 `pageFile` 설명과 달리
+> **이 React 프론트엔드(`/frontend`) 안의 실제 라우트 경로**다(`/workspace/companies`처럼
+> `/workspace` 접두사) — 새 어플리케이션의 화면을 만들 때는 `src/pages/` 밑 원하는 폴더에
+> 컴포넌트를 두고 `App.jsx`에 그에 맞는 라우트를 등록한 뒤, `Page.pageFile`에 그 경로를
+> 그대로 넣으면 된다(파일이 어느 폴더에 있는지는 라우팅과 무관하다). 페이지 단위 `PageRole`
+> 매핑은 걸지 않았다 — `SYS_MGT` 자체가 이미 `ApplicationRole`로 `ROLE_SYSTEM_ADMIN` 전용으로
+> 막혀 있어서 그 안의 개별 페이지까지 다시 막을 필요가 없다고 판단했다. `HOME` 어플리케이션도
+> 같은 방식으로 폴더 1개("홈") + 페이지 1개(`/workspace/home`, 기존 `DashboardPage` 재사용)를
+> 갖는다 — 프론트가 어떤 어플리케이션이든 "메뉴 트리를 읽어서 그린다"는 동일한 로직만 쓰도록,
+> HOME이라고 특별 취급하지 않고 똑같이 데이터로 표현했다.
+
+> ⚠️ **운영 화면 셸(`WorkspaceLayout`, 검증용) — 기존 정적 사이드바는 그대로 두고 병행 운영** —
+> `frontend/src/components/WorkspaceLayout.jsx`(신규) + `/workspace/*` 라우트를 새로 추가했다.
+> 상단에 `GET /api/v1/applications?accessibleOnly=true`로 받은(로그인 사용자가 실제 접근
+> 가능한) 어플리케이션을 sortOrder 순으로 보여주는 스위처, 좌측에 선택된 어플리케이션의
+> `GET /api/v1/menus/tree?applicationId=` 결과를 그대로 재귀 렌더링하는 트리, 트리에서
+> 페이지를 클릭하면 그 페이지의 `pageFile`로 `navigate()`해서 기존 화면 컴포넌트가 메인
+> 영역(`<Outlet/>`)에 뜨는 구조다 — 별도 페이지 렌더러를 만들지 않았다. 기존 `/user-groups`
+> 등 정적 라우트는 전혀 건드리지 않았고, `/workspace/user-groups`처럼 같은 컴포넌트를 재사용하는
+> 새 라우트를 병행 등록했다(기존 `Layout.jsx`의 토프바에 "새 화면(베타)" 링크, 새 셸의
+> 토프바에 "기존 화면으로" 링크를 서로 걸어뒀다). 데이터/라우팅이 검증되면 이 셸이
+> `Layout.jsx`를 대체하는 게 목표다. 포탈은 지금은 `BO`로 고정했다(여러 포탈을 넘나드는
+> UI는 다음 단계 과제) — 코드 하나 놓쳐서 아무것도 못 찾으면 경고 문구만 보이도록 방어했다.
+> `/workspace` 인덱스 경로로 진입하면(딥링크/새로고침으로 특정 페이지에 바로 온 경우는 제외)
+> 현재 선택된 어플리케이션의 트리에서 가장 먼저 나오는 페이지로 자동 이동한다 — `HOME`이
+> sortOrder=0이라 기본 선택되므로, 결과적으로 `/workspace` 첫 방문 시 `/workspace/home`
+> (대시보드)으로 바로 이동하는 랜딩 화면 역할을 한다.
+
+> ⚠️ **새 어플리케이션 추가하는 법 (예제: `STD_MGT`, "표준관리")** — `frontend/src/pages/apps/STD_MGT/`에
+> 예제 화면 2개(`Sample1Page.jsx`/`Sample2Page.jsx`)와, `PortalBootstrapListener`의 `AppSeed`
+> 목록에 `STD_MGT` 항목을 실제로 추가해서 운영 화면 셸(`/workspace`)에서 바로 확인할 수 있게
+> 만들어뒀다. 이 조합이 "시스템 관리 외 다른 어플리케이션"을 추가하는 전체 레시피다 — 새
+> 어플리케이션을 만들 때는 아래 순서를 그대로 따르면 된다.
+>
+> 1. **화면 파일**: `frontend/src/pages/apps/<앱코드>/` 밑에 화면 컴포넌트를 만든다. 폴더
+>    위치는 라우팅과 완전히 무관하다 — 어디에 둬도 상관없다(`STD_MGT`는 앱코드를 그대로
+>    폴더명으로 썼을 뿐이다).
+> 2. **라우트 등록**: `frontend/src/App.jsx`의 `/workspace` `<Route>` 하위에
+>    `<Route path="<앱코드>/<화면>" element={<화면컴포넌트 />} />`를 추가한다(예:
+>    `<Route path="STD_MGT/sample1" element={<Sample1Page />} />`). 이 `path`가 곧
+>    `/workspace/<앱코드>/<화면>` 전체 경로가 된다.
+> 3. **DB 등록**(`Page`가 이 경로를 가리키게): `module-portal`의 `PortalBootstrapListener`에서
+>    `APPLICATIONS`(`AppSeed` 목록)에 새 항목을 추가한다 — `Application`(어플리케이션 자체),
+>    필요하면 `ApplicationRole`(접근 제한 Role, 없으면 전체 공개), 그 아래 `Menu`(폴더) +
+>    `Page`(화면, `pageFile`에 2번에서 등록한 라우트 경로를 그대로 넣음) + `MenuPage`(폴더-페이지
+>    매핑)를 한 번에 정의한다. `seedDefaults()`가 find-or-create로 멱등하게 채워주므로, 새
+>    테넌트든 기존 테넌트든 서버 재시작 시 자동으로 채워진다(이미 부트스트랩된 테넌트는 이미
+>    있는 값은 안 바뀐다 — 위 "새 테넌트에 기본 Portal/Application/ApplicationRole 자동
+>    부트스트랩" 항목의 주의사항과 동일).
+> 4. **로컬 반영**: `app-sandbox`의 `DevDataSeeder`는 `PortalBootstrapListener.seedDefaults()`를
+>    그대로 재사용하므로 별도 코드 변경 없이 서버 재시작만 하면 로컬 DEMO 테넌트에도 반영된다.
+>    `02_dml_seed.sql`은 참고용 정적 스크립트라 별도로 같은 내용을 손으로 맞춰뒀다(항상
+>    실제 부트스트랩 리스너가 기준이고, 이 스크립트는 그 모양을 따라가는 쪽이다).
+>
+> `STD_MGT`는 `requiredRoleCode`를 `null`로 둬서 예제 단계에서는 전체 로그인 사용자에게
+> 열려 있다 — 실제 화면으로 굳히게 되면 `SYS_MGT`처럼 `ApplicationRole`에 필요한 Role을
+> 지정하면 된다.
 
 - 매핑 생성 시 `pageId`가 실제 존재하는 페이지인지는 검증한다(`PageRepository` 사용, 없으면
   `ERR-PORTAL-0005`). 다만 상대방(`dataServiceId`/`messageResourceCode`)이 실제 존재하는지는
@@ -769,6 +845,22 @@ ALTER TABLE <테이블명> DROP COLUMN <예전_컬럼명>;
 ALTER TABLE <테이블명> ADD COLUMN <새_컬럼명> <타입>;
 ```
 
+⚠️ **세 번째 함정 (실제로 겪음) — 이미 행이 있는 테이블에 `NOT NULL` 컬럼을 새로 추가할 때**:
+소유권 문제(위 항목)를 고치고 나면 Hibernate가 `ALTER TABLE ... ADD COLUMN`을 실제로 실행하긴
+하는데, `nullable = false`인 필드는 `DEFAULT` 절 없이 `... ADD COLUMN sort_order integer not null`
+형태로 실행된다. 테이블이 비어있으면 문제없지만, `Application.sortOrder`를 추가했을 때처럼
+**이미 행이 있는 테이블**이면 그 행들의 새 컬럼 값이 정해질 수 없어서
+`"sort_order" 열의 자료 가운데 null 값이 있습니다` 에러로 서버 기동 자체가 실패한다. Hibernate가
+자동으로 넣어줄 기본값이 없기 때문이다. 이럴 땐 `DEFAULT`를 명시한 `ALTER TABLE`을 먼저
+수동으로 한 번 실행해서 기존 행을 채워주면 된다(그 다음부터는 컬럼이 이미 있으니 Hibernate가
+건드리지 않는다):
+```sql
+ALTER TABLE <테이블명> ADD COLUMN <새_컬럼명> <타입> NOT NULL DEFAULT <기본값>;
+```
+`nullable = false`로 새 필드를 추가할 때는 값을 이미 가진 운영/개발 DB가 있을 수 있다는 걸
+염두에 두고, 필요하면 엔티티 코드보다 먼저(또는 배포 스크립트에) 이런 마이그레이션 SQL을
+준비해두는 습관이 필요하다 — Flyway 도입 전까지는 이런 종류의 수동 개입이 반복될 수 있다.
+
 ### 실행
 
 ```bash
@@ -1039,4 +1131,36 @@ Postman이면 Authorization 탭 → Bearer Token에 로그인 응답의 `accessT
     `seedDefaults()`를 재사용, `02_dml_seed.sql`에도 동일한 모양으로 반영했다. `ROLE_SYSTEM_ADMIN`은
     신규 테넌트에 자동 배정되지 않는 최상위 권한이라(기존 정책 유지), 이 매핑은 새 테넌트에서
     실제 시스템 관리자가 지정되기 전까지는 아무도 접근할 수 없는 상태로 시작한다(의도된 동작).
-48. Flyway 도입, BackOffice 레이아웃 다듬기 등 이전부터 남아있던 후속 과제들
+48. ~~어플리케이션 선택 → 메뉴 트리 → 페이지 렌더링으로 이어지는 운영 화면 셸(검증용)~~ — 완료.
+    `Application.sortOrder` 추가(`Menu.sortOrder`와 동일한 패턴), `GET /api/v1/applications?
+    accessibleOnly=true`로 로그인 사용자가 실제 접근 가능한 어플리케이션만 정렬된 상태로
+    내려주는 서버사이드 필터 추가(`ApplicationRoleService` 재사용). `PortalBootstrapListener`를
+    확장해 "시스템관리 하위 메뉴의 DB화"(`Layout.jsx`의 하드코딩된 사이드바 → `Menu`/`Page`/
+    `MenuPage` 데이터)까지 포함했다. 프론트에 신규 `WorkspaceLayout.jsx` + `/workspace/*`
+    라우트를 추가해서 어플리케이션 스위처(상단) → 메뉴 트리(좌측, `GET /menus/tree` 그대로
+    재귀 렌더링) → 페이지 클릭 시 `navigate(page.pageFile)`로 메인 영역에 기존 화면 렌더링
+    흐름을 구현했다. 기존 정적 `Layout.jsx`/라우트는 전혀 안 건드리고 완전히 병행 운영하며
+    (양쪽 셸에 서로 링크를 걸어둠), 검증되면 `Layout.jsx`를 대체하는 게 다음 목표다. 포탈은
+    일단 `BO`로 고정했고, 새 어플리케이션의 화면을 추가할 때는 `src/pages/` 밑 원하는 폴더에
+    컴포넌트를 두고 `App.jsx`에 라우트를 등록한 뒤 그 경로를 `Page.pageFile`에 넣으면 된다
+    (폴더 위치는 라우팅과 무관 — 파일 구조와 URL은 완전히 독립적이다). 이번엔 페이지 단위
+    `PageRole` 매핑 없이 어플리케이션 단위 `ApplicationRole`(`ROLE_SYSTEM_ADMIN`) 하나로만
+    시스템관리 전체를 게이트했다.
+49. ~~HOME 어플리케이션 추가~~ — 완료. `PortalBootstrapListener`의 `AppSeed` 목록에 `HOME`
+    항목을 추가했다(`ApplicationRole` 매핑 없음 → 전체 로그인 사용자에게 노출, `sortOrder=0`
+    → 항상 첫 번째). 폴더 1개("홈") + 페이지 1개(`/workspace/home`, 기존 `DashboardPage`
+    재사용)를 하위 메뉴로 둔다. `WorkspaceLayout`에 "`/workspace` 인덱스 진입 시 현재
+    어플리케이션의 첫 페이지로 자동 이동" 로직을 추가해서, `/workspace` 방문 시 바로
+    `/workspace/home`(대시보드)이 보이는 랜딩 화면으로 동작한다. ⚠️ find-or-create라 이미
+    시딩된 로컬 DB(예: DEMO 테넌트)는 `SYS_MGT`의 sortOrder가 0에서 1로 바뀐 걸 자동으로
+    반영 못 한다 — 위 "새 테넌트에 기본 Portal/Application/ApplicationRole 자동 부트스트랩"
+    항목의 수동 `UPDATE` 문 참고.
+50. ~~"시스템 관리 외 다른 어플리케이션 추가" 레시피를 실제 예제로 검증~~ — 완료.
+    `STD_MGT`("표준관리") 어플리케이션을 실제로 추가했다 — `frontend/src/pages/apps/STD_MGT/`
+    밑에 예제 화면 2개(`Sample1Page.jsx`/`Sample2Page.jsx`), `App.jsx`에 `/workspace/STD_MGT/
+    sample1`·`sample2` 라우트, `PortalBootstrapListener`의 `AppSeed` 목록에 `STD_MGT` 항목
+    (폴더 1개 + 페이지 2개, `ApplicationRole` 없음 → 전체 공개)까지 전 구간을 실제로 연결해서
+    운영 화면 셸(`/workspace`)에서 바로 눈으로 확인할 수 있다. 이 3단계(화면 파일 → 라우트 →
+    `AppSeed`)가 새 어플리케이션을 추가하는 표준 절차다(위 "새 어플리케이션 추가하는 법"
+    참고). `02_dml_seed.sql`에도 동일하게 반영했다.
+51. Flyway 도입, BackOffice 레이아웃 다듬기 등 이전부터 남아있던 후속 과제들

@@ -175,7 +175,9 @@ VALUES
 -- 8) 기본 Portal/Application — BackOffice 진입점. PortalBootstrapListener(module-portal)가
 --    테넌트 생성 시 자동으로 채운다(find-or-create, 멱등).
 --    - Portal(BO, "BackOffice")
---    - Application(SYS_MGT, "시스템 관리", BO 포탈 소속)
+--    - Application(HOME, "홈", BO 포탈 소속, sort_order=0) — ApplicationRole 매핑이 없어서
+--      로그인한 사용자 누구나 접근 가능하다(운영 화면 셸의 기본 랜딩 화면).
+--    - Application(SYS_MGT, "시스템 관리", BO 포탈 소속, sort_order=1)
 --    - ApplicationRole(SYS_MGT ↔ ROLE_SYSTEM_ADMIN) — 시스템 관리자만 접근 가능하도록 기본 매핑
 --    ⚠️ ROLE_SYSTEM_ADMIN은 위 2)/4)에서 보듯 TenantBootstrapListener가 신규 테넌트에 자동으로
 --    뿌려주지 않는 최상위 권한이다 — 그래서 실제 POST /api/v1/companies 로 만든 새 테넌트는
@@ -190,13 +192,174 @@ VALUES ('PRT_0000000000000000000000000000bo', 'TNT_00000000000000000000000000dem
         'N', NULL, 'BO', 'BackOffice', 'PC', '관리자용 BackOffice 포탈', 'Y');
 
 INSERT INTO prt_application (id, tenant_id, created_by, created_date, modified_by, modified_date, version,
-                              deleted_yn, deleted_date, application_code, application_name, portal_id, use_yn)
-VALUES ('APP_000000000000000000000sysmgt1', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
-        'N', NULL, 'SYS_MGT', '시스템 관리', 'PRT_0000000000000000000000000000bo', 'Y');
+                              deleted_yn, deleted_date, application_code, application_name, portal_id, sort_order, use_yn)
+VALUES
+    ('APP_0000000000000000000000000home', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'HOME', '홈', 'PRT_0000000000000000000000000000bo', 0, 'Y'),
+    ('APP_000000000000000000000sysmgt1', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'SYS_MGT', '시스템 관리', 'PRT_0000000000000000000000000000bo', 1, 'Y'),
+    ('APP_0000000000000000000000stdmgt1', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'STD_MGT', '표준관리', 'PRT_0000000000000000000000000000bo', 2, 'Y');
 
 INSERT INTO prt_application_role (id, tenant_id, created_by, created_date, modified_by, modified_date, version,
                                    deleted_yn, deleted_date, application_id, role_code)
 VALUES ('APR_00000000000000000000sysadmin1', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
         'N', NULL, 'APP_000000000000000000000sysmgt1', 'ROLE_SYSTEM_ADMIN');
+
+-- ---------------------------------------------------------------------
+-- 9) "홈" 어플리케이션의 메뉴/페이지 — HOME 어플리케이션 하위에 폴더 1개("홈") + 페이지
+--    1개("홈", page_file=/workspace/home, 프론트에서 기존 DashboardPage를 재사용)만 둔다.
+--    PortalBootstrapListener가 테넌트 생성 시 자동으로 채운다(find-or-create, 멱등).
+-- ---------------------------------------------------------------------
+INSERT INTO prt_menu (id, tenant_id, created_by, created_date, modified_by, modified_date, version,
+                       deleted_yn, deleted_date, menu_code, menu_name, application_id, parent_menu_id,
+                       sort_order, link_url, use_yn)
+VALUES
+    ('MNU_0000000000000000000000000home', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'HOME_MENU', '홈', 'APP_0000000000000000000000000home', NULL, 0, NULL, 'Y');
+
+INSERT INTO prt_page (id, tenant_id, created_by, created_date, modified_by, modified_date, version,
+                       deleted_yn, deleted_date, page_code, page_name, page_type, device_type, page_file,
+                       message_resource_code, use_yn)
+VALUES
+    ('PGE_0000000000000000000000000home', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'HOME_PAGE', '홈', '일반', 'PC', '/workspace/home', NULL, 'Y');
+
+INSERT INTO prt_menu_page (id, tenant_id, created_by, created_date, modified_by, modified_date, version,
+                            deleted_yn, deleted_date, menu_id, page_id, sort_order)
+VALUES
+    ('MNP_0000000000000000000000000home', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'MNU_0000000000000000000000000home', 'PGE_0000000000000000000000000home', 0);
+
+-- ---------------------------------------------------------------------
+-- 10) "시스템 관리" 하위 메뉴 DB화 — 프론트 Layout.jsx에 하드코딩돼 있던 사이드바
+--    (NAV_SECTIONS) 구성을 그대로 Menu(폴더)/Page/MenuPage로 옮긴 것이다.
+--    PortalBootstrapListener가 테넌트 생성 시 자동으로 채운다(find-or-create, 멱등).
+--    각 Page의 page_file은 프론트(/frontend) 안의 실제 라우트 경로다(/workspace/* 접두사) —
+--    운영 화면 셸에서 페이지를 클릭하면 이 경로로 navigate()해서 기존 화면 컴포넌트가 그대로
+--    뜬다. 페이지 단위 PageRole 매핑은 걸지 않는다 — SYS_MGT 자체가 이미 ApplicationRole로
+--    ROLE_SYSTEM_ADMIN 전용으로 막혀 있어 이중으로 막을 필요가 없다고 판단했다(PageRole 매핑이
+--    없으면 "로그인 사용자 누구나 접근 가능"으로 기본 허용되지만, 상위 어플리케이션에서 이미
+--    걸러졌으므로 결과적으로 문제없다).
+-- ---------------------------------------------------------------------
+INSERT INTO prt_menu (id, tenant_id, created_by, created_date, modified_by, modified_date, version,
+                       deleted_yn, deleted_date, menu_code, menu_name, application_id, parent_menu_id,
+                       sort_order, link_url, use_yn)
+VALUES
+    ('MNU_000000000000000000000000001org', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'SYS_MENU_ORG', '조직 관리', 'APP_000000000000000000000sysmgt1', NULL, 0, NULL, 'Y'),
+    ('MNU_00000000000000000000000002user', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'SYS_MENU_USER', 'User Management', 'APP_000000000000000000000sysmgt1', NULL, 1, NULL, 'Y'),
+    ('MNU_000000000000000000000003portal', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'SYS_MENU_PORTAL', 'Portal Management', 'APP_000000000000000000000sysmgt1', NULL, 2, NULL, 'Y'),
+    ('MNU_00000000000000000000000004data', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'SYS_MENU_DATA', 'Data Management', 'APP_000000000000000000000sysmgt1', NULL, 3, NULL, 'Y');
+
+INSERT INTO prt_page (id, tenant_id, created_by, created_date, modified_by, modified_date, version,
+                       deleted_yn, deleted_date, page_code, page_name, page_type, device_type, page_file,
+                       message_resource_code, use_yn)
+VALUES
+    ('PGE_000000000000000000001companies', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'SYS_PAGE_COMPANIES', '회사 관리', '일반', 'PC', '/workspace/companies', NULL, 'Y'),
+    ('PGE_0000000000000000002departments', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'SYS_PAGE_DEPARTMENTS', '부서 관리', '일반', 'PC', '/workspace/departments', NULL, 'Y'),
+    ('PGE_0000000000000000000000003users', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'SYS_PAGE_USERS', '사용자 관리', '일반', 'PC', '/workspace/users', NULL, 'Y'),
+    ('PGE_00000000000000000004usergroups', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'SYS_PAGE_USER_GROUPS', '사용자그룹 관리', '일반', 'PC', '/workspace/user-groups', NULL, 'Y'),
+    ('PGE_0000000000000000000000005roles', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'SYS_PAGE_ROLES', 'Role 관리', '일반', 'PC', '/workspace/roles', NULL, 'Y'),
+    ('PGE_0000000000000000000000006pages', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'SYS_PAGE_PAGES', '페이지 관리', '일반', 'PC', '/workspace/pages', NULL, 'Y'),
+    ('PGE_00000000000000000000007portals', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'SYS_PAGE_PORTALS', '포탈 관리', '일반', 'PC', '/workspace/portals', NULL, 'Y'),
+    ('PGE_000000000000000008applications', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'SYS_PAGE_APPLICATIONS', '어플리케이션 관리', '일반', 'PC', '/workspace/applications', NULL, 'Y'),
+    ('PGE_0000000000000000000000009menus', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'SYS_PAGE_MENUS', '메뉴 관리', '일반', 'PC', '/workspace/menus', NULL, 'Y'),
+    ('PGE_000000000000000010dataservices', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'SYS_PAGE_DATA_SERVICES', '데이터서비스 관리', '일반', 'PC', '/workspace/data-services', NULL, 'Y'),
+    ('PGE_00000000000011messageresources', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'SYS_PAGE_MESSAGE_RESOURCES', '메시지자원 관리', '일반', 'PC', '/workspace/message-resources', NULL, 'Y'),
+    ('PGE_0000000000000000000000012codes', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'SYS_PAGE_CODES', '코드 관리', '일반', 'PC', '/workspace/codes', NULL, 'Y'),
+    ('PGE_0000000000000000000000013files', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'SYS_PAGE_FILES', '첨부파일 그룹 관리', '일반', 'PC', '/workspace/files', NULL, 'Y'),
+    ('PGE_0000000000000000000000014terms', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'SYS_PAGE_TERMS', '이용약관 관리', '일반', 'PC', '/workspace/terms', NULL, 'Y'),
+    ('PGE_00000000000000015privacypolicy', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'SYS_PAGE_PRIVACY_POLICY', '개인정보처리방침 관리', '일반', 'PC', '/workspace/privacy-policy', NULL, 'Y'),
+    ('PGE_00000000000000000000016notices', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'SYS_PAGE_NOTICES', '공지/동의서 관리', '일반', 'PC', '/workspace/notices', NULL, 'Y'),
+    ('PGE_0000000000000000000000017forms', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'SYS_PAGE_FORMS', '표준양식 관리', '일반', 'PC', '/workspace/forms', NULL, 'Y');
+
+INSERT INTO prt_menu_page (id, tenant_id, created_by, created_date, modified_by, modified_date, version,
+                            deleted_yn, deleted_date, menu_id, page_id, sort_order)
+VALUES
+    ('MNP_000000000000000000001companies', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'MNU_000000000000000000000000001org', 'PGE_000000000000000000001companies', 0),
+    ('MNP_0000000000000000002departments', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'MNU_000000000000000000000000001org', 'PGE_0000000000000000002departments', 1),
+    ('MNP_0000000000000000000000003users', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'MNU_00000000000000000000000002user', 'PGE_0000000000000000000000003users', 0),
+    ('MNP_00000000000000000004usergroups', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'MNU_00000000000000000000000002user', 'PGE_00000000000000000004usergroups', 1),
+    ('MNP_0000000000000000000000005roles', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'MNU_00000000000000000000000002user', 'PGE_0000000000000000000000005roles', 2),
+    ('MNP_0000000000000000000000006pages', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'MNU_000000000000000000000003portal', 'PGE_0000000000000000000000006pages', 0),
+    ('MNP_00000000000000000000007portals', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'MNU_000000000000000000000003portal', 'PGE_00000000000000000000007portals', 1),
+    ('MNP_000000000000000008applications', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'MNU_000000000000000000000003portal', 'PGE_000000000000000008applications', 2),
+    ('MNP_0000000000000000000000009menus', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'MNU_000000000000000000000003portal', 'PGE_0000000000000000000000009menus', 3),
+    ('MNP_000000000000000010dataservices', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'MNU_000000000000000000000003portal', 'PGE_000000000000000010dataservices', 4),
+    ('MNP_00000000000011messageresources', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'MNU_000000000000000000000003portal', 'PGE_00000000000011messageresources', 5),
+    ('MNP_0000000000000000000000012codes', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'MNU_00000000000000000000000004data', 'PGE_0000000000000000000000012codes', 0),
+    ('MNP_0000000000000000000000013files', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'MNU_00000000000000000000000004data', 'PGE_0000000000000000000000013files', 1),
+    ('MNP_0000000000000000000000014terms', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'MNU_00000000000000000000000004data', 'PGE_0000000000000000000000014terms', 2),
+    ('MNP_00000000000000015privacypolicy', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'MNU_00000000000000000000000004data', 'PGE_00000000000000015privacypolicy', 3),
+    ('MNP_00000000000000000000016notices', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'MNU_00000000000000000000000004data', 'PGE_00000000000000000000016notices', 4),
+    ('MNP_0000000000000000000000017forms', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'MNU_00000000000000000000000004data', 'PGE_0000000000000000000000017forms', 5);
+
+-- ---------------------------------------------------------------------
+-- 11) "표준관리"(STD_MGT) 예제 메뉴/페이지 — "시스템 관리 외 다른 어플리케이션 추가" 패턴의
+--    실제 예시. ApplicationRole 매핑이 없어서(위 8번 참고) 전체 로그인 사용자에게 노출된다.
+--    page_file은 frontend/src/pages/apps/STD_MGT/ 밑 화면 2개에 대응하는 라우트다.
+--    PortalBootstrapListener가 테넌트 생성 시 자동으로 채운다(find-or-create, 멱등).
+-- ---------------------------------------------------------------------
+INSERT INTO prt_menu (id, tenant_id, created_by, created_date, modified_by, modified_date, version,
+                       deleted_yn, deleted_date, menu_code, menu_name, application_id, parent_menu_id,
+                       sort_order, link_url, use_yn)
+VALUES
+    ('MNU_000000000000000000000stdsample', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'STD_MENU_SAMPLE', '예제 메뉴', 'APP_0000000000000000000000stdmgt1', NULL, 0, NULL, 'Y');
+
+INSERT INTO prt_page (id, tenant_id, created_by, created_date, modified_by, modified_date, version,
+                       deleted_yn, deleted_date, page_code, page_name, page_type, device_type, page_file,
+                       message_resource_code, use_yn)
+VALUES
+    ('PGE_00000000000000000000stdsample1', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'STD_PAGE_SAMPLE1', '예제 화면 1', '일반', 'PC', '/workspace/STD_MGT/sample1', NULL, 'Y'),
+    ('PGE_00000000000000000000stdsample2', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'STD_PAGE_SAMPLE2', '예제 화면 2', '일반', 'PC', '/workspace/STD_MGT/sample2', NULL, 'Y');
+
+INSERT INTO prt_menu_page (id, tenant_id, created_by, created_date, modified_by, modified_date, version,
+                            deleted_yn, deleted_date, menu_id, page_id, sort_order)
+VALUES
+    ('MNP_00000000000000000000stdsample1', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'MNU_000000000000000000000stdsample', 'PGE_00000000000000000000stdsample1', 0),
+    ('MNP_00000000000000000000stdsample2', 'TNT_00000000000000000000000000demo', 'SYSTEM', now(), 'SYSTEM', now(), 0,
+     'N', NULL, 'MNU_000000000000000000000stdsample', 'PGE_00000000000000000000stdsample2', 1);
 
 COMMIT;

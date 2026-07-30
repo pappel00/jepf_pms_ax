@@ -15,6 +15,9 @@ import jakarta.persistence.UniqueConstraint;
  * 이 어플리케이션에 접근 가능한 Role 목록은 이 엔티티가 아니라 ApplicationRole 매핑
  * (어플리케이션 1 : Role N)이 담당한다 — PageRole과 동일한 패턴. Application 엔티티 자체에는
  * 권한 관련 필드가 없다.
+ *
+ * sortOrder는 프론트의 어플리케이션 선택 UI(운영 화면 셸)에서 노출 순서를 정하는 값이다
+ * (Menu.sortOrder와 동일한 패턴).
  */
 @Entity
 @Table(name = "prt_application",
@@ -30,25 +33,30 @@ public class Application extends TenantAwareEntity {
     @Column(name = "portal_id", length = 64, nullable = false)
     private String portalId;
 
+    @Column(name = "sort_order", nullable = false)
+    private int sortOrder;
+
     @Column(name = "use_yn", length = 1, nullable = false)
     private String useYn = "Y";
 
     protected Application() {
     }
 
-    private Application(String applicationCode, String applicationName, String portalId) {
+    private Application(String applicationCode, String applicationName, String portalId, int sortOrder) {
         super(PrefixedIdGenerator.generate("APP"));
         this.applicationCode = applicationCode;
         this.applicationName = applicationName;
         this.portalId = portalId;
+        this.sortOrder = sortOrder;
     }
 
-    public static Application create(String applicationCode, String applicationName, String portalId) {
-        return new Application(applicationCode, applicationName, portalId);
+    public static Application create(String applicationCode, String applicationName, String portalId, int sortOrder) {
+        return new Application(applicationCode, applicationName, portalId, sortOrder);
     }
 
-    public void update(String applicationName) {
+    public void update(String applicationName, int sortOrder) {
         this.applicationName = applicationName;
+        this.sortOrder = sortOrder;
     }
 
     public void activate() {
@@ -69,6 +77,10 @@ public class Application extends TenantAwareEntity {
 
     public String getPortalId() {
         return portalId;
+    }
+
+    public int getSortOrder() {
+        return sortOrder;
     }
 
     public String getUseYn() {
