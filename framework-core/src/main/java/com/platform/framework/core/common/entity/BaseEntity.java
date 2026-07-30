@@ -73,6 +73,12 @@ public abstract class BaseEntity {
         this.deletedDate = LocalDateTime.now();
     }
 
+    /** markDeleted()로 소프트 삭제된 행을 다시 활성 상태로 되돌린다. */
+    public void restore() {
+        this.deletedYn = "N";
+        this.deletedDate = null;
+    }
+
     public boolean isDeleted() {
         return "Y".equals(this.deletedYn);
     }

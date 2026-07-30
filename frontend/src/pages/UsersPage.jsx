@@ -119,6 +119,16 @@ export default function UsersPage() {
     }
   }
 
+  const handleRestore = async (row) => {
+    if (!confirm(`${row.loginId} 사용자를 복구하시겠습니까?`)) return
+    try {
+      await usersApi.restore(row.id)
+      load()
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
@@ -193,9 +203,15 @@ export default function UsersPage() {
                   <button className="link-btn" onClick={() => openEdit(row)}>
                     수정
                   </button>
-                  <button className="link-btn danger" onClick={() => handleDelete(row)}>
-                    삭제
-                  </button>
+                  {row.deletedYn === 'Y' ? (
+                    <button className="link-btn" onClick={() => handleRestore(row)}>
+                      복구
+                    </button>
+                  ) : (
+                    <button className="link-btn danger" onClick={() => handleDelete(row)}>
+                      삭제
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

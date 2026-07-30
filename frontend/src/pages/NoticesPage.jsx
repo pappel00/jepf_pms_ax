@@ -189,6 +189,16 @@ export default function NoticesPage() {
     }
   }
 
+  const handleRestore = async (notice) => {
+    if (!confirm(`${notice.title} 항목을 복구하시겠습니까?`)) return
+    try {
+      await noticesApi.restore(notice.id)
+      loadNotices()
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
@@ -351,9 +361,15 @@ export default function NoticesPage() {
                   <button className="link-btn" onClick={() => openEdit(notice)}>
                     수정
                   </button>
-                  <button className="link-btn danger" onClick={() => handleDelete(notice)}>
-                    삭제
-                  </button>
+                  {notice.deletedYn === 'Y' ? (
+                    <button className="link-btn" onClick={() => handleRestore(notice)}>
+                      복구
+                    </button>
+                  ) : (
+                    <button className="link-btn danger" onClick={() => handleDelete(notice)}>
+                      삭제
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

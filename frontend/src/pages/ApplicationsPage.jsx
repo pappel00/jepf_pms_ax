@@ -124,6 +124,16 @@ export default function ApplicationsPage() {
     }
   }
 
+  const handleRestore = async (application) => {
+    if (!confirm(`${application.applicationName} 어플리케이션을 복구하시겠습니까?`)) return
+    try {
+      await applicationsApi.restore(application.id)
+      load()
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
@@ -246,15 +256,27 @@ export default function ApplicationsPage() {
                   >
                     수정
                   </button>
-                  <button
-                    className="link-btn danger"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleDelete(application)
-                    }}
-                  >
-                    삭제
-                  </button>
+                  {application.deletedYn === 'Y' ? (
+                    <button
+                      className="link-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleRestore(application)
+                      }}
+                    >
+                      복구
+                    </button>
+                  ) : (
+                    <button
+                      className="link-btn danger"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDelete(application)
+                      }}
+                    >
+                      삭제
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

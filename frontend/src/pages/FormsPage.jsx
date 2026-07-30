@@ -131,6 +131,16 @@ export default function FormsPage() {
     }
   }
 
+  const handleRestoreGroup = async (group) => {
+    if (!confirm(`${group.formName} 양식을 복구하시겠습니까?`)) return
+    try {
+      await formGroupsApi.restore(group.id)
+      loadGroups()
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
   const handleSubmitGroup = async (e) => {
     e.preventDefault()
     setSavingGroup(true)
@@ -260,15 +270,27 @@ export default function FormsPage() {
                   >
                     수정
                   </button>
-                  <button
-                    className="link-btn danger"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleDeleteGroup(group)
-                    }}
-                  >
-                    삭제
-                  </button>
+                  {group.deletedYn === 'Y' ? (
+                    <button
+                      className="link-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleRestoreGroup(group)
+                      }}
+                    >
+                      복구
+                    </button>
+                  ) : (
+                    <button
+                      className="link-btn danger"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDeleteGroup(group)
+                      }}
+                    >
+                      삭제
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -470,6 +492,16 @@ function FormVersionSection({ group }) {
     }
   }
 
+  const handleRestore = async (item) => {
+    if (!confirm(`버전 ${item.versionNo}(${item.fileName})을(를) 복구하시겠습니까?`)) return
+    try {
+      await api.restore(item.id)
+      load()
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
   const handleEditSubmit = async (e) => {
     e.preventDefault()
     setSavingEdit(true)
@@ -533,9 +565,15 @@ function FormVersionSection({ group }) {
                   <button className="link-btn" onClick={() => openEdit(item)}>
                     수정
                   </button>
-                  <button className="link-btn danger" onClick={() => handleDelete(item)}>
-                    삭제
-                  </button>
+                  {item.deletedYn === 'Y' ? (
+                    <button className="link-btn" onClick={() => handleRestore(item)}>
+                      복구
+                    </button>
+                  ) : (
+                    <button className="link-btn danger" onClick={() => handleDelete(item)}>
+                      삭제
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

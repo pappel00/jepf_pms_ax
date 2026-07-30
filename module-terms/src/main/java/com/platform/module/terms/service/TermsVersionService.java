@@ -53,11 +53,24 @@ public class TermsVersionService {
         findActiveOrThrow(groupId, id).markDeleted();
     }
 
+    /** 삭제된 행에서 "삭제"를 다시 누르면 404가 나던 문제의 대응 — 소프트 삭제를 되돌린다. */
+    @Transactional
+    public void restore(String groupId, String id) {
+        findDeletedOrThrow(groupId, id).restore();
+    }
+
     private TermsVersion findActiveOrThrow(String groupId, String id) {
         return termsVersionRepository.findByIdAndGroupId(id, groupId)
                 .filter(version -> "N".equals(version.getDeletedYn()))
                 .orElseThrow(() -> new TenantException(TermsModuleErrorCode.TERMS_VERSION_NOT_FOUND,
                         "존재하지 않는 약관 버전입니다: " + id));
+    }
+
+    private TermsVersion findDeletedOrThrow(String groupId, String id) {
+        return termsVersionRepository.findByIdAndGroupId(id, groupId)
+                .filter(version -> "Y".equals(version.getDeletedYn()))
+                .orElseThrow(() -> new TenantException(TermsModuleErrorCode.TERMS_VERSION_NOT_FOUND,
+                        "삭제된 상태가 아니거나 존재하지 않는 약관 버전입니다: " + id));
     }
 
     private void ensureGroupExists(String groupId) {

@@ -468,18 +468,19 @@ Company/Department/Role과 동일한 패턴(엔티티+리포지토리+서비스+
 > 갖는다 — 프론트가 어떤 어플리케이션이든 "메뉴 트리를 읽어서 그린다"는 동일한 로직만 쓰도록,
 > HOME이라고 특별 취급하지 않고 똑같이 데이터로 표현했다.
 
-> ⚠️ **운영 화면 셸(`WorkspaceLayout`, 검증용) — 기존 정적 사이드바는 그대로 두고 병행 운영** —
-> `frontend/src/components/WorkspaceLayout.jsx`(신규) + `/workspace/*` 라우트를 새로 추가했다.
-> 상단에 `GET /api/v1/applications?accessibleOnly=true`로 받은(로그인 사용자가 실제 접근
-> 가능한) 어플리케이션을 sortOrder 순으로 보여주는 스위처, 좌측에 선택된 어플리케이션의
+> ⚠️ **운영 화면 셸(`WorkspaceLayout`) — 정적 사이드바를 완전히 대체함** —
+> `frontend/src/components/WorkspaceLayout.jsx`가 `/workspace/*` 하위 모든 관리 화면의
+> 유일한 레이아웃이다. 처음엔 기존 정적 `Layout.jsx`(`NAV_SECTIONS` 하드코딩 사이드바)와
+> 병행 운영하며 검증했는데, 검증이 끝나서 `Layout.jsx`와 그 시절 정적 라우트(`/companies`,
+> `/user-groups` 등)를 완전히 삭제했다 — 이제 `/workspace/...`가 유일한 경로다. 로그인 성공
+> 후 이동(`LoginPage`), 루트 리다이렉트(`RootRedirect`)도 전부 `/workspace`를 가리키도록
+> 맞췄다. 상단에 `GET /api/v1/applications?accessibleOnly=true`로 받은(로그인 사용자가 실제
+> 접근 가능한) 어플리케이션을 sortOrder 순으로 보여주는 스위처, 좌측에 선택된 어플리케이션의
 > `GET /api/v1/menus/tree?applicationId=` 결과를 그대로 재귀 렌더링하는 트리, 트리에서
 > 페이지를 클릭하면 그 페이지의 `pageFile`로 `navigate()`해서 기존 화면 컴포넌트가 메인
-> 영역(`<Outlet/>`)에 뜨는 구조다 — 별도 페이지 렌더러를 만들지 않았다. 기존 `/user-groups`
-> 등 정적 라우트는 전혀 건드리지 않았고, `/workspace/user-groups`처럼 같은 컴포넌트를 재사용하는
-> 새 라우트를 병행 등록했다(기존 `Layout.jsx`의 토프바에 "새 화면(베타)" 링크, 새 셸의
-> 토프바에 "기존 화면으로" 링크를 서로 걸어뒀다). 데이터/라우팅이 검증되면 이 셸이
-> `Layout.jsx`를 대체하는 게 목표다. 포탈은 지금은 `BO`로 고정했다(여러 포탈을 넘나드는
-> UI는 다음 단계 과제) — 코드 하나 놓쳐서 아무것도 못 찾으면 경고 문구만 보이도록 방어했다.
+> 영역(`<Outlet/>`)에 뜨는 구조다 — 별도 페이지 렌더러를 만들지 않았다. 포탈은 지금은 `BO`로
+> 고정했다(여러 포탈을 넘나드는 UI는 다음 단계 과제) — 코드 하나 놓쳐서 아무것도 못 찾으면
+> 경고 문구만 보이도록 방어했다.
 > `/workspace` 인덱스 경로로 진입하면(딥링크/새로고침으로 특정 페이지에 바로 온 경우는 제외)
 > 현재 선택된 어플리케이션의 트리에서 가장 먼저 나오는 페이지로 자동 이동한다 — `HOME`이
 > sortOrder=0이라 기본 선택되므로, 결과적으로 `/workspace` 첫 방문 시 `/workspace/home`
@@ -1029,9 +1030,8 @@ Postman이면 Authorization 탭 → Bearer Token에 로그인 응답의 `accessT
     순수 N:M 매핑 테이블(UserGroupRole/UserGroupUser/PageRole/PageDataService/PageMessageResource)은
     실제로 하드 삭제라 예외로 뒀다. `Menu.TreeNode`(실제 내비게이션 트리 API)도 의도적으로
     제외했다 — 관리 화면과 달리 실제 메뉴 렌더링에는 삭제된 항목이 안 보이는 게 맞기 때문.
-    ⚠️ 후속 과제: 이미 삭제된 행에서 "삭제" 버튼을 다시 누르면 404 에러가 난다
-    (`findActiveOrThrow`가 활성 상태만 대상으로 하기 때문) — 삭제된 행은 버튼을 숨기거나
-    "복구" 기능으로 바꿔야 함.
+    ⚠️ ~~후속 과제: 이미 삭제된 행에서 "삭제" 버튼을 다시 누르면 404 에러가 난다~~ — 완료
+    (항목 52 참고, "복구" 기능으로 해결).
 26. ~~프론트엔드 UX 개선 — `portalId`/`applicationId` 등 참조 필드를 텍스트 입력 대신
     드롭다운으로~~ — 완료. `CrudPage`에 `type: 'select'` 필드 옵션(옵션을 API에서 비동기로
     불러옴, `excludeSelf`로 자기참조 제외 지원) 추가, `MappingPanel`의 `addField`에도
@@ -1163,4 +1163,23 @@ Postman이면 Authorization 탭 → Bearer Token에 로그인 응답의 `accessT
     운영 화면 셸(`/workspace`)에서 바로 눈으로 확인할 수 있다. 이 3단계(화면 파일 → 라우트 →
     `AppSeed`)가 새 어플리케이션을 추가하는 표준 절차다(위 "새 어플리케이션 추가하는 법"
     참고). `02_dml_seed.sql`에도 동일하게 반영했다.
-51. Flyway 도입, BackOffice 레이아웃 다듬기 등 이전부터 남아있던 후속 과제들
+51. ~~`WorkspaceLayout` 검증 완료 → 정적 `Layout.jsx` 완전 대체~~ — 완료. `Layout.jsx`와
+    그 시절의 `/companies`/`/user-groups` 등 정적 최상위 라우트를 전부 삭제하고
+    `/workspace/*`만 남겼다. `LoginPage`/`RootRedirect`도 `/workspace`로 이동하도록 갱신.
+    이제 안 쓰는 `.app-sidebar`/`.sidebar-*` CSS도 같이 정리했다.
+52. ~~소프트 삭제된 행 "복구" 기능 (항목 25 후속 과제 해결)~~ — 완료. `BaseEntity`에
+    `restore()`(`deletedYn="N"`, `deletedDate=null`) 하나만 추가해서 22개 소프트 삭제
+    엔티티(Company/Department/User/Role/UserGroup/Portal/Application/Page/Menu/
+    DataService/MessageResource/CodeGroup/CodeDetail/FileGroup/FileItem/TermsGroup/
+    TermsVersion/PrivacyPolicyGroup/PrivacyPolicyVersion/FormGroup/FormVersion/Notice)
+    전부에 `POST {경로}/{id}/restore`를 추가했다(각 Service에 `findDeletedOrThrow()` +
+    `restore()`, ADMIN 권한은 기존 delete와 동일하게 유지). N:M 하드 삭제 매핑 테이블
+    (UserGroupRole/UserGroupUser/PageRole/PageDataService/PageMessageResource/MenuPage/
+    ApplicationRole)은 애초에 복구 개념이 없어 제외했다. 프론트는 `createCrudApi()`에
+    `restore` 메서드 하나만 추가해서 `CrudPage.jsx` 기반 8개 화면(Company/Department/
+    User/Role/Application/Portal/DataService/MessageResource)이 한 번에 해결됐고,
+    나머지 9개 커스텀 화면(UserGroupsPage/NoticesPage/PagesPage/MenusPage/TermsPage(2개
+    테이블)/FilesPage(2개)/FormsPage(2개)/CodesPage(2개)/PrivacyPolicyPage(2개))은 각자의
+    삭제 버튼 옆에 `deletedYn === 'Y'`일 때만 보이는 복구 버튼을 개별 추가했다. `MenusPage`는
+    원래 목록에 삭제여부 표시가 아예 없던 트리 UI라, "삭제됨" 배지를 새로 추가했다.
+53. Flyway 도입, BackOffice 레이아웃 다듬기 등 이전부터 남아있던 후속 과제들

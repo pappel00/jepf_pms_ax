@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { portalsApi, applicationsApi, pagesApi, menuTree } from '../api/entities'
 
 /**
- * 운영 화면 셸(신규, 검증용) — 기존 정적 사이드바(Layout.jsx)는 그대로 두고 `/workspace/*`
- * 하위에서만 동작한다. 검증 후 문제없으면 Layout.jsx를 이걸로 교체하는 걸 목표로 한다.
+ * 운영 화면 셸 — `/workspace/*` 하위 모든 관리 화면의 유일한 레이아웃이다(예전에 있던 정적
+ * `Layout.jsx`/`NAV_SECTIONS` 사이드바는 검증이 끝나서 제거했다).
  *
  * 구성:
  *  1) 상단: 로그인한 사용자가 실제로 접근 가능한 어플리케이션만(`ApplicationRole` 기준),
@@ -183,9 +183,6 @@ export default function WorkspaceLayout() {
           <span>
             {auth?.loginId} ({auth?.roles?.join(', ') || '역할 없음'})
           </span>
-          <NavLink className="sidebar-link" style={{ padding: '4px 10px' }} to="/dashboard">
-            기존 화면으로
-          </NavLink>
           <button className="secondary small" onClick={handleLogout}>
             로그아웃
           </button>

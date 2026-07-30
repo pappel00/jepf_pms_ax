@@ -142,6 +142,16 @@ export default function UserGroupsPage() {
     }
   }
 
+  const handleRestore = async (group) => {
+    if (!confirm(`${group.groupName} 그룹을 복구하시겠습니까?`)) return
+    try {
+      await userGroupsApi.restore(group.id)
+      load()
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
@@ -264,15 +274,27 @@ export default function UserGroupsPage() {
                   >
                     수정
                   </button>
-                  <button
-                    className="link-btn danger"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleDelete(group)
-                    }}
-                  >
-                    삭제
-                  </button>
+                  {group.deletedYn === 'Y' ? (
+                    <button
+                      className="link-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleRestore(group)
+                      }}
+                    >
+                      복구
+                    </button>
+                  ) : (
+                    <button
+                      className="link-btn danger"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDelete(group)
+                      }}
+                    >
+                      삭제
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

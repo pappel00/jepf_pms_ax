@@ -152,6 +152,17 @@ export default function CrudPage({ title, description, api, columns, fields, idF
     }
   }
 
+  /** 이미 삭제된 행은 "삭제" 대신 이 버튼을 쓴다 — 삭제된 행에서 "삭제"를 다시 누르면 404가 나던 문제 대응. */
+  const handleRestore = async (row) => {
+    if (!confirm('복구하시겠습니까?')) return
+    try {
+      await api.restore(row[idField])
+      load()
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
@@ -303,9 +314,15 @@ export default function CrudPage({ title, description, api, columns, fields, idF
                   <button className="link-btn" onClick={() => openEdit(row)}>
                     수정
                   </button>
-                  <button className="link-btn danger" onClick={() => handleDelete(row)}>
-                    삭제
-                  </button>
+                  {row.deletedYn === 'Y' ? (
+                    <button className="link-btn" onClick={() => handleRestore(row)}>
+                      복구
+                    </button>
+                  ) : (
+                    <button className="link-btn danger" onClick={() => handleDelete(row)}>
+                      삭제
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

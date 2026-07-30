@@ -102,6 +102,16 @@ export default function FilesPage() {
     }
   }
 
+  const handleRestoreGroup = async (group) => {
+    if (!confirm(`${group.groupName} 첨부그룹을 복구하시겠습니까?`)) return
+    try {
+      await fileGroupsApi.restore(group.id)
+      loadGroups()
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
   const handleSubmitGroup = async (e) => {
     e.preventDefault()
     setSavingGroup(true)
@@ -207,15 +217,27 @@ export default function FilesPage() {
                   >
                     수정
                   </button>
-                  <button
-                    className="link-btn danger"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleDeleteGroup(group)
-                    }}
-                  >
-                    삭제
-                  </button>
+                  {group.deletedYn === 'Y' ? (
+                    <button
+                      className="link-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleRestoreGroup(group)
+                      }}
+                    >
+                      복구
+                    </button>
+                  ) : (
+                    <button
+                      className="link-btn danger"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDeleteGroup(group)
+                      }}
+                    >
+                      삭제
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -391,6 +413,16 @@ function FileItemSection({ group }) {
     }
   }
 
+  const handleRestore = async (item) => {
+    if (!confirm(`${item.fileName} 첨부항목을 복구하시겠습니까?`)) return
+    try {
+      await api.restore(item.id)
+      load()
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
@@ -468,9 +500,15 @@ function FileItemSection({ group }) {
                   <button className="link-btn" onClick={() => openEdit(item)}>
                     수정
                   </button>
-                  <button className="link-btn danger" onClick={() => handleDelete(item)}>
-                    삭제
-                  </button>
+                  {item.deletedYn === 'Y' ? (
+                    <button className="link-btn" onClick={() => handleRestore(item)}>
+                      복구
+                    </button>
+                  ) : (
+                    <button className="link-btn danger" onClick={() => handleDelete(item)}>
+                      삭제
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

@@ -96,6 +96,16 @@ export default function CodesPage() {
     }
   }
 
+  const handleRestoreGroup = async (group) => {
+    if (!confirm(`${group.groupName} 코드그룹을 복구하시겠습니까?`)) return
+    try {
+      await codeGroupsApi.restore(group.id)
+      loadGroups()
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
   const handleSubmitGroup = async (e) => {
     e.preventDefault()
     setSavingGroup(true)
@@ -201,15 +211,27 @@ export default function CodesPage() {
                   >
                     수정
                   </button>
-                  <button
-                    className="link-btn danger"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleDeleteGroup(group)
-                    }}
-                  >
-                    삭제
-                  </button>
+                  {group.deletedYn === 'Y' ? (
+                    <button
+                      className="link-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleRestoreGroup(group)
+                      }}
+                    >
+                      복구
+                    </button>
+                  ) : (
+                    <button
+                      className="link-btn danger"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDeleteGroup(group)
+                      }}
+                    >
+                      삭제
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -337,6 +359,16 @@ function CodeDetailSection({ group }) {
     }
   }
 
+  const handleRestore = async (item) => {
+    if (!confirm(`${item.codeName} 코드를 복구하시겠습니까?`)) return
+    try {
+      await api.restore(item.id)
+      load()
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
@@ -400,9 +432,15 @@ function CodeDetailSection({ group }) {
                   <button className="link-btn" onClick={() => openEdit(item)}>
                     수정
                   </button>
-                  <button className="link-btn danger" onClick={() => handleDelete(item)}>
-                    삭제
-                  </button>
+                  {item.deletedYn === 'Y' ? (
+                    <button className="link-btn" onClick={() => handleRestore(item)}>
+                      복구
+                    </button>
+                  ) : (
+                    <button className="link-btn danger" onClick={() => handleDelete(item)}>
+                      삭제
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

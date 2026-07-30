@@ -49,7 +49,12 @@
       "Bash(cat \"/c/Users/ADMINI~1/AppData/Local/Temp/bash_commands.txt\")",
       "Bash(./gradlew :module-portal:compileJava :module-portal:compileTestJava --offline -q)",
       "Bash(./gradlew :module-portal:build :app-sandbox:build --offline --rerun-tasks)",
-      "Bash(mkdir -p \"E:/framework/java-enterprise-platform-framework-step44/frontend/src/pages/apps/STD_MGT\")"
+      "Bash(mkdir -p \"E:/framework/java-enterprise-platform-framework-step44/frontend/src/pages/apps/STD_MGT\")",
+      "Bash(grep -rn \"to=\\\\\"/\\\\|navigate\\('/\\\\|navigate\\(\\\\\"/\" \"E:/framework/java-enterprise-platform-framework-step44/frontend/src\")",
+      "Bash(./gradlew :module-tenant:compileJava :module-user:compileJava :module-portal:compileJava --offline -q)",
+      "Bash(./gradlew :module-code:compileJava :module-file:compileJava --offline -q)",
+      "Bash(./gradlew :module-terms:compileJava :module-privacy:compileJava --offline -q)",
+      "Bash(./gradlew build *)"
     ]
   }
 }

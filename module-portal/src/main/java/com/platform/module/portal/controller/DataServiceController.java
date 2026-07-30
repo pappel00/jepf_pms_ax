@@ -64,4 +64,10 @@ public class DataServiceController {
         dataServiceService.delete(id);
         return ApiResponse.success("200", "삭제되었습니다.", null);
     }
+
+    @PostMapping("/{id}/restore")
+    public ApiResponse<Void> restore(@PathVariable String id) {
+        dataServiceService.restore(id);
+        return ApiResponse.success("200", "복구되었습니다.", null);
+    }
 }

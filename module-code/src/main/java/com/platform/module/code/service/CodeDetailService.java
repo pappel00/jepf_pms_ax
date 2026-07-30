@@ -58,11 +58,24 @@ public class CodeDetailService {
         findActiveOrThrow(groupId, id).markDeleted();
     }
 
+    /** 삭제된 행에서 "삭제"를 다시 누르면 404가 나던 문제의 대응 — 소프트 삭제를 되돌린다. */
+    @Transactional
+    public void restore(String groupId, String id) {
+        findDeletedOrThrow(groupId, id).restore();
+    }
+
     private CodeDetail findActiveOrThrow(String groupId, String id) {
         return codeDetailRepository.findByIdAndGroupId(id, groupId)
                 .filter(detail -> "N".equals(detail.getDeletedYn()))
                 .orElseThrow(() -> new TenantException(CodeModuleErrorCode.CODE_DETAIL_NOT_FOUND,
                         "존재하지 않는 코드입니다: " + id));
+    }
+
+    private CodeDetail findDeletedOrThrow(String groupId, String id) {
+        return codeDetailRepository.findByIdAndGroupId(id, groupId)
+                .filter(detail -> "Y".equals(detail.getDeletedYn()))
+                .orElseThrow(() -> new TenantException(CodeModuleErrorCode.CODE_DETAIL_NOT_FOUND,
+                        "삭제된 상태가 아니거나 존재하지 않는 코드입니다: " + id));
     }
 
     private void ensureGroupExists(String groupId) {

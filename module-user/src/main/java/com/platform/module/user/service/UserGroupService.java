@@ -60,9 +60,21 @@ public class UserGroupService {
         findActiveOrThrow(id).markDeleted();
     }
 
+    /** 삭제된 행에서 "삭제"를 다시 누르면 404가 나던 문제의 대응 — 소프트 삭제를 되돌린다. */
+    @Transactional
+    public void restore(String id) {
+        findDeletedOrThrow(id).restore();
+    }
+
     private UserGroup findActiveOrThrow(String id) {
         return userGroupRepository.findByIdAndDeletedYn(id, "N")
                 .orElseThrow(() -> new TenantException(UserModuleErrorCode.USER_GROUP_NOT_FOUND,
                         "존재하지 않는 사용자그룹입니다: " + id));
+    }
+
+    private UserGroup findDeletedOrThrow(String id) {
+        return userGroupRepository.findByIdAndDeletedYn(id, "Y")
+                .orElseThrow(() -> new TenantException(UserModuleErrorCode.USER_GROUP_NOT_FOUND,
+                        "삭제된 상태가 아니거나 존재하지 않는 사용자그룹입니다: " + id));
     }
 }

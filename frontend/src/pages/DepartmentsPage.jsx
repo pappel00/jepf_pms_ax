@@ -115,6 +115,16 @@ export default function DepartmentsPage() {
     }
   }
 
+  const handleRestore = async (department) => {
+    if (!confirm(`${department.departmentName} 부서를 복구하시겠습니까?`)) return
+    try {
+      await departmentsApi.restore(department.id)
+      load()
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
@@ -217,9 +227,15 @@ export default function DepartmentsPage() {
                   <button className="link-btn" onClick={() => openEdit(department)}>
                     수정
                   </button>
-                  <button className="link-btn danger" onClick={() => handleDelete(department)}>
-                    삭제
-                  </button>
+                  {department.deletedYn === 'Y' ? (
+                    <button className="link-btn" onClick={() => handleRestore(department)}>
+                      복구
+                    </button>
+                  ) : (
+                    <button className="link-btn danger" onClick={() => handleDelete(department)}>
+                      삭제
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

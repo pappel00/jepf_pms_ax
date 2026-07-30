@@ -63,9 +63,21 @@ public class PrivacyPolicyGroupService {
         findActiveOrThrow(id).markDeleted();
     }
 
+    /** 삭제된 행에서 "삭제"를 다시 누르면 404가 나던 문제의 대응 — 소프트 삭제를 되돌린다. */
+    @Transactional
+    public void restore(String id) {
+        findDeletedOrThrow(id).restore();
+    }
+
     private PrivacyPolicyGroup findActiveOrThrow(String id) {
         return privacyPolicyGroupRepository.findByIdAndDeletedYn(id, "N")
                 .orElseThrow(() -> new TenantException(PrivacyModuleErrorCode.PRIVACY_GROUP_NOT_FOUND,
                         "존재하지 않는 방침입니다: " + id));
+    }
+
+    private PrivacyPolicyGroup findDeletedOrThrow(String id) {
+        return privacyPolicyGroupRepository.findByIdAndDeletedYn(id, "Y")
+                .orElseThrow(() -> new TenantException(PrivacyModuleErrorCode.PRIVACY_GROUP_NOT_FOUND,
+                        "삭제된 상태가 아니거나 존재하지 않는 방침입니다: " + id));
     }
 }

@@ -19,7 +19,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       await login(form)
-      navigate('/dashboard')
+      navigate('/workspace')
     } catch (err) {
       setError(err.message)
     } finally {

@@ -44,7 +44,7 @@ export default function DashboardPage() {
       </div>
 
       <p style={{ marginTop: 24 }}>
-        왼쪽 메뉴에서 관리 화면으로 이동하거나, <Link to="/user-groups">사용자그룹 관리</Link>에서
+        왼쪽 메뉴에서 관리 화면으로 이동하거나, <Link to="/workspace/user-groups">사용자그룹 관리</Link>에서
         내 계정의 역할 매핑을 확인해보세요.
       </p>
     </div>

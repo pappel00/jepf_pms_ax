@@ -103,6 +103,12 @@ public class UserService {
         findActiveOrThrow(id).markDeleted();
     }
 
+    /** 삭제된 행에서 "삭제"를 다시 누르면 404가 나던 문제의 대응 — 소프트 삭제를 되돌린다. */
+    @Transactional
+    public void restore(String id) {
+        findDeletedOrThrow(id).restore();
+    }
+
     private void assignToDefaultGroup(String userId, UserGroup group) {
         if (!userGroupUserRepository.existsByUserGroupIdAndUserId(group.getId(), userId)) {
             userGroupUserRepository.saveAndFlush(UserGroupUser.create(group.getId(), userId));
@@ -114,5 +120,12 @@ public class UserService {
                 .filter(user -> "N".equals(user.getDeletedYn()))
                 .orElseThrow(() -> new TenantException(UserModuleErrorCode.USER_NOT_FOUND,
                         "존재하지 않는 사용자입니다: " + id));
+    }
+
+    private User findDeletedOrThrow(String id) {
+        return userRepository.findById(id)
+                .filter(user -> "Y".equals(user.getDeletedYn()))
+                .orElseThrow(() -> new TenantException(UserModuleErrorCode.USER_NOT_FOUND,
+                        "삭제된 상태가 아니거나 존재하지 않는 사용자입니다: " + id));
     }
 }

@@ -1,6 +1,5 @@
 import { Navigate, Route, BrowserRouter, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
-import Layout from './components/Layout'
 import WorkspaceLayout from './components/WorkspaceLayout'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
@@ -32,7 +31,7 @@ function ProtectedRoute({ children }) {
 
 function RootRedirect() {
   const { auth } = useAuth()
-  return <Navigate to={auth ? '/dashboard' : '/login'} replace />
+  return <Navigate to={auth ? '/workspace' : '/login'} replace />
 }
 
 export default function App() {
@@ -44,38 +43,12 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
-          <Route
-            element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }
-          >
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/companies" element={<CompaniesPage />} />
-            <Route path="/departments" element={<DepartmentsPage />} />
-            <Route path="/users" element={<UsersPage />} />
-            <Route path="/roles" element={<RolesPage />} />
-            <Route path="/user-groups" element={<UserGroupsPage />} />
-            <Route path="/portals" element={<PortalsPage />} />
-            <Route path="/applications" element={<ApplicationsPage />} />
-            <Route path="/pages" element={<PagesPage />} />
-            <Route path="/menus" element={<MenusPage />} />
-            <Route path="/data-services" element={<DataServicesPage />} />
-            <Route path="/message-resources" element={<MessageResourcesPage />} />
-            <Route path="/codes" element={<CodesPage />} />
-            <Route path="/files" element={<FilesPage />} />
-            <Route path="/terms" element={<TermsPage />} />
-            <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-            <Route path="/notices" element={<NoticesPage />} />
-            <Route path="/forms" element={<FormsPage />} />
-          </Route>
-
           {/*
-            신규 운영 화면 셸(검증용) — Portal(BO)/Application(HOME, SYS_MGT)/Menu/Page DB
-            데이터로 내비게이션을 구성한다(PortalBootstrapListener 참고). 위 정적 라우트와
-            완전히 분리해서 병행 운영하며, 같은 화면 컴포넌트를 재사용한다(pageFile 값과 아래
-            path가 반드시 일치해야 한다 — 새 관리 화면을 추가할 때 이 목록도 함께 갱신할 것).
+            운영 화면 셸 — Portal(BO)/Application(HOME/SYS_MGT/STD_MGT)/Menu/Page DB 데이터로
+            내비게이션을 구성한다(PortalBootstrapListener 참고). 예전엔 이 라우트들이 정적
+            Layout.jsx 하위에 하드코딩돼 있었는데, WorkspaceLayout 검증이 끝나서 이제 이
+            /workspace/* 라우트 트리가 유일한 관리 화면 진입점이다(pageFile 값과 아래 path가
+            반드시 일치해야 한다 — 새 관리 화면을 추가할 때 이 목록도 함께 갱신할 것).
             "home"은 HOME 어플리케이션 전용(기존 DashboardPage 재사용) — ApplicationRole
             매핑이 없어서 로그인한 사용자 누구나 접근 가능하다.
           */}

@@ -76,9 +76,21 @@ public class MessageResourceService {
         findActiveOrThrow(id).markDeleted();
     }
 
+    /** 삭제된 행에서 "삭제"를 다시 누르면 404가 나던 문제의 대응 — 소프트 삭제를 되돌린다. */
+    @Transactional
+    public void restore(String id) {
+        findDeletedOrThrow(id).restore();
+    }
+
     private MessageResource findActiveOrThrow(String id) {
         return messageResourceRepository.findByIdAndDeletedYn(id, "N")
                 .orElseThrow(() -> new TenantException(PortalModuleErrorCode.MESSAGE_RESOURCE_NOT_FOUND,
                         "존재하지 않는 메시지자원입니다: " + id));
+    }
+
+    private MessageResource findDeletedOrThrow(String id) {
+        return messageResourceRepository.findByIdAndDeletedYn(id, "Y")
+                .orElseThrow(() -> new TenantException(PortalModuleErrorCode.MESSAGE_RESOURCE_NOT_FOUND,
+                        "삭제된 상태가 아니거나 존재하지 않는 메시지자원입니다: " + id));
     }
 }

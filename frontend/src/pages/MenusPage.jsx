@@ -248,6 +248,16 @@ export default function MenusPage() {
     }
   }
 
+  const handleRestoreFolder = async (menu) => {
+    if (!confirm(`${menu.menuName} 폴더를 복구하시겠습니까?`)) return
+    try {
+      await menusApi.restore(menu.id)
+      load()
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
   const handleEditSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
@@ -297,6 +307,7 @@ export default function MenusPage() {
           <span className="tree-label">{menu.menuName}</span>
           <span className="tree-meta">{menu.menuCode}</span>
           {menu.useYn === 'N' && <span className="tree-badge">미사용</span>}
+          {menu.deletedYn === 'Y' && <span className="tree-badge">삭제됨</span>}
           <span className="tree-actions">
             <button
               className="link-btn"
@@ -316,15 +327,27 @@ export default function MenusPage() {
             >
               수정
             </button>
-            <button
-              className="link-btn danger"
-              onClick={(e) => {
-                e.stopPropagation()
-                handleDeleteFolder(menu)
-              }}
-            >
-              삭제
-            </button>
+            {menu.deletedYn === 'Y' ? (
+              <button
+                className="link-btn"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleRestoreFolder(menu)
+                }}
+              >
+                복구
+              </button>
+            ) : (
+              <button
+                className="link-btn danger"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleDeleteFolder(menu)
+                }}
+              >
+                삭제
+              </button>
+            )}
           </span>
         </div>
         {isExpanded && (

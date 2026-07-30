@@ -70,4 +70,11 @@ public class NoticeController {
         noticeService.delete(id);
         return ApiResponse.success("200", "삭제되었습니다.", null);
     }
+
+    @PostMapping("/{id}/restore")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<Void> restore(@PathVariable String id) {
+        noticeService.restore(id);
+        return ApiResponse.success("200", "복구되었습니다.", null);
+    }
 }

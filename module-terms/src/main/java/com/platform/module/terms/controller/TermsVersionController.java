@@ -60,4 +60,11 @@ public class TermsVersionController {
         termsVersionService.delete(groupId, id);
         return ApiResponse.success("200", "삭제되었습니다.", null);
     }
+
+    @PostMapping("/{id}/restore")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<Void> restore(@PathVariable String groupId, @PathVariable String id) {
+        termsVersionService.restore(groupId, id);
+        return ApiResponse.success("200", "복구되었습니다.", null);
+    }
 }

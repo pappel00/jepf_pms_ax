@@ -11,6 +11,8 @@ export function createCrudApi(basePath) {
     create: (body) => apiFetch(basePath, { method: 'POST', body }),
     update: (id, body) => apiFetch(`${basePath}/${id}`, { method: 'PUT', body }),
     remove: (id) => apiFetch(`${basePath}/${id}`, { method: 'DELETE' }),
+    /** 소프트 삭제된 행을 되돌린다 — 삭제된 행에서 "삭제"를 다시 누르면 404가 나던 문제 대응. */
+    restore: (id) => apiFetch(`${basePath}/${id}/restore`, { method: 'POST' }),
   }
 }
 

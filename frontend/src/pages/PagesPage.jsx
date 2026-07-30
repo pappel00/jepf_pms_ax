@@ -147,6 +147,16 @@ export default function PagesPage() {
     }
   }
 
+  const handleRestore = async (page) => {
+    if (!confirm(`${page.pageName} 페이지를 복구하시겠습니까?`)) return
+    try {
+      await pagesApi.restore(page.id)
+      load()
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
@@ -280,15 +290,27 @@ export default function PagesPage() {
                   >
                     수정
                   </button>
-                  <button
-                    className="link-btn danger"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleDelete(page)
-                    }}
-                  >
-                    삭제
-                  </button>
+                  {page.deletedYn === 'Y' ? (
+                    <button
+                      className="link-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleRestore(page)
+                      }}
+                    >
+                      복구
+                    </button>
+                  ) : (
+                    <button
+                      className="link-btn danger"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDelete(page)
+                      }}
+                    >
+                      삭제
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
