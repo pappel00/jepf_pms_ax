@@ -76,6 +76,7 @@ public class PortalBootstrapListener {
     public static final String APPLICATION_CODE_HOME = "HOME";
     public static final String APPLICATION_CODE_SYSTEM_MANAGEMENT = "SYS_MGT";
     public static final String APPLICATION_CODE_STANDARD_MANAGEMENT = "STD_MGT";
+    public static final String APPLICATION_CODE_PMS = "PMS";
 
     /** PageCodeBootstrapListener가 시딩하는 PAGE_TYPE/PAGE_DEVICE_TYPE 공통코드의 값이다. */
     private static final String PAGE_TYPE_GENERAL = "일반";
@@ -132,7 +133,35 @@ public class PortalBootstrapListener {
             new AppSeed(APPLICATION_CODE_STANDARD_MANAGEMENT, "표준관리", 2, null, List.of(
                     new FolderSeed("STD_MENU_SAMPLE", "예제 메뉴", List.of(
                             new PageSeed("STD_PAGE_SAMPLE1", "예제 화면 1", "/workspace/STD_MGT/sample1"),
-                            new PageSeed("STD_PAGE_SAMPLE2", "예제 화면 2", "/workspace/STD_MGT/sample2")))))
+                            new PageSeed("STD_PAGE_SAMPLE2", "예제 화면 2", "/workspace/STD_MGT/sample2"))))),
+            // PMS 목업 — 화면설계 검토용(frontend/src/pages/apps/PMS/, 더미 데이터). 요구사항
+            // 문서(docs/pms) 6절에 따라 BO 포탈 안의 어플리케이션으로 먼저 진행한다. 로그인한
+            // 사용자 누구나 접근 가능(requiredRoleCode null) — 정식 구현 시 프로젝트 멤버 권한으로 교체.
+            new AppSeed(APPLICATION_CODE_PMS, "PMS", 3, null, List.of(
+                    new FolderSeed("PMS_MENU_PROJECT", "영업단계", List.of(
+                            new PageSeed("PMS_PAGE_PROJECTS", "프로젝트 관리", "/workspace/PMS/projects"),
+                            new PageSeed("PMS_PAGE_RFP", "RFP 관리", "/workspace/PMS/rfp"),
+                            new PageSeed("PMS_PAGE_RFP_EVAL", "RFP 평가", "/workspace/PMS/rfp-eval"),
+                            new PageSeed("PMS_PAGE_RFP_EVAL_ADMIN", "RFP 평가 관리", "/workspace/PMS/rfp-eval-admin"),
+                            new PageSeed("PMS_PAGE_PROPOSALS", "제안서 관리", "/workspace/PMS/proposals"))),
+                    // 영업단계(수주) → 수행 단계 사이: 수주 확정 프로젝트를 수행 단계 기초데이터와 함께 전환
+                    new FolderSeed("PMS_MENU_TRANSITION", "단계전환", List.of(
+                            new PageSeed("PMS_PAGE_PHASE_TRANSITION", "수행단계전환", "/workspace/PMS/phase-transition"),
+                            new PageSeed("PMS_PAGE_OPS_TRANSITION", "운영단계전환", "/workspace/PMS/ops-transition"))),
+                    new FolderSeed("PMS_MENU_WORK", "수행 단계", List.of(
+                            new PageSeed("PMS_PAGE_EXEC_PROJECT", "프로젝트 관리", "/workspace/PMS/exec-project"),
+                            new PageSeed("PMS_PAGE_DOC_TAILORING", "문서 테일러링 관리", "/workspace/PMS/doc-tailoring"),
+                            new PageSeed("PMS_PAGE_WBS", "WBS / 진척 관리", "/workspace/PMS/wbs"),
+                            new PageSeed("PMS_PAGE_ISSUES", "이슈 관리", "/workspace/PMS/issues"),
+                            new PageSeed("PMS_PAGE_REPORT_WEEKLY", "주간 보고", "/workspace/PMS/report-weekly"),
+                            new PageSeed("PMS_PAGE_REPORT_MONTHLY", "월간 보고", "/workspace/PMS/report-monthly"),
+                            new PageSeed("PMS_PAGE_DASHBOARD", "내 업무 대시보드", "/workspace/PMS/dashboard"))),
+                    // 운영 단계 — 운영단계전환을 마친(운영 중) 프로젝트의 운영 정보·운영 인력·인수 현황 관리
+                    new FolderSeed("PMS_MENU_OPS", "운영 단계", List.of(
+                            new PageSeed("PMS_PAGE_OPS_PROJECT", "프로젝트 관리", "/workspace/PMS/ops-project"))),
+                    // 인력관리 — 프로젝트의 투입 인력(프로젝트 멤버)을 인력 기준으로 모아 투입 계획·실적을 관리
+                    new FolderSeed("PMS_MENU_HR", "인력관리", List.of(
+                            new PageSeed("PMS_PAGE_STAFFING", "투입 관리", "/workspace/PMS/staffing")))))
     );
 
     private final PortalRepository portalRepository;

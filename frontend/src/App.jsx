@@ -23,6 +23,21 @@ import NoticesPage from './pages/NoticesPage'
 import FormsPage from './pages/FormsPage'
 import Sample1Page from './pages/apps/STD_MGT/Sample1Page'
 import Sample2Page from './pages/apps/STD_MGT/Sample2Page'
+import MyDashboardPage from './pages/apps/PMS/MyDashboardPage'
+import WbsPage from './pages/apps/PMS/WbsPage'
+import ProjectsPage from './pages/apps/PMS/ProjectsPage'
+import RfpPage from './pages/apps/PMS/RfpPage'
+import RfpEvalPage from './pages/apps/PMS/RfpEvalPage'
+import RfpEvalAdminPage from './pages/apps/PMS/RfpEvalAdminPage'
+import ProposalPage from './pages/apps/PMS/ProposalPage'
+import DocTailoringPage from './pages/apps/PMS/DocTailoringPage'
+import IssuesPage from './pages/apps/PMS/IssuesPage'
+import ReportPage from './pages/apps/PMS/ReportPage'
+import TransitionPage from './pages/apps/PMS/TransitionPage'
+import ExecProjectPage from './pages/apps/PMS/ExecProjectPage'
+import StaffingPage from './pages/apps/PMS/StaffingPage'
+import OpsTransitionPage from './pages/apps/PMS/OpsTransitionPage'
+import OpsProjectPage from './pages/apps/PMS/OpsProjectPage'
 
 function ProtectedRoute({ children }) {
   const { auth } = useAuth()
@@ -92,6 +107,28 @@ export default function App() {
             */}
             <Route path="STD_MGT/sample1" element={<Sample1Page />} />
             <Route path="STD_MGT/sample2" element={<Sample2Page />} />
+
+            {/*
+              PMS 목업(화면설계 검토용, 더미 데이터) — docs/pms/01-요구사항-초안.md 6절의 "화면설계 →
+              ERD" 순서에 따라 API 연동 없이 화면부터 만든다. PortalBootstrapListener의 PMS
+              AppSeed(Page.pageFile)와 아래 path가 일치해야 한다.
+            */}
+            <Route path="PMS/projects" element={<ProjectsPage />} />
+            <Route path="PMS/rfp" element={<RfpPage />} />
+            <Route path="PMS/rfp-eval" element={<RfpEvalPage />} />
+            <Route path="PMS/rfp-eval-admin" element={<RfpEvalAdminPage />} />
+            <Route path="PMS/proposals" element={<ProposalPage />} />
+            <Route path="PMS/phase-transition" element={<TransitionPage />} />
+            <Route path="PMS/ops-transition" element={<OpsTransitionPage />} />
+            <Route path="PMS/ops-project" element={<OpsProjectPage />} />
+            <Route path="PMS/exec-project" element={<ExecProjectPage />} />
+            <Route path="PMS/staffing" element={<StaffingPage />} />
+            <Route path="PMS/doc-tailoring" element={<DocTailoringPage />} />
+            <Route path="PMS/dashboard" element={<MyDashboardPage />} />
+            <Route path="PMS/wbs" element={<WbsPage />} />
+            <Route path="PMS/issues" element={<IssuesPage />} />
+            <Route path="PMS/report-weekly" element={<ReportPage mode="week" />} />
+            <Route path="PMS/report-monthly" element={<ReportPage mode="month" />} />
           </Route>
         </Routes>
       </BrowserRouter>

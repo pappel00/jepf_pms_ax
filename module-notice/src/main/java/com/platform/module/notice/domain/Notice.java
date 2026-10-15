@@ -4,7 +4,6 @@ import com.platform.framework.core.common.utils.PrefixedIdGenerator;
 import com.platform.framework.security.tenant.TenantAwareEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
 
@@ -38,8 +37,8 @@ public class Notice extends TenantAwareEntity {
     @Column(name = "title", length = 300, nullable = false)
     private String title;
 
-    @Lob
-    @Column(name = "content", nullable = false)
+    // @Lob을 쓰지 않는다: PostgreSQL에서 @Lob String은 oid(Large Object)로 매핑돼 TEXT 컬럼과 어긋난다.
+    @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
     @Column(name = "start_date", nullable = false)
