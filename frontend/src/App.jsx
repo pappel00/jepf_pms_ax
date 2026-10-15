@@ -36,6 +36,9 @@ import ReportPage from './pages/apps/PMS/ReportPage'
 import TransitionPage from './pages/apps/PMS/TransitionPage'
 import ExecProjectPage from './pages/apps/PMS/ExecProjectPage'
 import StaffingPage from './pages/apps/PMS/StaffingPage'
+import CustomersPage from './pages/apps/PMS/CustomersPage'
+import CustomerContactsPage from './pages/apps/PMS/CustomerContactsPage'
+import RatesPage from './pages/apps/PMS/RatesPage'
 import OpsTransitionPage from './pages/apps/PMS/OpsTransitionPage'
 import OpsProjectPage from './pages/apps/PMS/OpsProjectPage'
 
@@ -113,6 +116,8 @@ export default function App() {
               ERD" 순서에 따라 API 연동 없이 화면부터 만든다. PortalBootstrapListener의 PMS
               AppSeed(Page.pageFile)와 아래 path가 일치해야 한다.
             */}
+            <Route path="PMS/customers" element={<CustomersPage />} />
+            <Route path="PMS/customer-contacts" element={<CustomerContactsPage />} />
             <Route path="PMS/projects" element={<ProjectsPage />} />
             <Route path="PMS/rfp" element={<RfpPage />} />
             <Route path="PMS/rfp-eval" element={<RfpEvalPage />} />
@@ -123,6 +128,7 @@ export default function App() {
             <Route path="PMS/ops-project" element={<OpsProjectPage />} />
             <Route path="PMS/exec-project" element={<ExecProjectPage />} />
             <Route path="PMS/staffing" element={<StaffingPage />} />
+            <Route path="PMS/rates" element={<RatesPage />} />
             <Route path="PMS/doc-tailoring" element={<DocTailoringPage />} />
             <Route path="PMS/dashboard" element={<MyDashboardPage />} />
             <Route path="PMS/wbs" element={<WbsPage />} />

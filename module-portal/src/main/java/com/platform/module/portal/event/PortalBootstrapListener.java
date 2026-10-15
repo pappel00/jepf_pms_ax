@@ -138,6 +138,10 @@ public class PortalBootstrapListener {
             // 문서(docs/pms) 6절에 따라 BO 포탈 안의 어플리케이션으로 먼저 진행한다. 로그인한
             // 사용자 누구나 접근 가능(requiredRoleCode null) — 정식 구현 시 프로젝트 멤버 권한으로 교체.
             new AppSeed(APPLICATION_CODE_PMS, "PMS", 3, null, List.of(
+                    // 고객사 관리 — 발주사/담당자 마스터. 프로젝트 관리에서 선택해 입력한다
+                    new FolderSeed("PMS_MENU_CUSTOMER", "고객사 관리", List.of(
+                            new PageSeed("PMS_PAGE_CUSTOMERS", "고객사 관리", "/workspace/PMS/customers"),
+                            new PageSeed("PMS_PAGE_CUSTOMER_CONTACTS", "고객사 담당자 관리", "/workspace/PMS/customer-contacts"))),
                     new FolderSeed("PMS_MENU_PROJECT", "영업단계", List.of(
                             new PageSeed("PMS_PAGE_PROJECTS", "프로젝트 관리", "/workspace/PMS/projects"),
                             new PageSeed("PMS_PAGE_RFP", "RFP 관리", "/workspace/PMS/rfp"),
@@ -161,7 +165,8 @@ public class PortalBootstrapListener {
                             new PageSeed("PMS_PAGE_OPS_PROJECT", "프로젝트 관리", "/workspace/PMS/ops-project"))),
                     // 인력관리 — 프로젝트의 투입 인력(프로젝트 멤버)을 인력 기준으로 모아 투입 계획·실적을 관리
                     new FolderSeed("PMS_MENU_HR", "인력관리", List.of(
-                            new PageSeed("PMS_PAGE_STAFFING", "투입 관리", "/workspace/PMS/staffing")))))
+                            new PageSeed("PMS_PAGE_STAFFING", "투입 관리", "/workspace/PMS/staffing"),
+                            new PageSeed("PMS_PAGE_RATES", "단가 관리", "/workspace/PMS/rates")))))
     );
 
     private final PortalRepository portalRepository;

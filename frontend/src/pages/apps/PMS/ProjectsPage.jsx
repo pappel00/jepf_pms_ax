@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { usersApi } from '../../../api/entities'
 import Modal from '../../../components/Modal'
 import './pms.css'
+import { contactOf, customerOf, useCustomerState } from './customerStore'
 import { TODAY } from './pmsStore'
 import {
   BID_TYPES,
@@ -45,7 +46,7 @@ const needsFailReason = (status) => ['실패', '보류/취소'].includes(status)
 function validate(p) {
   const e = {}
   if (!p.name.trim()) e.name = '프로젝트명을 입력하세요.'
-  if (!p.client.trim()) e.client = '발주사를 입력하세요.'
+  if (!p.customerId) e.client = '발주사를 선택하세요.'
   if (!p.start) e.start = '시작일을 선택하세요.'
   if (!p.end) e.end = '종료일을 선택하세요.'
   if (p.start && p.end && p.end < p.start) e.end = '종료일이 시작일보다 빠릅니다.'
@@ -78,7 +79,13 @@ function Field({ label, required, conditional, error, hint, children, wide }) {
 }
 
 function ProjectForm({ initial, isNew, users, onClose }) {
-  const [p, setP] = useState(initial)
+  const { customers, contacts } = useCustomerState()
+  // 발주사·담당자는 고객사 관리 / 고객사 담당자 관리에 등록된 마스터에서 선택한다(id가 없는 기존 데이터는 이름으로 매칭).
+  const [p, setP] = useState(() => ({
+    ...initial,
+    customerId: customerOf(customers, initial)?.id ?? '',
+    contactId: contactOf(contacts, initial)?.id ?? '',
+  }))
   const [probTouched, setProbTouched] = useState(false)
   const [errors, setErrors] = useState({})
   const set = (key, value) => setP((prev) => ({ ...prev, [key]: value }))
@@ -89,6 +96,16 @@ function ProjectForm({ initial, isNew, users, onClose }) {
       status,
       probability: probTouched ? prev.probability : defaultProbabilityOf(status),
     }))
+
+  const pickCustomer = (id) => {
+    const c = customers.find((x) => x.id === id)
+    setP((prev) => ({ ...prev, customerId: id, client: c?.name ?? '', contactId: '', contactName: '', contactTitle: '', contactPhone: '', contactEmail: '' }))
+  }
+  const pickContact = (id) => {
+    const t = contacts.find((x) => x.id === id)
+    setP((prev) => ({ ...prev, contactId: id, contactName: t?.name ?? '', contactTitle: t?.title ?? '', contactPhone: t?.phone ?? '', contactEmail: t?.email ?? '' }))
+  }
+  const contactOptions = contacts.filter((t) => t.customerId === p.customerId && (t.useYn === 'Y' || t.id === p.contactId))
 
   const salesOptions = useMemo(() => {
     const list = users.map((u) => ({ value: u.userName, label: `${u.userName} (${u.loginId})`, id: u.id }))
@@ -171,8 +188,20 @@ function ProjectForm({ initial, isNew, users, onClose }) {
 
       <div className="pms-form-section">발주 정보</div>
       <div className="pms-form-grid">
-        <Field label="발주사" required error={errors.client}>
-          {text('client')}
+        <Field label="발주사" required error={errors.client} hint="고객사 관리에 등록된 고객사에서 선택합니다.">
+          <div style={{ display: 'flex', gap: 6 }}>
+            <select value={p.customerId} onChange={(e) => pickCustomer(e.target.value)} style={{ flex: 1 }}>
+              <option value="">선택</option>
+              {customers.filter((c) => c.status !== '거래 종료' || c.id === p.customerId).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <button type="button" className="secondary small" onClick={() => window.open('/workspace/PMS/customers', '_blank')}>
+              고객사 등록
+            </button>
+          </div>
         </Field>
         <Field
           label="발주금액 (원)"
@@ -182,14 +211,31 @@ function ProjectForm({ initial, isNew, users, onClose }) {
         >
           {moneyInput('amount')}
         </Field>
-        <Field label="발주사 담당자" conditional={needsContact(p.status)} error={errors.contactName}>
-          {text('contactName')}
+        <Field label="발주사 담당자" conditional={needsContact(p.status)} error={errors.contactName} hint={p.customerId ? '선택한 고객사의 담당자 중에서 고릅니다.' : '발주사를 먼저 선택하세요.'}>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <select value={p.contactId} disabled={!p.customerId} onChange={(e) => pickContact(e.target.value)} style={{ flex: 1 }}>
+              <option value="">선택</option>
+              {contactOptions.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                  {t.title ? ` ${t.title}` : ''}
+                </option>
+              ))}
+            </select>
+            <button type="button" className="secondary small" onClick={() => window.open('/workspace/PMS/customer-contacts', '_blank')}>
+              담당자 등록
+            </button>
+          </div>
         </Field>
-        <Field label="담당자 직책">{text('contactTitle')}</Field>
+        <Field label="담당자 직책" hint="담당자 관리 정보 (수정은 고객사 담당자 관리에서)">
+          <input value={p.contactTitle} disabled />
+        </Field>
         <Field label="담당자 연락처" conditional={needsContact(p.status)} error={errors.contactPhone}>
-          {text('contactPhone', { placeholder: '010-0000-0000' })}
+          <input value={p.contactPhone} disabled />
         </Field>
-        <Field label="담당자 이메일">{text('contactEmail', { type: 'email' })}</Field>
+        <Field label="담당자 이메일">
+          <input value={p.contactEmail} disabled />
+        </Field>
       </div>
 
       <div className="pms-form-section">영업 정보</div>
