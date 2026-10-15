@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { usersApi } from '../../../api/entities'
 import Modal from '../../../components/Modal'
 import './pms.css'
+import ProjectNotesModal from './ProjectNotesModal'
 import { contactOf, customerOf, useCustomerState } from './customerStore'
 import { TODAY } from './pmsStore'
 import {
@@ -350,6 +351,7 @@ export default function ProjectsPage() {
   const [keyword, setKeyword] = useState('')
   const [salesFilter, setSalesFilter] = useState('')
   const [editing, setEditing] = useState(null) // { project, isNew }
+  const [notesOf, setNotesOf] = useState(null)
 
   useEffect(() => {
     usersApi
@@ -452,12 +454,13 @@ export default function ProjectsPage() {
             <th>영업 담당</th>
             <th>발주사 담당자</th>
             <th>제안 마감</th>
+            <th>영업 노트</th>
           </tr>
         </thead>
         <tbody>
           {filtered.length === 0 && (
             <tr>
-              <td className="empty-cell" colSpan={10}>
+              <td className="empty-cell" colSpan={11}>
                 조건에 맞는 프로젝트가 없습니다.
               </td>
             </tr>
@@ -497,12 +500,18 @@ export default function ProjectsPage() {
                     '-'
                   )}
                 </td>
+                <td onClick={(e) => e.stopPropagation()}>
+                  <button className="secondary small" onClick={() => setNotesOf(p)}>
+                    영업노트 보기
+                  </button>
+                </td>
               </tr>
             )
           })}
         </tbody>
       </table>
 
+      {notesOf && <ProjectNotesModal project={notesOf} onClose={() => setNotesOf(null)} />}
       {editing && (
         <ProjectForm
           key={editing.project.id}

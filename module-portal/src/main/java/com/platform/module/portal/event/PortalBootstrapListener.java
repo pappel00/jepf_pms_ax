@@ -143,6 +143,7 @@ public class PortalBootstrapListener {
                             new PageSeed("PMS_PAGE_CUSTOMERS", "고객사 관리", "/workspace/PMS/customers"),
                             new PageSeed("PMS_PAGE_CUSTOMER_CONTACTS", "고객사 담당자 관리", "/workspace/PMS/customer-contacts"))),
                     new FolderSeed("PMS_MENU_PROJECT", "영업단계", List.of(
+                            new PageSeed("PMS_PAGE_SALES_NOTES", "영업 노트", "/workspace/PMS/sales-notes"),
                             new PageSeed("PMS_PAGE_PROJECTS", "프로젝트 관리", "/workspace/PMS/projects"),
                             new PageSeed("PMS_PAGE_RFP", "RFP 관리", "/workspace/PMS/rfp"),
                             new PageSeed("PMS_PAGE_RFP_EVAL", "RFP 평가", "/workspace/PMS/rfp-eval"),

@@ -36,6 +36,7 @@ import ReportPage from './pages/apps/PMS/ReportPage'
 import TransitionPage from './pages/apps/PMS/TransitionPage'
 import ExecProjectPage from './pages/apps/PMS/ExecProjectPage'
 import StaffingPage from './pages/apps/PMS/StaffingPage'
+import SalesNotesPage from './pages/apps/PMS/SalesNotesPage'
 import CustomersPage from './pages/apps/PMS/CustomersPage'
 import CustomerContactsPage from './pages/apps/PMS/CustomerContactsPage'
 import RatesPage from './pages/apps/PMS/RatesPage'
@@ -118,6 +119,7 @@ export default function App() {
             */}
             <Route path="PMS/customers" element={<CustomersPage />} />
             <Route path="PMS/customer-contacts" element={<CustomerContactsPage />} />
+            <Route path="PMS/sales-notes" element={<SalesNotesPage />} />
             <Route path="PMS/projects" element={<ProjectsPage />} />
             <Route path="PMS/rfp" element={<RfpPage />} />
             <Route path="PMS/rfp-eval" element={<RfpEvalPage />} />
