@@ -36,6 +36,10 @@ import ReportPage from './pages/apps/PMS/ReportPage'
 import TransitionPage from './pages/apps/PMS/TransitionPage'
 import ExecProjectPage from './pages/apps/PMS/ExecProjectPage'
 import StaffingPage from './pages/apps/PMS/StaffingPage'
+import NextOppsPage from './pages/apps/PMS/NextOppsPage'
+import OpsTasksPage from './pages/apps/PMS/OpsTasksPage'
+import OpsIssuesPage from './pages/apps/PMS/OpsIssuesPage'
+import OpsSalesPage from './pages/apps/PMS/OpsSalesPage'
 import SalesNotesPage from './pages/apps/PMS/SalesNotesPage'
 import CustomersPage from './pages/apps/PMS/CustomersPage'
 import CustomerContactsPage from './pages/apps/PMS/CustomerContactsPage'
@@ -128,12 +132,16 @@ export default function App() {
             <Route path="PMS/phase-transition" element={<TransitionPage />} />
             <Route path="PMS/ops-transition" element={<OpsTransitionPage />} />
             <Route path="PMS/ops-project" element={<OpsProjectPage />} />
+            <Route path="PMS/ops-tasks" element={<OpsTasksPage />} />
+            <Route path="PMS/ops-issues" element={<OpsIssuesPage />} />
+            <Route path="PMS/ops-sales" element={<OpsSalesPage />} />
             <Route path="PMS/exec-project" element={<ExecProjectPage />} />
             <Route path="PMS/staffing" element={<StaffingPage />} />
             <Route path="PMS/rates" element={<RatesPage />} />
             <Route path="PMS/doc-tailoring" element={<DocTailoringPage />} />
             <Route path="PMS/dashboard" element={<MyDashboardPage />} />
             <Route path="PMS/wbs" element={<WbsPage />} />
+            <Route path="PMS/next-opps" element={<NextOppsPage />} />
             <Route path="PMS/issues" element={<IssuesPage />} />
             <Route path="PMS/report-weekly" element={<ReportPage mode="week" />} />
             <Route path="PMS/report-monthly" element={<ReportPage mode="month" />} />

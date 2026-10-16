@@ -158,12 +158,16 @@ public class PortalBootstrapListener {
                             new PageSeed("PMS_PAGE_DOC_TAILORING", "문서 테일러링 관리", "/workspace/PMS/doc-tailoring"),
                             new PageSeed("PMS_PAGE_WBS", "WBS / 진척 관리", "/workspace/PMS/wbs"),
                             new PageSeed("PMS_PAGE_ISSUES", "이슈 관리", "/workspace/PMS/issues"),
+                            new PageSeed("PMS_PAGE_NEXT_OPPS", "차기 사업 기회 관리", "/workspace/PMS/next-opps"),
                             new PageSeed("PMS_PAGE_REPORT_WEEKLY", "주간 보고", "/workspace/PMS/report-weekly"),
                             new PageSeed("PMS_PAGE_REPORT_MONTHLY", "월간 보고", "/workspace/PMS/report-monthly"),
                             new PageSeed("PMS_PAGE_DASHBOARD", "내 업무 대시보드", "/workspace/PMS/dashboard"))),
                     // 운영 단계 — 운영단계전환을 마친(운영 중) 프로젝트의 운영 정보·운영 인력·인수 현황 관리
                     new FolderSeed("PMS_MENU_OPS", "운영 단계", List.of(
-                            new PageSeed("PMS_PAGE_OPS_PROJECT", "프로젝트 관리", "/workspace/PMS/ops-project"))),
+                            new PageSeed("PMS_PAGE_OPS_PROJECT", "프로젝트 관리", "/workspace/PMS/ops-project"),
+                            new PageSeed("PMS_PAGE_OPS_TASKS", "운영 업무 관리", "/workspace/PMS/ops-tasks"),
+                            new PageSeed("PMS_PAGE_OPS_ISSUES", "운영 이슈 관리", "/workspace/PMS/ops-issues"),
+                            new PageSeed("PMS_PAGE_OPS_SALES", "운영 영업 관리", "/workspace/PMS/ops-sales"))),
                     // 인력관리 — 프로젝트의 투입 인력(프로젝트 멤버)을 인력 기준으로 모아 투입 계획·실적을 관리
                     new FolderSeed("PMS_MENU_HR", "인력관리", List.of(
                             new PageSeed("PMS_PAGE_STAFFING", "투입 관리", "/workspace/PMS/staffing"),

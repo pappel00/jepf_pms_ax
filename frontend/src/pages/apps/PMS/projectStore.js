@@ -145,6 +145,28 @@ const seed = [
     },
   },
   {
+    // 운영 중 프로젝트 — 운영 업무·운영 이슈·운영 영업 목업 시연용(운영단계전환을 마친 상태)
+    id: 'PRJ-2026-011', name: '그룹웨어 유지보수 (2026 하반기)', client: '대한물산',
+    start: '2026-01-05', end: '2026-06-30', amount: 150000000, status: '운영 중', probability: 100,
+    contactName: '박담당', contactTitle: '과장', contactPhone: '02-555-0101', contactEmail: '',
+    salesId: null, salesName: '관리자',
+    businessType: 'SM 운영/유지보수', bidType: '수의계약', noticeNo: '', dueDate: '', presentDate: '',
+    competitors: '', pmName: '관리자', costEstimate: 110000000, failReason: '', memo: '2026-06-30 검수 완료 후 유상 유지보수 전환',
+    transitioned: {
+      date: '2026-01-02', rfpId: '', itemCount: 0, phases: ['개발', '테스트'],
+      manager: { name: '관리자', role: 'PM' },
+      team: [{ name: '관리자', role: 'PL', phases: ['개발', '테스트'], mm: 3, from: '2026-01-05', to: '2026-06-30', notify: '' }],
+    },
+    completed: { date: '2026-06-30', memo: '검수 완료', features: ['전자결재', '통합검색', '모바일 결재'], openIssues: 0 },
+    operation: {
+      date: '2026-07-01', type: '유상 유지보수', startDate: '2026-07-01', endDate: '2026-12-31', contractAmount: 150000000,
+      sla: { level: '표준', respond: 4, resolve: 24, hours: '평일 09~18시' },
+      manager: { name: '관리자', role: '운영 PM' },
+      team: [{ name: '관리자', role: '운영', phases: ['운영'], mm: 3, from: '2026-07-01', to: '2026-12-31', notify: '' }],
+      features: ['전자결재', '통합검색', '모바일 결재'], docs: [], carriedIssues: [],
+    },
+  },
+  {
     id: 'PRJ-2026-008', name: '스마트팩토리 MES 구축', client: '동서에너지',
     start: '2026-10-01', end: '2027-06-30', amount: 4100000000, status: '실패', probability: 0,
     contactName: '오책임', contactTitle: '책임', contactPhone: '052-300-1100', contactEmail: '',

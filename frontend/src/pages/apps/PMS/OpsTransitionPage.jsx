@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import './pms.css'
 import { DEFAULT_PROJECT_ID, docOf, tailoringOf, useDocs } from './docStore'
 import { isOpenStatus, useIssues } from './issueStore'
+import { isOpenNext, transferToOps, useNextOpps } from './nextOppStore'
 import { OPS_TYPES, SLA_LEVELS, addDaysISO, carryOverTeam, defaultOpsManager, oneYearAfter } from './opsConfig'
 import { TODAY, useTasks } from './pmsStore'
 import { formatKoreanWon, transitionToOperation, useProjects } from './projectStore'
@@ -20,6 +21,7 @@ export default function OpsTransitionPage() {
   const projects = useProjects()
   const docState = useDocs()
   const issues = useIssues()
+  const nextOpps = useNextOpps()
   const tasks = useTasks()
   const navigate = useNavigate()
 
@@ -36,6 +38,7 @@ export default function OpsTransitionPage() {
   const [featureSel, setFeatureSel] = useState(new Set())
   const [docSel, setDocSel] = useState(new Set())
   const [issueSel, setIssueSel] = useState(new Set())
+  const [oppSel, setOppSel] = useState(new Set())
   const [manager, setManager] = useState({ name: '', role: '운영 PM' })
   const [team, setTeam] = useState([])
   const [result, setResult] = useState(null)
@@ -64,6 +67,7 @@ export default function OpsTransitionPage() {
     setFeatureSel(new Set(p.completed?.features ?? []))
     setDocSel(new Set(regDocs(p).map((t) => t.id)))
     setIssueSel(new Set(openIssuesOf(p).map((i) => i.id)))
+    setOppSel(new Set(nextOpps.filter((o) => o.projectId === p.id && isOpenNext(o)).map((o) => o.id)))
     setManager(defaultOpsManager(p.transitioned?.manager))
     setTeam(carryOverTeam(p.transitioned?.team ?? [], { start, end }))
   }
@@ -78,13 +82,14 @@ export default function OpsTransitionPage() {
   const features = project?.completed?.features ?? []
   const docs = project ? regDocs(project) : []
   const openIssues = project ? openIssuesOf(project) : []
+  const opps = project ? nextOpps.filter((o) => o.projectId === project.id && isOpenNext(o)) : []
 
   const execute = () => {
     if (!startDate || !endDate || endDate < startDate) return window.alert('운영 기간을 확인하세요(종료일이 시작일보다 빠릅니다).')
     if (!manager.name) return window.alert('운영 관리자를 선택하세요.')
     if (team.some((m) => !m.name)) return window.alert('운영 인력의 이름을 모두 선택하세요.')
     if (team.some((m) => m.from && m.to && m.to < m.from)) return window.alert('투입 기간의 종료일이 시작일보다 빠른 인력이 있습니다.')
-    if (!window.confirm(`"${project.name}" 프로젝트를 운영 단계로 전환할까요?\n\n• 운영 대상 기능 ${featureSel.size}건\n• 인수 산출물 ${docSel.size}종\n• 이관 이슈 ${issueSel.size}건\n• 운영 인력 ${team.length}명`)) return
+    if (!window.confirm(`"${project.name}" 프로젝트를 운영 단계로 전환할까요?\n\n• 운영 대상 기능 ${featureSel.size}건\n• 인수 산출물 ${docSel.size}종\n• 이관 이슈 ${issueSel.size}건\n• 차기 사업 기회 이관 ${oppSel.size}건\n• 운영 인력 ${team.length}명`)) return
     transitionToOperation(project.id, {
       date: TODAY, type, startDate, endDate, sla: { level: slaLevel, ...sla }, contractAmount,
       manager, team,
@@ -92,7 +97,8 @@ export default function OpsTransitionPage() {
       docs: docs.filter((t) => docSel.has(t.id)).map((t) => ({ phase: t.phase, name: t.name, version: docOf(docState, project.id, t.id).versions.slice(-1)[0].ver })),
       carriedIssues: openIssues.filter((i) => issueSel.has(i.id)).map((i) => ({ id: i.id, title: i.title, priority: i.priority })),
     })
-    setResult({ id: project.id, name: project.name, features: featureSel.size, docs: docSel.size, issues: issueSel.size, team: team.length })
+    transferToOps(project.id, [...oppSel])
+    setResult({ id: project.id, name: project.name, features: featureSel.size, docs: docSel.size, issues: issueSel.size, opps: oppSel.size, team: team.length })
     setProjectId(null)
   }
 
@@ -114,7 +120,7 @@ export default function OpsTransitionPage() {
         <div className="pms-panel" style={{ background: '#f1faf3', border: '1px solid #bfe3c8' }}>
           <h3 style={{ fontSize: 15 }}>✅ 운영단계전환 완료 — {result.name}</h3>
           <p style={{ margin: '4px 0 10px', fontSize: 13 }}>
-            프로젝트 상태가 <b>운영 중</b>으로 바뀌었습니다. 운영 대상 기능 {result.features}건 · 인수 산출물 {result.docs}종 · 이관 이슈 {result.issues}건 · 운영 인력 {result.team}명.
+            프로젝트 상태가 <b>운영 중</b>으로 바뀌었습니다. 운영 대상 기능 {result.features}건 · 인수 산출물 {result.docs}종 · 이관 이슈 {result.issues}건 · 차기 사업 기회 {result.opps}건 → 운영 영업 관리 · 운영 인력 {result.team}명.
           </p>
           <button className="primary small" onClick={() => navigate(`/workspace/PMS/ops-project?project=${result.id}`)}>
             운영 프로젝트 관리 열기 ›
@@ -315,6 +321,24 @@ export default function OpsTransitionPage() {
                 </label>
               ))
             )}
+
+            <div className="pms-form-section">
+              차기 사업 기회 이관 <span className="muted" style={{ fontWeight: 400 }}>{oppSel.size}/{opps.length}건 — 수행 단계에서 모은 기회를 운영 영업 관리의 영업 기회로 넘깁니다 (고객사 담당자 정보 포함)</span>
+            </div>
+            {opps.length === 0 ? (
+              <p className="muted">이관할 차기 사업 기회가 없습니다. 수행 단계 「차기 사업 기회 관리」에서 등록할 수 있습니다.</p>
+            ) : (
+              opps.map((o) => (
+                <label key={o.id} className="pms-radio">
+                  <input type="checkbox" checked={oppSel.has(o.id)} onChange={() => toggle(setOppSel)(o.id)} />
+                  <span>
+                    <b>{o.id}</b> {o.title} <span className="pms-tag copy">{o.kind}</span> <span className="pms-tag">{o.stage}</span>{' '}
+                    <span className="muted">{o.amount ? `${formatKoreanWon(o.amount)} · ` : ''}{o.quarter}</span>
+                  </span>
+                </label>
+              ))
+            )}
+            {opps.length > 0 && <div className="pms-field-hint">선택하지 않은 기회는 수행 단계에 그대로 남습니다.</div>}
           </div>
 
           <div className="pms-panel">
@@ -359,7 +383,7 @@ export default function OpsTransitionPage() {
               <div className="pms-stat ok">
                 <div className="label">인수</div>
                 <div className="value" style={{ fontSize: 16 }}>
-                  기능 {featureSel.size} · 산출물 {docSel.size} · 이슈 {issueSel.size}
+                  기능 {featureSel.size} · 산출물 {docSel.size} · 이슈 {issueSel.size} · 차기 기회 {oppSel.size}
                 </div>
               </div>
               <div className="pms-stat">
