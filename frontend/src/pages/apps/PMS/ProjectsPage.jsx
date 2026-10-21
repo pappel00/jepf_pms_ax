@@ -132,13 +132,14 @@ function ProjectForm({ initial, isNew, users, onClose }) {
   const text = (key, extra = {}) => (
     <input value={p[key] ?? ''} onChange={(e) => set(key, e.target.value)} {...extra} />
   )
-  const moneyInput = (key) => (
+  const moneyInput = (key, onEdit) => (
     <input
       inputMode="numeric"
       value={p[key] === null || p[key] === '' ? '' : Number(p[key]).toLocaleString()}
       onChange={(e) => {
         const digits = e.target.value.replace(/[^\d]/g, '')
         set(key, digits === '' ? null : Number(digits))
+        onEdit?.()
       }}
       placeholder="숫자만 입력 (원)"
     />
@@ -303,8 +304,11 @@ function ProjectForm({ initial, isNew, users, onClose }) {
         <Field label="경쟁사" wide>
           {text('competitors', { placeholder: '쉼표로 구분' })}
         </Field>
-        <Field label="예상 원가 (원)" hint={margin !== null ? `예상 이익률 ${margin}%` : '입력하면 예상 이익률을 계산합니다'}>
-          {moneyInput('costEstimate')}
+        <Field
+          label="예상 원가 (원)"
+          hint={`${margin !== null ? `예상 이익률 ${margin}%` : '입력하면 예상 이익률을 계산합니다'}${p.costSource ? ` · 출처: ${p.costSource}` : ''}`}
+        >
+          {moneyInput('costEstimate', () => set('costSource', ''))}
         </Field>
       </div>
 

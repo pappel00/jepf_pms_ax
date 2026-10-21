@@ -146,8 +146,16 @@ function ProposalForm({ initial, isNew, projects, rfps, onClose, onSaved }) {
         <Field label="제안 금액 (원)" hint={p.price ? `≈ ${formatKoreanWon(p.price)}${project?.amount ? ` · 발주 추정금액 ${formatKoreanWon(project.amount)}` : ''}` : ''}>
           {moneyInput('price')}
         </Field>
-        <Field label="예상 원가 (원)" hint="RFP 평가 M/D 합계 연동 예정 — 지금은 직접 입력">
+        <Field
+          label="예상 원가 (원)"
+          hint={project?.costEstimate ? `프로젝트 예상 원가 ${formatKoreanWon(project.costEstimate)}${project.costSource ? ` · 출처: ${project.costSource}` : ' · 수동 입력'}` : '프로젝트에 예상 원가가 없습니다 — 직접 입력'}
+        >
           {moneyInput('costEstimate')}
+          {project?.costEstimate ? (
+            <button type="button" className="secondary small" style={{ marginTop: 4 }} onClick={() => set('costEstimate', project.costEstimate)}>
+              프로젝트 예상 원가 가져오기
+            </button>
+          ) : null}
         </Field>
       </div>
       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>

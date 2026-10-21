@@ -3,7 +3,7 @@ import Modal from '../../../components/Modal'
 import './pms.css'
 import { collectAssignments } from './assignmentStore'
 import { MEMBERS, TODAY } from './pmsStore'
-import { formatKoreanWon, useProjects } from './projectStore'
+import { formatKoreanWon, saveProject, useProjects } from './projectStore'
 import {
   DIFFICULTIES,
   GRADES,
@@ -284,9 +284,22 @@ function CostTab({ state, projects, assignments }) {
         월별 계획 M/M × 그 달에 적용되는 단가의 합계입니다(M/M 미입력 인력은 투입률 100%로 가정). 직무별: {Object.entries(byRole).map(([k, v]) => `${k} ${formatKoreanWon(v)}`).join(' · ') || '-'}.
         {project?.costEstimate ? ` 프로젝트 관리의 예상 원가(수동 입력) ${formatKoreanWon(project.costEstimate)}과 비교해 반영 여부를 결정합니다.` : ''}
       </div>
-      <button className="secondary small" style={{ marginTop: 8 }} onClick={() => window.alert('목업: 프로젝트 관리의 예상 원가에 환산 인건비를 반영합니다(출처 표시 + 수동 수정 허용).')}>
+      {project?.costSource && (
+        <div className="pms-field-hint">현재 예상 원가 출처: <b>{project.costSource}</b></div>
+      )}
+      <button
+        className="secondary small"
+        style={{ marginTop: 8 }}
+        disabled={!project || !totalCost}
+        onClick={() => {
+          if (missing.length && !window.confirm('단가가 없는 인력은 제외된 금액입니다. 그래도 반영할까요?')) return
+          if (project.costEstimate && !window.confirm(`기존 예상 원가 ${formatKoreanWon(project.costEstimate)}을(를) ${formatKoreanWon(totalCost)}으로 바꿀까요?`)) return
+          saveProject({ ...project, costEstimate: totalCost, costSource: `단가 환산 인건비 (${TODAY} 기준, 투입 ${fmt1(totalMm)} M/M)` })
+        }}
+      >
         예상 원가에 반영
       </button>
+      <span className="pms-field-hint" style={{ marginLeft: 8 }}>프로젝트 관리·제안서의 예상 원가/이익률에 반영됩니다. 이후 수동 수정도 가능합니다.</span>
     </div>
   )
 }
