@@ -5,6 +5,7 @@ import { DEFAULT_PROJECT_ID } from './docStore'
 import { isHighPriority, isOpenStatus, useIssues } from './issueStore'
 import { ME, TODAY, blockedBy, isLeaf, plannedProgress, projectProgress, statusOf, targetProgressOf, useTasks } from './pmsStore'
 import { formatKoreanWon, useProjects } from './projectStore'
+import { mondayOf, saveSnapshot, useSnapshots, valueAt } from './snapshotStore'
 
 // ---------- 날짜 유틸 ----------
 const parse = (s) => new Date(`${s}T00:00:00Z`)
@@ -103,8 +104,47 @@ function Bar({ value, late }) {
 const PRIORITY_CLASS = { 긴급: 'late', 높음: 'manual', 보통: '', 낮음: '' }
 const STATUS_CLASS = { 오픈: 'late', '진행 중': 'doing', 해결: 'done', 종결: '' }
 
+/** 진척 추이(스냅샷 + 현재) — 실적(파랑 실선)과 목표(회색 점선). */
+function TrendChart({ points }) {
+  const W = 520
+  const H = 120
+  const pad = 24
+  if (points.length < 2) return <p className="muted">스냅샷이 2개 이상 쌓이면 추이가 표시됩니다.</p>
+  const x = (i) => pad + (i * (W - pad * 2)) / (points.length - 1)
+  const y = (v) => H - pad - (v / 100) * (H - pad * 2)
+  const line = (key) => points.map((p, i) => `${x(i)},${y(p[key])}`).join(' ')
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: W, height: 'auto' }} role="img" aria-label="진척 추이">
+      {[0, 50, 100].map((v) => (
+        <g key={v}>
+          <line x1={pad} x2={W - pad} y1={y(v)} y2={y(v)} stroke="#e3e7ee" />
+          <text x={2} y={y(v) + 4} fontSize="10" fill="#7a8599">{v}%</text>
+        </g>
+      ))}
+      <polyline points={line('target')} fill="none" stroke="#9aa5b8" strokeDasharray="4 3" strokeWidth="2" />
+      <polyline points={line('overall')} fill="none" stroke="#2f6fdb" strokeWidth="2.5" />
+      {points.map((p, i) => (
+        <g key={p.date}>
+          <circle cx={x(i)} cy={y(p.overall)} r="3.5" fill="#2f6fdb" />
+          <text x={x(i)} y={H - 6} fontSize="10" textAnchor="middle" fill="#7a8599">{md(p.date)}</text>
+        </g>
+      ))}
+    </svg>
+  )
+}
+
 function ProjectReport({ project, data, mode, period, next, mineOnly, memoKey }) {
   const navigate = useNavigate()
+  const snaps = useSnapshots()[project.id] ?? []
+  const live = { overall: data.overall, target: data.target }
+  // 기간 증감 = 기간 끝 시점 진척 − 기간 시작 직전 진척 (기준일 이후 기간은 계산하지 않는다)
+  const future = period.start > TODAY
+  const endVal = future ? null : valueAt(snaps, period.end, TODAY, live)
+  const startVal = future ? null : valueAt(snaps, addDays(period.start, -1), TODAY, live)
+  const gain = endVal && startVal ? Math.round((endVal.overall - startVal.overall) * 10) / 10 : null
+  const planGain = endVal && startVal ? Math.round((endVal.target - startVal.target) * 10) / 10 : null
+  const trend = [...snaps, ...(snaps.some((s) => s.date === mondayOf(TODAY)) ? [] : [{ date: TODAY, ...live }])]
+  const savedThisWeek = snaps.some((s) => s.date === mondayOf(TODAY))
   const [memo, setMemo] = useState(SEED_MEMO[memoKey] ?? '')
   const unit = mode === 'week' ? '금주' : '당월'
   const nextUnit = mode === 'week' ? '다음 주' : '다음 달'
@@ -129,7 +169,7 @@ function ProjectReport({ project, data, mode, period, next, mineOnly, memoKey })
   const copyText = () => {
     const lines = [
       `[${mode === 'week' ? '주간' : '월간'} 보고] ${project.name} (${md(period.start)}~${md(period.end)})`,
-      `전체 진척 ${data.overall}% (목표 ${data.target}%, ${diff >= 0 ? '+' : ''}${diff}%p)`,
+      `전체 진척 ${data.overall}% (목표 ${data.target}%, ${diff >= 0 ? '+' : ''}${diff}%p)${gain !== null ? ` / ${unit} ${gain >= 0 ? '+' : ''}${gain}%p` : ''}`,
       '',
       `■ ${unit} 진행 업무`,
       ...doing.map((t) => `- ${t.name} (${t.assignee}) ${t.progress}% / 기한 ${md(t.end)}${t.late ? ' [지연]' : ''}`),
@@ -179,6 +219,11 @@ function ProjectReport({ project, data, mode, period, next, mineOnly, memoKey })
             {diff}%p
           </div>
         </div>
+        <div className={`pms-stat ${gain === null ? '' : gain > 0 ? 'ok' : 'warn'}`}>
+          <div className="label">{unit} 진척 증감</div>
+          <div className="value">{gain === null ? '-' : `${gain >= 0 ? '+' : ''}${gain}%p`}</div>
+          <div className="muted">{gain === null ? (future ? '예정 기간' : '스냅샷 없음') : `계획 ${planGain >= 0 ? '+' : ''}${planGain}%p`}</div>
+        </div>
         <div className="pms-stat ok">
           <div className="label">{unit} 완료 업무</div>
           <div className="value">{doneThis.length}</div>
@@ -196,6 +241,23 @@ function ProjectReport({ project, data, mode, period, next, mineOnly, memoKey })
           <div className="label">{unit} 신규 이슈</div>
           <div className="value">{newIssues}</div>
         </div>
+      </div>
+
+      <div className="pms-hint" style={{ boxShadow: 'none', background: '#fafbfd' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <b>진척 추이 <span className="muted" style={{ fontWeight: 400 }}>(주간 스냅샷 · 파랑 실적 / 점선 목표)</span></b>
+          <button
+            className="secondary small"
+            onClick={() => {
+              if (savedThisWeek && !window.confirm('이번 주 스냅샷이 이미 있습니다. 현재 값으로 덮어쓸까요?')) return
+              saveSnapshot(project.id, TODAY, data.overall, data.target)
+            }}
+          >
+            📸 {savedThisWeek ? '이번 주 스냅샷 다시 저장' : '현재 진척 스냅샷 저장'}
+          </button>
+        </div>
+        <TrendChart points={trend} />
+        <div className="pms-field-hint">매주 월요일 기준으로 저장합니다(자동 저장은 백엔드 구현 시 스케줄러로 대체). 마지막 점은 저장 전 현재 값입니다.</div>
       </div>
 
       {mode === 'month' && data.phases.length > 0 && (
@@ -409,7 +471,7 @@ function ProjectReport({ project, data, mode, period, next, mineOnly, memoKey })
 /**
  * 주간/월간 보고 — 로그인 사용자가 참여한 프로젝트별로 업무·이슈 데이터를 모아 보고서 형태로 보여준다.
  *  좌: 현재 진행 중인 업무(진척률) / 우: 다음 주(달) 업무(기한) / 하단: 해당 기간에 해결한 이슈 + 진행 중인 이슈.
- * 진척률은 조회 시점(현재) 기준이다(기간별 진척 이력은 스냅샷 도입 후 지원).
+ * 업무별 진척률은 조회 시점(현재) 기준이고, 전체 진척의 기간별 증감·추이는 주간 스냅샷(snapshotStore)으로 계산한다.
  */
 export default function ReportPage({ mode }) {
   const allTasks = useTasks()
@@ -490,7 +552,7 @@ export default function ReportPage({ mode }) {
         ))}
       </div>
 
-      {offset !== 0 && <div className="pms-blind">ℹ️ 진척률은 조회 시점(현재) 기준입니다. 기간별 진척 이력은 진척 스냅샷 도입 후 제공됩니다.</div>}
+      {offset !== 0 && <div className="pms-blind">ℹ️ 업무별 진척률은 조회 시점(현재) 기준입니다. 전체 진척의 기간별 증감은 주간 스냅샷으로 계산합니다(스냅샷이 없는 기간은 표시되지 않음).</div>}
 
       {shown.length === 0 && <p className="muted">참여 중인 프로젝트가 없습니다.</p>}
       {shown.map((p) => (
