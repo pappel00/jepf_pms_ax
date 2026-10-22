@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import Modal from '../../../components/Modal'
 import './pms.css'
+import { ProcessButton } from './ProcessModal'
+import { proposalProcess } from './processModels'
 import { MEMBERS, TODAY } from './pmsStore'
 import { formatKoreanWon, useProjects } from './projectStore'
 import { REQ_CATEGORIES, useRfps } from './rfpStore'
@@ -460,7 +462,8 @@ function ProposalDetail({ proposal, project, rfp, onEdit, onDeleted }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <h3 style={{ fontSize: 16, marginBottom: 4 }}>
-            {proposal.title} <span className={`pms-tag ${STATUS_CLASS[proposal.status]}`}>{proposal.status}</span>
+            {proposal.title} <span className={`pms-tag ${STATUS_CLASS[proposal.status]}`}>{proposal.status}</span>{' '}
+            <ProcessButton getModel={() => proposalProcess(proposal)} />
           </h3>
           <div className="muted">
             {proposal.id} · {project ? `${project.id} ${project.name} (${project.client})` : '-'} · 대응 RFP {rfp ? `${rfp.id} (${rfp.round})` : '-'} · 책임 {proposal.owner}

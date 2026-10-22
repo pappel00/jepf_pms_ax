@@ -1,17 +1,23 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './pms.css'
-import { buildTailoringFor, initTailoring } from './docStore'
+import { useAuth } from '../../../context/AuthContext'
+import { ProcessButton } from './ProcessModal'
+import { transitionProcess } from './processModels'
+import { buildTailoringFor } from './docStore'
+import { useIssues } from './issueStore'
+import { canSeeAllProjects } from './participation'
+import { cancelTransition, decideTransition, pendingTransitionOf, requestTransition, rollbackBlocker, rollbackProjectTransition, useRollbackLog, useTransitionRequests } from './transitionStore'
 import { itemEvalSummary, useEvals } from './evalStore'
 import {
   CHAIN,
+  ME,
   TODAY,
-  addProjectTasks,
   buildProjectWbs,
   isLeaf,
   useTasks,
 } from './pmsStore'
-import { formatKoreanWon, transitionProject, useProjects } from './projectStore'
+import { formatKoreanWon, useProjects } from './projectStore'
 import { REQ_CATEGORIES, categoryName, useRfps } from './rfpStore'
 import TeamEditor from './TeamEditor'
 import { ASSIGN_MODES, buildPools, defaultManager, defaultTeam } from './teamConfig'
@@ -34,8 +40,16 @@ export default function TransitionPage() {
   useEvals()
   const navigate = useNavigate()
 
-  const candidates = projects.filter((p) => p.status === '수주' && !tasks.some((t) => t.projectId === p.id))
+  const { auth } = useAuth()
+  const issues = useIssues()
+  const requests = useTransitionRequests()
+  const rollbackLog = useRollbackLog()
+  const canApprove = canSeeAllProjects(auth) // 센터장·admin만 승인 (목업: 본인 요청도 승인 가능)
+
+  const candidates = projects.filter((p) => p.status === '수주' && !tasks.some((t) => t.projectId === p.id) && !pendingTransitionOf(requests, p.id))
   const history = projects.filter((p) => p.transitioned)
+  const pendingRequests = requests.filter((r) => r.status === '승인 대기')
+  const decidedRequests = requests.filter((r) => r.status !== '승인 대기')
 
   const [projectId, setProjectId] = useState(null)
   const [phases, setPhases] = useState(new Set(CHAIN))
@@ -120,11 +134,20 @@ export default function TransitionPage() {
     if (team.some((m) => m.from && m.to && m.to < m.from)) return window.alert('투입 기간의 종료일이 시작일보다 빠른 인력이 있습니다.')
     if (!rfp && !window.confirm('등록된 RFP 항목이 없습니다. 항목 없이 단계와 표준 산출물만으로 기초데이터를 만들까요?')) return
     if (rfp && chosen.length === 0 && !window.confirm('선택한 RFP 항목이 없습니다. 항목 없이 단계와 표준 산출물만으로 기초데이터를 만들까요?')) return
-    if (!window.confirm(`"${project.name}" 프로젝트를 수행 단계로 전환할까요?\n\n• WBS 업무 ${leaves.length}건 생성\n• 문서 테일러링 ${docApplied.length}종 적용`)) return
-    addProjectTasks(preview)
-    initTailoring(project.id, { phases: selectedPhases, owners: docOwners, categories: new Set(chosen.map((i) => i.category)) })
-    transitionProject(project.id, { manager, team, date: TODAY, rfpId: rfp?.id, itemCount: chosen.length, phases: selectedPhases })
-    setResult({ id: project.id, name: project.name, tasks: leaves.length, docs: docApplied.length, docsOff: tailoring.length - docApplied.length, items: chosen.length, phases: selectedPhases })
+    if (!window.confirm(`"${project.name}" 단계전환을 요청할까요?\n\n• WBS 업무 ${leaves.length}건 생성 예정\n• 문서 테일러링 ${docApplied.length}종 적용 예정\n\n승인자(센터장·admin)가 승인하면 실제로 반영됩니다.`)) return
+    // 실행에 필요한 값을 요청에 담아 두고, 승인 시점에 그대로 적용한다.
+    requestTransition({
+      project,
+      requester: ME,
+      today: TODAY,
+      payload: {
+        tasks: preview,
+        tailoring: { phases: selectedPhases, owners: docOwners, categories: new Set(chosen.map((i) => i.category)) },
+        transition: { manager, team, rfpId: rfp?.id, itemCount: chosen.length, phases: selectedPhases },
+      },
+      summary: `단계 ${selectedPhases.join(' → ')} · RFP 항목 ${chosen.length}건 · WBS 업무 ${leaves.length}건 · 문서 ${docApplied.length}종 · 관리자 ${manager.name}(${manager.role}), 투입 ${team.length}명`,
+    })
+    setResult({ id: project.id, name: project.name, requested: true })
     setProjectId(null)
   }
 
@@ -146,22 +169,87 @@ export default function TransitionPage() {
 
       {result && (
         <div className="pms-panel" style={{ background: '#f1faf3', border: '1px solid #bfe3c8' }}>
-          <h3 style={{ fontSize: 15 }}>✅ 단계전환 완료 — {result.name}</h3>
+          <h3 style={{ fontSize: 15 }}>✅ 단계전환 요청 등록 — {result.name}</h3>
           <p style={{ margin: '4px 0 10px', fontSize: 13 }}>
-            프로젝트 상태가 <b>수행 중</b>으로 바뀌고 기초데이터가 생성되었습니다. 단계: {result.phases.join(' → ')} · RFP 항목 {result.items}건 → WBS 업무 {result.tasks}건,
-            문서 테일러링 적용 {result.docs}종(제외 {result.docsOff}종).
+            승인 대기 중입니다. 아래 「단계전환 승인」에서 승인자(센터장·admin)가 승인하면 WBS·문서 테일러링 기초데이터가 생성되고 프로젝트가 <b>수행 중</b>으로 바뀝니다.
           </p>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="primary small" onClick={() => navigate(`/workspace/PMS/wbs?project=${result.id}`)}>
-              WBS / 진척 관리 열기 ›
-            </button>
-            <button className="secondary small" onClick={() => navigate(`/workspace/PMS/doc-tailoring?project=${result.id}`)}>
-              문서 테일러링 관리 열기 ›
-            </button>
             <button className="link-btn" onClick={() => setResult(null)}>
               닫기
             </button>
           </div>
+        </div>
+      )}
+
+      {/* 단계전환 승인 */}
+      {(pendingRequests.length > 0 || decidedRequests.length > 0) && (
+        <div className="pms-panel">
+          <h3>
+            단계전환 승인 <span className="count">{pendingRequests.length}</span>
+            <span className="muted" style={{ fontWeight: 400 }}>
+              {canApprove ? '승인 대기 건을 승인/반려할 수 있습니다' : '승인은 센터장·admin만 할 수 있습니다'}
+            </span>
+          </h3>
+          <table className="data-table pms-wbs">
+            <thead>
+              <tr>
+                <th>요청 번호</th>
+                <th>프로젝트</th>
+                <th>요청자 / 일자</th>
+                <th>요청 내용</th>
+                <th>상태 / 처리</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...pendingRequests, ...decidedRequests].map((r) => (
+                <tr key={r.id}>
+                  <td><b>{r.id}</b></td>
+                  <td className="name-cell">{r.projectName}</td>
+                  <td>{r.requester}<div className="muted">{r.requestedAt}</div></td>
+                  <td className="name-cell">{r.summary}</td>
+                  <td>
+                    <span className={`pms-tag ${r.status === '승인' ? 'done' : r.status === '승인 대기' ? 'manual' : r.status === '반려' ? 'late' : ''}`}>{r.status}</span>
+                    {r.decidedBy && <div className="muted">{r.decidedBy} · {r.decidedAt}{r.comment ? ` · ${r.comment}` : ''}</div>}
+                  </td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <ProcessButton getModel={() => transitionProcess(r)} />
+                    {r.status === '승인 대기' && (
+                      <>
+                        {canApprove && (
+                          <button
+                            className="link-btn"
+                            onClick={() => {
+                              if (!window.confirm('승인하면 WBS·문서 테일러링이 생성되고 프로젝트가 「수행 중」이 됩니다. 승인할까요?')) return
+                              decideTransition(r.id, '승인', { by: ME, comment: '', today: TODAY })
+                            }}
+                          >
+                            승인
+                          </button>
+                        )}
+                        {canApprove && (
+                          <button
+                            className="link-btn danger"
+                            onClick={() => {
+                              const comment = window.prompt('반려 사유를 입력하세요 (필수)')
+                              if (comment && comment.trim()) decideTransition(r.id, '반려', { by: ME, comment: comment.trim(), today: TODAY })
+                            }}
+                          >
+                            반려
+                          </button>
+                        )}
+                        {r.requester === ME && (
+                          <button className="link-btn" onClick={() => cancelTransition(r.id, { by: ME, today: TODAY })}>
+                            요청 취소
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -526,11 +614,37 @@ export default function TransitionPage() {
                     <button className="link-btn" onClick={() => navigate(`/workspace/PMS/doc-tailoring?project=${p.id}`)}>
                       문서 테일러링 ›
                     </button>
+                    {p.status === '수행 중' && (() => {
+                      const blocker = rollbackBlocker(tasks.filter((t) => t.projectId === p.id), issues.filter((i) => i.projectId === p.id))
+                      return (
+                        <button
+                          className="link-btn danger"
+                          disabled={!canApprove || !!blocker}
+                          title={!canApprove ? '롤백은 센터장·admin만 할 수 있습니다' : blocker ? `롤백 불가: ${blocker}` : '단계전환을 취소하고 수주 상태로 되돌립니다'}
+                          onClick={() => {
+                            const reason = window.prompt(`"${p.name}" 단계전환을 롤백합니다. WBS·문서 테일러링이 삭제되고 「수주」로 되돌아갑니다.\n롤백 사유를 입력하세요 (필수)`)
+                            if (reason && reason.trim()) rollbackProjectTransition(p, { reason: reason.trim(), by: ME, today: TODAY })
+                          }}
+                        >
+                          롤백
+                        </button>
+                      )
+                    })()}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {rollbackLog.length > 0 && (
+            <div style={{ marginTop: 10, fontSize: 12 }}>
+              <b>롤백 이력</b>
+              {rollbackLog.map((l, i) => (
+                <div key={i} className="muted">
+                  {l.date} · {l.projectName} · {l.by} · 사유: {l.reason} (전환일 {l.prevDate})
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -1,6 +1,6 @@
 import './pms.css'
 import { CHAIN, MEMBERS } from './pmsStore'
-import { MANAGER_ROLES, NOTIFY_CHANNELS, TEAM_ROLES, isPartner, monthsBetween, newMember, orgOf } from './teamConfig'
+import { MANAGER_ROLES, NOTIFY_CHANNELS, TEAM_ROLES, ACCESS_LEVELS, calcEnd, gapDays, isPartner, monthsBetween, newMember, orgOf } from './teamConfig'
 
 /**
  * 프로젝트 관리자(1명) + 투입 인력 편집기 — 단계전환(3번)과 수행 단계 「프로젝트 관리」가 같이 쓴다.
@@ -9,8 +9,26 @@ import { MANAGER_ROLES, NOTIFY_CHANNELS, TEAM_ROLES, isPartner, monthsBetween, n
  *  - 협력사 인력: 로그인 없이 내 업무 알림(메신저)으로 진척·이슈를 처리하므로 알림 채널을 지정(관리자가 대신 입력 가능)
  * period: 프로젝트 기간 { start, end } — 새 인력의 투입 기간 기본값과 범위 경고에 쓴다.
  */
+const nowrap = { whiteSpace: 'nowrap' }
+
 export default function TeamEditor({ manager, setManager, team, setTeam, phases, period, readOnly = false, managerRoles = MANAGER_ROLES, roles = TEAM_ROLES, phaseList = CHAIN, managerHint }) {
-  const patchMember = (idx, patch) => setTeam((prev) => prev.map((m, i) => (i === idx ? { ...m, ...patch } : m)))
+  // M/M·투입 비율·시작일·공백 구간이 바뀌면(자동 모드) 종료일을 다시 계산한다. 종료일을 직접 고치면 자동 모드가 해제된다.
+  const patchMember = (idx, patch) =>
+    setTeam((prev) =>
+      prev.map((m, i) => {
+        if (i !== idx) return m
+        const next = { ...m, ...patch }
+        if ('to' in patch && !('auto' in patch)) next.auto = false
+        if (next.auto && ['mm', 'rate', 'from', 'gaps'].some((k) => k in patch)) {
+          const end = calcEnd(next.from, next.mm, next.rate, next.gaps)
+          if (end) next.to = end
+        }
+        return next
+      }),
+    )
+  const patchGap = (idx, gi, patch) => patchMember(idx, { gaps: (team[idx].gaps ?? []).map((g, j) => (j === gi ? { ...g, ...patch } : g)) })
+  const addGap = (idx) => patchMember(idx, { gaps: [...(team[idx].gaps ?? []), { from: '', to: '' }] })
+  const removeGap = (idx, gi) => patchMember(idx, { gaps: (team[idx].gaps ?? []).filter((_, j) => j !== gi) })
   const removeMember = (idx) => setTeam((prev) => prev.filter((_, i) => i !== idx))
   const addMember = () =>
     setTeam((prev) => {
@@ -62,21 +80,24 @@ export default function TeamEditor({ manager, setManager, team, setTeam, phases,
       <div className="pms-form-section">
         투입 인력 <span className="muted" style={{ fontWeight: 400 }}>{team.length}명 · 투입 M/M 합계 {totalMm || 0}{partners ? ` · 협력사 ${partners}명` : ''}</span>
       </div>
-      <table className="data-table pms-wbs">
+      <div style={{ overflowX: 'auto' }}>
+      <table className="data-table pms-wbs pms-team">
         <thead>
           <tr>
-            <th style={{ width: 170 }}>인력</th>
-            <th style={{ width: 120 }}>프로젝트 내 역할</th>
+            <th>인력</th>
+            <th>프로젝트 내 역할</th>
             <th>투입 단계</th>
-            <th style={{ width: 130 }}>투입 M/M</th>
-            <th style={{ width: 300 }}>투입 기간 (FROM ~ TO)</th>
+            <th>투입 M/M</th>
+            <th>투입 비율</th>
+            <th>접근 권한</th>
+            <th>투입 기간 (FROM ~ TO)</th>
             {!readOnly && <th></th>}
           </tr>
         </thead>
         <tbody>
           {team.length === 0 && (
             <tr>
-              <td className="empty-cell" colSpan={6}>
+              <td className="empty-cell" colSpan={8}>
                 투입 인력이 없습니다.{readOnly ? '' : ' 「+ 투입 인력 추가」로 지정하세요.'}
               </td>
             </tr>
@@ -88,32 +109,37 @@ export default function TeamEditor({ manager, setManager, team, setTeam, phases,
             const suggest = monthsBetween(m.from, m.to)
             return (
               <tr key={idx}>
-                <td>
-                  <select
-                    className="pms-cell-input"
-                    disabled={readOnly}
-                    value={m.name}
-                    onChange={(e) =>
-                      patchMember(idx, { name: e.target.value, notify: isPartner(e.target.value) ? m.notify || 'Mattermost' : '' })
-                    }
-                  >
-                    <option value="">선택</option>
-                    {MEMBERS.filter((x) => x.name === m.name || !team.some((t) => t.name === x.name)).map((x) => (
-                      <option key={x.name} value={x.name}>
-                        {x.name} ({orgOf(x.name)})
-                      </option>
-                    ))}
-                  </select>
-                  {isPartner(m.name) && (
-                    <div style={{ marginTop: 4, fontSize: 11 }} title="협력사 인력은 내 업무 알림(메신저)으로 진척·이슈를 처리합니다. 관리자가 대신 입력할 수도 있습니다.">
-                      <span className="pms-tag manual">협력사</span> 알림{' '}
-                      <select className="pms-cell-input" style={{ minWidth: 0, width: 90, padding: '2px 4px' }} disabled={readOnly} value={m.notify || '미설정'} onChange={(e) => patchMember(idx, { notify: e.target.value })}>
-                        {NOTIFY_CHANNELS.map((c) => (
-                          <option key={c}>{c}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+                <td style={nowrap}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <select
+                      className="pms-cell-input"
+                      style={{ minWidth: 0, width: 130 }}
+                      disabled={readOnly}
+                      value={m.name}
+                      onChange={(e) =>
+                        patchMember(idx, { name: e.target.value, notify: isPartner(e.target.value) ? m.notify || 'Mattermost' : '' })
+                      }
+                    >
+                      <option value="">선택</option>
+                      {MEMBERS.filter((x) => x.name === m.name || !team.some((t) => t.name === x.name)).map((x) => (
+                        <option key={x.name} value={x.name}>
+                          {x.name} ({orgOf(x.name)})
+                        </option>
+                      ))}
+                    </select>
+                    {isPartner(m.name) && (
+                      <>
+                        <span className="pms-tag manual" title="협력사 인력은 내 업무 알림(메신저)으로 진척·이슈를 처리합니다. 관리자가 대신 입력할 수도 있습니다.">
+                          협력
+                        </span>
+                        <select className="pms-cell-input" style={{ minWidth: 0, width: 84, padding: '2px 4px' }} title="알림 채널" disabled={readOnly} value={m.notify || '미설정'} onChange={(e) => patchMember(idx, { notify: e.target.value })}>
+                          {NOTIFY_CHANNELS.map((c) => (
+                            <option key={c}>{c}</option>
+                          ))}
+                        </select>
+                      </>
+                    )}
+                  </div>
                 </td>
                 <td>
                   <select className="pms-cell-input" disabled={readOnly} value={m.role} onChange={(e) => patchMember(idx, { role: e.target.value })}>
@@ -150,11 +176,59 @@ export default function TeamEditor({ manager, setManager, team, setTeam, phases,
                   )}
                 </td>
                 <td>
-                  <input type="date" className="pms-cell-input" style={{ width: 128, minWidth: 0 }} disabled={readOnly} value={m.from ?? ''} onChange={(e) => patchMember(idx, { from: e.target.value })} />
-                  {' ~ '}
-                  <input type="date" className="pms-cell-input" style={{ width: 128, minWidth: 0 }} disabled={readOnly} value={m.to ?? ''} onChange={(e) => patchMember(idx, { to: e.target.value })} />
-                  {badPeriod && <div className="pms-field-error">종료일이 시작일보다 빠릅니다.</div>}
-                  {outside && <div className="pms-field-hint">프로젝트 기간({period.start} ~ {period.end}) 밖입니다.</div>}
+                  <input
+                    type="number"
+                    min="1"
+                    max="200"
+                    step="5"
+                    className="pms-cell-input"
+                    style={{ width: 64, minWidth: 0 }}
+                    disabled={readOnly}
+                    value={m.rate ?? ''}
+                    placeholder="%"
+                    onChange={(e) => patchMember(idx, { rate: e.target.value === '' ? '' : Number(e.target.value) })}
+                  />
+                  <span style={{ marginLeft: 2 }}>%</span>
+                </td>
+                <td>
+                  <select className="pms-cell-input" style={{ minWidth: 0 }} disabled={readOnly} value={m.access ?? '편집'} onChange={(e) => patchMember(idx, { access: e.target.value })} title="편집: WBS 진척·이슈 입력 가능 / 열람: 조회만">
+                    {ACCESS_LEVELS.map((a) => (
+                      <option key={a}>{a}</option>
+                    ))}
+                  </select>
+                </td>
+                <td style={nowrap}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <input type="date" className="pms-cell-input" style={{ width: 128, minWidth: 0 }} disabled={readOnly} value={m.from ?? ''} onChange={(e) => patchMember(idx, { from: e.target.value })} />
+                    <span>~</span>
+                    <input type="date" className="pms-cell-input" style={{ width: 128, minWidth: 0 }} disabled={readOnly} value={m.to ?? ''} onChange={(e) => patchMember(idx, { to: e.target.value })} />
+                    {!readOnly && m.rate != null && (
+                      m.auto ? (
+                        <span className="pms-tag done" title="종료일 자동 계산 (M/M ÷ 투입 비율). 종료일을 직접 고치면 수동 지정이 됩니다.">자동</span>
+                      ) : (
+                        <button className="link-btn" style={{ fontSize: 11 }} title="종료일을 M/M ÷ 투입 비율로 다시 계산합니다" onClick={() => patchMember(idx, { auto: true, from: m.from })}>
+                          수동 · 자동계산
+                        </button>
+                      )
+                    )}
+                    {!readOnly && m.rate != null && (
+                      <button className="link-btn" style={{ fontSize: 11 }} title="투입이 중간에 비는 기간(타 업무 병행·휴지기 등)을 등록하면 그 기간은 계획 M/M에서 제외됩니다" onClick={() => addGap(idx)}>
+                        +공백
+                      </button>
+                    )}
+                    {(m.gaps ?? []).length > 0 && m.from && m.to && <span className="pms-tag late" title="공백 구간으로 제외된 일수">공백 {gapDays(m.gaps, m.from, m.to)}일</span>}
+                    {badPeriod && <span className="pms-tag late" title="종료일이 시작일보다 빠릅니다.">⚠ 기간 오류</span>}
+                    {outside && <span className="pms-tag manual" title={`프로젝트 기간(${period.start} ~ ${period.end}) 밖입니다.`}>⚠ 기간 밖</span>}
+                  </div>
+                  {(m.gaps ?? []).map((g, gi) => (
+                    <div key={gi} style={{ marginTop: 4, fontSize: 12 }}>
+                      <span className="pms-tag late">공백</span>{' '}
+                      <input type="date" className="pms-cell-input" style={{ width: 118, minWidth: 0 }} disabled={readOnly} value={g.from} onChange={(e) => patchGap(idx, gi, { from: e.target.value })} />
+                      {' ~ '}
+                      <input type="date" className="pms-cell-input" style={{ width: 118, minWidth: 0 }} disabled={readOnly} value={g.to} onChange={(e) => patchGap(idx, gi, { to: e.target.value })} />
+                      {!readOnly && <button className="link-btn danger" onClick={() => removeGap(idx, gi)}>✕</button>}
+                    </div>
+                  ))}
                 </td>
                 {!readOnly && (
                   <td>
@@ -170,11 +244,12 @@ export default function TeamEditor({ manager, setManager, team, setTeam, phases,
             <tr className="total-row">
               <td colSpan={3}>투입 M/M 합계</td>
               <td>{totalMm || 0}</td>
-              <td colSpan={readOnly ? 1 : 2} />
+              <td colSpan={readOnly ? 3 : 4} />
             </tr>
           )}
         </tbody>
       </table>
+      </div>
       {!readOnly && (
         <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <button className="secondary small" onClick={addMember} disabled={team.length >= MEMBERS.length}>

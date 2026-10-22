@@ -455,6 +455,11 @@ export function addProjectTasks(newTasks) {
   return true
 }
 
+/** 단계전환 롤백 — 해당 프로젝트의 WBS 업무를 모두 지운다. */
+export function removeProjectTasks(projectId) {
+  emit(tasks.filter((t) => t.projectId !== projectId))
+}
+
 /**
  * 업무 복사 — 담당자만 바꿔서 같은 업무를 한 명 더 만든다(진척률 0으로 초기화).
  * 가중치는 복사 그룹(원본 + 복사본들)의 합계를 균등 분배한다(요구사항 3.9.2).

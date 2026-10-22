@@ -163,6 +163,13 @@ export function initTailoring(projectId, opts) {
   setTailoring(projectId, buildTailoringFor(projectId, opts))
 }
 
+/** 단계전환 롤백 — 해당 프로젝트의 문서 테일러링·산출물 데이터를 모두 지운다. */
+export function clearProjectDocs(projectId) {
+  const { [projectId]: _t, ...tailoring } = state.tailoring
+  const { [projectId]: _d, ...docs } = state.docs
+  emit({ ...state, tailoring, docs })
+}
+
 export function patchItem(projectId, id, patch) {
   setTailoring(projectId, tailoringOf(state, projectId).map((t) => (t.id === id ? { ...t, ...patch } : t)))
 }

@@ -8,6 +8,7 @@ import { TODAY } from './pmsStore'
 import {
   BID_TYPES,
   BUSINESS_TYPES,
+  FAIL_REASON_CODES,
   PIPELINE_STATUSES,
   STATUSES,
   STATUS_NAMES,
@@ -36,7 +37,7 @@ const emptyProject = (all) => ({
   contactName: '', contactTitle: '', contactPhone: '', contactEmail: '',
   salesId: null, salesName: '',
   businessType: '', bidType: '', noticeNo: '', dueDate: '', presentDate: '',
-  competitors: '', pmName: '', costEstimate: null, failReason: '', memo: '',
+  competitors: '', pmName: '', costEstimate: null, failReasonCode: '', failReason: '', vatIncluded: false, memo: '',
 })
 
 /** 상태에 따라 조건부로 필수가 되는 항목 판정(요구: 제안 단계부터 발주사 담당자 정보 필수 등). */
@@ -59,7 +60,7 @@ function validate(p) {
     if (!p.contactPhone.trim()) e.contactPhone = '제안 단계부터 연락처는 필수입니다.'
   }
   if (needsDueDate(p.status) && !p.dueDate) e.dueDate = '공고 중/제안 중에는 제안 마감일이 필요합니다.'
-  if (needsFailReason(p.status) && !p.failReason.trim()) e.failReason = '실패/보류 사유를 기록하세요.'
+  if (needsFailReason(p.status) && !p.failReasonCode) e.failReasonCode = '실패/보류 사유를 선택하세요.'
   return e
 }
 
@@ -209,9 +210,13 @@ function ProjectForm({ initial, isNew, users, onClose }) {
           label="발주금액 (원)"
           required
           error={errors.amount}
-          hint={p.amount ? `≈ ${formatKoreanWon(p.amount)} · 확정 전에는 추정 금액을 입력` : '확정 전에는 추정 금액을 입력'}
+          hint={p.amount ? `≈ ${formatKoreanWon(p.amount)} (${p.vatIncluded ? '부가세 포함' : '부가세 별도'}) · 확정 전에는 추정 금액을 입력` : '확정 전에는 추정 금액을 입력'}
         >
           {moneyInput('amount')}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, marginTop: 4 }}>
+            <input type="checkbox" checked={!!p.vatIncluded} onChange={(e) => set('vatIncluded', e.target.checked)} />
+            부가세 포함 금액
+          </label>
         </Field>
         <Field label="발주사 담당자" conditional={needsContact(p.status)} error={errors.contactName} hint={p.customerId ? '선택한 고객사의 담당자 중에서 고릅니다.' : '발주사를 먼저 선택하세요.'}>
           <div style={{ display: 'flex', gap: 6 }}>
@@ -314,7 +319,15 @@ function ProjectForm({ initial, isNew, users, onClose }) {
 
       <div className="pms-form-section">기타</div>
       <div className="pms-form-grid">
-        <Field label="실패/보류 사유" conditional={needsFailReason(p.status)} error={errors.failReason} wide>
+        <Field label="실패/보류 사유" conditional={needsFailReason(p.status)} error={errors.failReasonCode}>
+          <select value={p.failReasonCode ?? ''} onChange={(e) => set('failReasonCode', e.target.value)}>
+            <option value="">선택하세요</option>
+            {FAIL_REASON_CODES.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="사유 상세" hint="사유 코드 외에 남길 설명" wide>
           <textarea rows={2} value={p.failReason} onChange={(e) => set('failReason', e.target.value)} />
         </Field>
         <Field label="비고" wide>

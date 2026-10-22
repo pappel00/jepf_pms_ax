@@ -14,18 +14,18 @@ export const isHighPriority = (p) => p === '긴급' || p === '높음'
 
 const h = (date, author, text) => ({ date, author, text })
 
-const seed = [
+const rawSeed = [
   {
     id: 'ISS-001', projectId: 'PRJ-2026-001', title: '게시판 분석 지연 — 발주사 요구사항 회신 지연', type: '고객/협의', priority: '높음', status: '진행 중',
     reporter: '관리자', assignee: '관리자', registeredDate: '2026-09-24', dueDate: '2026-10-16', resolvedDate: '',
-    taskId: 'REQ-002-AN', impactDays: 5,
+    taskId: ['REQ-002-AN', 'REQ-002-DS', 'REQ-002-DV'], impactDays: 5,
     content: '발주사 현업 회신이 예정보다 늦어 게시판 분석 업무 완료가 지연되고 있다. 후속 설계·개발·테스트 일정에 영향.',
     resolution: '', history: [h('2026-09-24', '관리자', '이슈 등록'), h('2026-10-05', '관리자', '발주사 담당자에게 회신 독촉 — 10/16까지 회신 약속'), h('2026-10-08', '관리자', '상태 변경: 오픈 → 진행 중')],
   },
   {
     id: 'ISS-002', projectId: 'PRJ-2026-001', title: '전자결재 연동 방식 결정 필요 (기존 결재 시스템 API 제약)', type: '기술', priority: '긴급', status: '오픈',
     reporter: '김개발', assignee: '김개발', registeredDate: '2026-10-12', dueDate: '2026-10-15', resolvedDate: '',
-    taskId: 'REQ-001-DV', impactDays: 3,
+    taskId: ['REQ-001-DV', 'REQ-001-TS'], impactDays: 3,
     content: '기존 결재 시스템이 실시간 API를 제공하지 않아 배치 연동으로 갈지 별도 어댑터를 둘지 결정이 필요하다.',
     resolution: '', history: [h('2026-10-12', '김개발', '이슈 등록')],
   },
@@ -89,6 +89,9 @@ const seed = [
   },
 ]
 
+/** 이슈 1건 : 업무 N건 — 시드의 taskId(단일/배열/null)를 taskIds 배열로 정규화한다. */
+const seed = rawSeed.map(({ taskId, ...rest }) => ({ ...rest, taskIds: Array.isArray(taskId) ? taskId : taskId ? [taskId] : [] }))
+
 let issues = seed
 const listeners = new Set()
 
@@ -111,12 +114,12 @@ export function nextIssueId(all) {
   return `ISS-${String(max + 1).padStart(3, '0')}`
 }
 
-export const issuesOfTask = (all, taskId) => all.filter((i) => i.taskId === taskId)
+export const issuesOfTask = (all, taskId) => all.filter((i) => i.taskIds.includes(taskId))
 
-/** 업무(들)에 연결된 이슈 집계: 전체/미해결/미해결 중 긴급·높음. */
+/** 업무(들)에 연결된 이슈 집계: 전체/미해결/미해결 중 긴급·높음 (이슈 1건이 여러 업무에 걸려도 1건으로 센다). */
 export function issueStats(all, taskIds) {
   const set = new Set(taskIds)
-  const list = all.filter((i) => i.taskId && set.has(i.taskId))
+  const list = all.filter((i) => i.taskIds.some((t) => set.has(t)))
   const open = list.filter((i) => isOpenStatus(i.status))
   return { total: list.length, open: open.length, high: open.filter((i) => isHighPriority(i.priority)).length }
 }
@@ -141,15 +144,23 @@ export function deleteIssue(id) {
   emit(issues.filter((i) => i.id !== id))
 }
 
+/** 업무 연결 추가 — 이슈 1건에 업무 N건을 연결할 수 있다(이미 연결된 업무는 무시). */
 export function linkIssue(id, taskId, actor, today, taskName) {
   emit(
     issues.map((i) =>
+      i.id === id && !i.taskIds.includes(taskId)
+        ? { ...i, taskIds: [...i.taskIds, taskId], history: [...i.history, { date: today, author: actor, text: `업무 연결: ${taskName}` }] }
+        : i,
+    ),
+  )
+}
+
+/** 업무 연결 해제 — 해당 업무 하나만 끊는다. */
+export function unlinkIssue(id, taskId, actor, today, taskName) {
+  emit(
+    issues.map((i) =>
       i.id === id
-        ? {
-            ...i,
-            taskId,
-            history: [...i.history, { date: today, author: actor, text: taskId ? `업무 연결: ${taskName}` : '업무 연결 해제' }],
-          }
+        ? { ...i, taskIds: i.taskIds.filter((t) => t !== taskId), history: [...i.history, { date: today, author: actor, text: `업무 연결 해제: ${taskName}` }] }
         : i,
     ),
   )

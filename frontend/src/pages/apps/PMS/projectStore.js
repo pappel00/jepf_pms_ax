@@ -32,6 +32,9 @@ export const PIPELINE_STATUSES = ['공고 전', '공고 중', '제안 중', '평
 /** 수주 금액 집계 대상 상태. */
 export const WON_STATUSES = ['수주', '수행 중', '수행 종료', '운영 중']
 
+/** 실패/보류 사유 코드 — 백엔드에서는 공통코드(PMS_FAIL_REASON)로 관리한다. 상세 내용은 별도 텍스트로 남긴다. */
+export const FAIL_REASON_CODES = ['가격 경쟁력 열세', '기술·제안 평가 열세', '경쟁사 선정', '발주사 사정(예산·일정 변경)', '발주 취소·보류', '내부 사정(수행 불가)', '기타']
+
 export const BUSINESS_TYPES = ['SI 구축', 'SM 운영/유지보수', '컨설팅', '솔루션 공급', '기타']
 export const BID_TYPES = ['공개 경쟁입찰', '제한 경쟁입찰', '협상에 의한 계약', '수의계약', '내부/그룹사']
 
@@ -172,7 +175,7 @@ const seed = [
     contactName: '오책임', contactTitle: '책임', contactPhone: '052-300-1100', contactEmail: '',
     salesId: null, salesName: '김영업',
     businessType: 'SI 구축', bidType: '공개 경쟁입찰', noticeNo: '2026-0655', dueDate: '2026-08-14', presentDate: '2026-08-28',
-    competitors: '◇◇정보통신', pmName: '', costEstimate: null, failReason: '가격 경쟁력 열세 (경쟁사 대비 약 12% 높음)', memo: '',
+    competitors: '◇◇정보통신', pmName: '', costEstimate: null, failReasonCode: '가격 경쟁력 열세', failReason: '경쟁사 대비 약 12% 높음', memo: '',
   },
 ]
 
@@ -225,15 +228,26 @@ export function transitionProject(id, { manager, team, date, rfpId, itemCount, p
   )
 }
 
+/** 단계전환 롤백 — 수행 중이던 프로젝트를 「수주」로 되돌리고 수행 관리 정보를 지운다. */
+export function rollbackTransition(id) {
+  emit(
+    projects.map((p) => {
+      if (p.id !== id) return p
+      const { transitioned, ...rest } = p
+      return { ...rest, status: '수주', pmName: '' }
+    }),
+  )
+}
+
 /**
  * 수행 단계 「프로젝트 관리」 저장 — 프로젝트 관리자와 투입 인력(프로젝트 멤버)을 수정한다.
  * 영업단계 기본 정보는 수정하지 않는다.
  */
-export function updateExecution(id, { manager, team }) {
+export function updateExecution(id, { manager, team, restricted }) {
   emit(
     projects.map((p) =>
       p.id === id
-        ? { ...p, pmName: manager.role === 'PM' ? manager.name : '', transitioned: { ...p.transitioned, manager, team } }
+        ? { ...p, pmName: manager.role === 'PM' ? manager.name : '', transitioned: { ...p.transitioned, manager, team, restricted: restricted ?? p.transitioned.restricted ?? false } }
         : p,
     ),
   )

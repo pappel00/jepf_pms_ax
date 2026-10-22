@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Modal from '../../../components/Modal'
 import './pms.css'
 import IssueForm from './IssueForm'
-import { ISSUE_TYPES, isOpenStatus, issuesOfTask, linkIssue, nextIssueId, useIssues } from './issueStore'
+import { ISSUE_TYPES, isOpenStatus, issuesOfTask, linkIssue, nextIssueId, unlinkIssue, useIssues } from './issueStore'
 import { ME, TODAY, useTasks } from './pmsStore'
 
 const STATUS_CLASS = { 오픈: 'late', '진행 중': 'doing', 해결: 'done', 종결: '' }
@@ -21,13 +21,13 @@ export default function TaskIssuesModal({ task, onClose }) {
   const [linkId, setLinkId] = useState('')
 
   const linked = issuesOfTask(issues, task.id)
-  const linkable = issues.filter((i) => i.taskId !== task.id && isOpenStatus(i.status) && i.projectId === task.projectId)
+  const linkable = issues.filter((i) => !i.taskIds.includes(task.id) && isOpenStatus(i.status) && i.projectId === task.projectId)
   const taskName = (id) => tasks.find((t) => t.id === id)?.name
 
   const startNew = () =>
     setForm({
       id: nextIssueId(issues), projectId: task.projectId, title: '', type: ISSUE_TYPES[0], priority: '보통', status: '오픈',
-      reporter: ME, assignee: task.assignee ?? '', registeredDate: TODAY, dueDate: '', resolvedDate: '', taskId: task.id,
+      reporter: ME, assignee: task.assignee ?? '', registeredDate: TODAY, dueDate: '', resolvedDate: '', taskIds: [task.id],
       impactDays: 0, content: '', resolution: '', history: [],
     })
 
@@ -46,7 +46,7 @@ export default function TaskIssuesModal({ task, onClose }) {
           {linkable.map((i) => (
             <option key={i.id} value={i.id}>
               {i.id} · {i.title}
-              {i.taskId ? ` (현재: ${taskName(i.taskId)})` : ' (업무 미연결)'}
+              {i.taskIds.length ? ` (연결 업무 ${i.taskIds.length}건: ${i.taskIds.map(taskName).filter(Boolean).join(', ')})` : ' (업무 미연결)'}
             </option>
           ))}
         </select>
@@ -106,7 +106,7 @@ export default function TaskIssuesModal({ task, onClose }) {
                 <button className="link-btn" onClick={() => navigate(`/workspace/PMS/issues?issue=${i.id}`)}>
                   이슈 관리에서 열기
                 </button>
-                <button className="link-btn danger" onClick={() => linkIssue(i.id, null, ME, TODAY)}>
+                <button className="link-btn danger" onClick={() => unlinkIssue(i.id, task.id, ME, TODAY, task.name)}>
                   연결 해제
                 </button>
               </td>

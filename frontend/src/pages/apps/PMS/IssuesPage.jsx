@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import './pms.css'
 import IssueForm from './IssueForm'
+import { ProcessButton } from './ProcessModal'
+import { issueProcess } from './processModels'
 import { ISSUE_STATUSES, ISSUE_TYPES, PRIORITIES, isHighPriority, isOpenStatus, nextIssueId, useIssues } from './issueStore'
 import { useAuth } from '../../../context/AuthContext'
 import { canSeeAllProjects, issueProjects } from './participation'
@@ -17,7 +19,7 @@ const dday = (date) => {
 
 const newIssue = (all, projectId, taskId = null) => ({
   id: nextIssueId(all), projectId, title: '', type: ISSUE_TYPES[0], priority: '보통', status: '오픈',
-  reporter: ME, assignee: '', registeredDate: TODAY, dueDate: '', resolvedDate: '', taskId,
+  reporter: ME, assignee: '', registeredDate: TODAY, dueDate: '', resolvedDate: '', taskIds: taskId ? [taskId] : [],
   impactDays: 0, content: '', resolution: '', history: [],
 })
 
@@ -66,12 +68,12 @@ export default function IssuesPage() {
   const filtered = issues.filter(
     (i) =>
       (!projectFilter || i.projectId === projectFilter) &&
-      (!taskParam || i.taskId === taskParam) &&
+      (!taskParam || i.taskIds.includes(taskParam)) &&
       (!statusFilter || i.status === statusFilter) &&
       (!priorityFilter || i.priority === priorityFilter) &&
       (!typeFilter || i.type === typeFilter) &&
       (!assigneeFilter || i.assignee === assigneeFilter) &&
-      (!linkFilter || (linkFilter === 'linked' ? !!i.taskId : !i.taskId)) &&
+      (!linkFilter || (linkFilter === 'linked' ? i.taskIds.length > 0 : i.taskIds.length === 0)) &&
       (!keyword || `${i.id} ${i.title} ${i.content}`.toLowerCase().includes(keyword.toLowerCase())),
   )
 
@@ -111,7 +113,7 @@ export default function IssuesPage() {
         </div>
         <div className="pms-stat">
           <div className="label">업무 미연결 (공통)</div>
-          <div className="value">{issues.filter((i) => !i.taskId).length}</div>
+          <div className="value">{issues.filter((i) => i.taskIds.length === 0).length}</div>
         </div>
         <div className="pms-stat">
           <div className="label">미해결 일정 영향 합계</div>
@@ -218,7 +220,7 @@ export default function IssuesPage() {
             </tr>
           )}
           {filtered.map((i) => {
-            const task = taskName(i.taskId)
+            const linkedTasks = i.taskIds.map(taskName).filter(Boolean)
             const late = isOpenStatus(i.status) && i.dueDate && i.dueDate < TODAY
             return (
               <tr key={i.id} style={{ cursor: 'pointer' }} onClick={() => setForm({ issue: i, isNew: false })}>
@@ -237,6 +239,7 @@ export default function IssuesPage() {
                 </td>
                 <td>
                   <span className={`pms-tag ${STATUS_CLASS[i.status]}`}>{i.status}</span>
+                  <ProcessButton getModel={() => issueProcess(i)} label="현황" style={{ marginLeft: 4 }} />
                 </td>
                 <td>{i.assignee}</td>
                 <td>
@@ -250,13 +253,15 @@ export default function IssuesPage() {
                   )}
                 </td>
                 <td onClick={(e) => e.stopPropagation()}>
-                  {task ? (
-                    <span>
-                      <span className="pms-tag">{task.phase}</span> {task.name}{' '}
-                      <button className="link-btn" onClick={() => navigate(`/workspace/PMS/wbs?task=${task.id}`)}>
-                        WBS ›
-                      </button>
-                    </span>
+                  {linkedTasks.length > 0 ? (
+                    linkedTasks.map((task) => (
+                      <div key={task.id}>
+                        <span className="pms-tag">{task.phase}</span> {task.name}{' '}
+                        <button className="link-btn" onClick={() => navigate(`/workspace/PMS/wbs?task=${task.id}`)}>
+                          WBS ›
+                        </button>
+                      </div>
+                    ))
                   ) : (
                     <span className="muted">프로젝트 공통</span>
                   )}

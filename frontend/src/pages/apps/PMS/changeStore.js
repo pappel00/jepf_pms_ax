@@ -20,6 +20,9 @@ export function diffPlan(before, after) {
   if (before.manager.name !== after.manager.name || before.manager.role !== after.manager.role) {
     out.push(`프로젝트 관리자: ${before.manager.name}(${before.manager.role}) → ${after.manager.name}(${after.manager.role})`)
   }
+  if (Boolean(before.restricted) !== Boolean(after.restricted)) {
+    out.push(`멤버 외 열람 제한: ${before.restricted ? '켜짐' : '꺼짐'} → ${after.restricted ? '켜짐' : '꺼짐'}`)
+  }
   after.team.forEach((m) => {
     const old = before.team.find((x) => x.name === m.name)
     if (!old) {
@@ -31,6 +34,9 @@ export function diffPlan(before, after) {
     if (phasesText(old.phases) !== phasesText(m.phases)) changes.push(`단계 ${phasesText(old.phases)}→${phasesText(m.phases)}`)
     if ((Number(old.mm) || 0) !== (Number(m.mm) || 0)) changes.push(`M/M ${old.mm || '-'}→${m.mm || '-'}`)
     if (old.from !== m.from || old.to !== m.to) changes.push(`기간 ${old.from}~${old.to}→${m.from}~${m.to}`)
+    if ((old.access ?? '편집') !== (m.access ?? '편집')) changes.push(`접근 권한 ${old.access ?? '편집'}→${m.access ?? '편집'}`)
+    if ((old.rate ?? '') !== (m.rate ?? '')) changes.push(`투입 비율 ${old.rate ?? '-'}%→${m.rate ?? '-'}%`)
+    if (JSON.stringify(old.gaps ?? []) !== JSON.stringify(m.gaps ?? [])) changes.push(`투입 공백 ${(old.gaps ?? []).length}건→${(m.gaps ?? []).length}건`)
     if (changes.length) out.push(`투입 변경: ${m.name} — ${changes.join(', ')}`)
   })
   before.team.filter((x) => !after.team.some((m) => m.name === x.name)).forEach((x) => out.push(`투입 제외: ${brief(x)}`))
@@ -115,7 +121,7 @@ export function nextChangeId(all) {
 
 /** 변경 요청 등록 — 투입 계획은 아직 바뀌지 않는다. */
 export function submitChange({ project, after, reason, requester, today }) {
-  const before = { manager: project.transitioned.manager, team: project.transitioned.team }
+  const before = { manager: project.transitioned.manager, team: project.transitioned.team, restricted: !!project.transitioned.restricted }
   const req = {
     id: nextChangeId(requests), projectId: project.id, projectName: project.name, requester, requestedAt: today,
     reason, before, after, summary: diffPlan(before, after), status: '승인 대기', decidedBy: '', decidedAt: '', comment: '',

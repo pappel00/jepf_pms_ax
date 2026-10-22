@@ -59,6 +59,25 @@ export const addMonths = (key, n) => {
  */
 export function monthlyPlan(a) {
   if (!a.from || !a.to || a.to < a.from) return {}
+  // 투입 비율(rate)이 있으면: 월 투입률 = 비율, 공백 구간(gaps)의 날짜는 투입에서 제외
+  if (a.rate != null && a.rate !== '') {
+    const ratio = Number(a.rate) / 100
+    const gapSet = new Set()
+    ;(a.gaps ?? []).forEach((g) => {
+      if (!g.from || !g.to || g.to < g.from) return
+      for (let d = parse(g.from); d <= parse(g.to); d.setUTCDate(d.getUTCDate() + 1)) gapSet.add(iso(d))
+    })
+    const perMonthDays = {}
+    for (let d = parse(a.from); d <= parse(a.to); d.setUTCDate(d.getUTCDate() + 1)) {
+      const day = iso(d)
+      if (!gapSet.has(day)) perMonthDays[day.slice(0, 7)] = (perMonthDays[day.slice(0, 7)] ?? 0) + 1
+    }
+    const out = {}
+    monthsOf(a.from, a.to).forEach((key) => {
+      out[key] = Math.round(ratio * ((perMonthDays[key] ?? 0) / daysInMonth(key)) * 100) / 100
+    })
+    return out
+  }
   const total = (parse(a.to) - parse(a.from)) / 86400000 + 1
   const perMonth = Number(a.mm) > 0 ? Number(a.mm) / (total / 30.4) : 1
   const out = {}

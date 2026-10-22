@@ -5,6 +5,9 @@ import { DEFAULT_PROJECT_ID } from './docStore'
 import { isHighPriority, isOpenStatus, useIssues } from './issueStore'
 import { ME, TODAY, blockedBy, isLeaf, plannedProgress, projectProgress, statusOf, targetProgressOf, useTasks } from './pmsStore'
 import { formatKoreanWon, useProjects } from './projectStore'
+import { REPORT_STATUSES, cancelEdit, reopenReport, reportKey, reportOf, saveDraft, submitReport, useReports } from './reportStore'
+import { ProcessButton } from './ProcessModal'
+import { reportProcess } from './processModels'
 import { mondayOf, saveSnapshot, useSnapshots, valueAt } from './snapshotStore'
 
 // ---------- 날짜 유틸 ----------
@@ -72,7 +75,7 @@ function collect(project, everyTask, allIssues) {
       // 기본 프로젝트는 업무에 연결되지 않은(프로젝트 공통) 이슈도 포함한다.
       issues: allIssues
         .filter((i) => i.projectId === project.id)
-        .map((i) => ({ ...i, taskName: allTasks.find((t) => t.id === i.taskId)?.name ?? '' })),
+        .map((i) => ({ ...i, taskName: i.taskIds.map((id) => allTasks.find((t) => t.id === id)?.name).filter(Boolean).join(', ') })),
       overall: projectProgress(allTasks),
       target: Math.round((roots.reduce((s, t) => s + targetProgressOf(allTasks, t) * t.weight, 0) / rootW) * 10) / 10,
       phases: roots.map((r) => ({
@@ -145,7 +148,13 @@ function ProjectReport({ project, data, mode, period, next, mineOnly, memoKey })
   const planGain = endVal && startVal ? Math.round((endVal.target - startVal.target) * 10) / 10 : null
   const trend = [...snaps, ...(snaps.some((s) => s.date === mondayOf(TODAY)) ? [] : [{ date: TODAY, ...live }])]
   const savedThisWeek = snaps.some((s) => s.date === mondayOf(TODAY))
-  const [memo, setMemo] = useState(SEED_MEMO[memoKey] ?? '')
+  const reports = useReports()
+  const rkey = reportKey(project.id, mode, period.start)
+  const seedMemo = SEED_MEMO[memoKey] ?? ''
+  const report = reportOf(reports, rkey, seedMemo)
+  const memo = report.memo
+  const locked = report.status === '제출 완료'
+  const [showHistory, setShowHistory] = useState(false)
   const unit = mode === 'week' ? '금주' : '당월'
   const nextUnit = mode === 'week' ? '다음 주' : '다음 달'
   const who = (t) => !mineOnly || t.assignee === ME
@@ -462,9 +471,78 @@ function ProjectReport({ project, data, mode, period, next, mineOnly, memoKey })
         <label>
           특이사항 · 요청사항<span className="opt-mark"> (옵션, 보고서에 포함)</span>
         </label>
-        <textarea rows={3} value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="발주사 협조 요청, 리스크, 의사결정 필요 사항 등" />
+        <textarea
+          rows={3}
+          value={memo}
+          disabled={locked}
+          onChange={(e) => saveDraft(rkey, seedMemo, e.target.value, ME, TODAY)}
+          placeholder="발주사 협조 요청, 리스크, 의사결정 필요 사항 등"
+        />
       </div>
-    </div>
+
+      <div className="pms-hint" style={{ boxShadow: 'none', background: '#fafbfd', marginTop: 10 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <b>보고서 상태</b>
+          <span className={`pms-tag ${report.status === '제출 완료' ? 'done' : report.status === '수정 중' ? 'manual' : 'doing'}`}>{report.status}</span>
+          {report.version > 0 && <span className="muted">제출본 v{report.version} · {report.submitted?.date} {report.submitted?.author}</span>}
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+            {!locked && (
+              <button
+                className="primary small"
+                onClick={() => {
+                  const re = report.version > 0
+                  if (!window.confirm(`${re ? '재제출' : '제출'}할까요? 현재 진척(${data.overall}%)과 특이사항이 제출본으로 저장됩니다.`)) return
+                  submitReport(rkey, seedMemo, { overall: data.overall, target: data.target }, ME, TODAY)
+                }}
+              >
+                {report.version > 0 ? '재제출' : '제출'}
+              </button>
+            )}
+            {!locked && report.status === '수정 중' && (
+              <button className="secondary small" onClick={() => cancelEdit(rkey, seedMemo, ME, TODAY)}>
+                수정 취소
+              </button>
+            )}
+            {locked && (
+              <button
+                className="secondary small"
+                onClick={() => {
+                  const reason = window.prompt('수정 사유를 입력하세요 (필수)')
+                  if (reason && reason.trim()) reopenReport(rkey, seedMemo, reason.trim(), ME, TODAY)
+                }}
+              >
+                수정
+              </button>
+            )}
+            <ProcessButton
+              getModel={() =>
+                reportProcess(report, {
+                  projectName: project.name,
+                  label: `${mode === 'week' ? '주간' : '월간'} ${md(period.start)}~${md(period.end)}`,
+                  owner: project.pmName || ME,
+                })
+              }
+            />
+            <button className="link-btn" onClick={() => setShowHistory((v) => !v)}>
+              이력 {report.history.length}건 {showHistory ? '▲' : '▼'}
+            </button>
+          </div>
+        </div>
+        <div className="pms-field-hint">작성 중 → 제출 → (수정 사유 입력) 수정 중 → 재제출 순서로 진행합니다. 제출 후에는 수정 시작 전까지 특이사항을 바꿀 수 없습니다.</div>
+        {showHistory && (
+          <div style={{ marginTop: 6 }}>
+            {report.history.length === 0 && <div className="muted">이력이 없습니다.</div>}
+            {[...report.history].reverse().map((h, i) => (
+              <div key={i} style={{ display: 'flex', gap: 12, fontSize: 12, padding: '3px 0' }}>
+                <span style={{ width: 80, color: '#888' }}>{h.date}</span>
+                <span style={{ width: 54, fontWeight: 600 }}>{h.author}</span>
+                <span className="pms-tag">{h.action}</span>
+                <span>{h.text}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>    </div>
   )
 }
 

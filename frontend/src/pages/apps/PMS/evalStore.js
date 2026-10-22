@@ -54,7 +54,7 @@ function buildSeed() {
   put('RFP-2026-002', MOB, '이설계', 9, true)
   put('RFP-2026-002', MOB, '김개발', 9, true)
   put('RFP-2026-002', MOB, '관리자', 4, false)
-  return { evals, subs }
+  return { evals, subs, confirmed: {} }
 }
 
 let state = buildSeed()
@@ -130,6 +130,48 @@ export function submitEvals(rfp, evaluator) {
   if (missing > 0) return { ok: false, missing }
   emit({ ...state, subs: { ...state.subs, [subKey(rfp.id, evaluator)]: true } })
   return { ok: true }
+}
+
+// ---------- 확정 M/D (원가 산정용) ----------
+// 평가자별 값은 자동 취합하지 않는다. 평가 관리자가 항목마다 「확정 평가자」를 고르면 그 평가자의 M/D가 확정 값에 들어가고,
+// 이후 숫자를 직접 고칠 수 있다. 평가자가 1명이면 그 평가자의 제출 값이 기본 확정 값이다(수정 가능).
+const confKey = (rfpId, itemIdValue) => `${rfpId}|${itemIdValue}`
+
+/** 항목의 확정 값 { evaluator, md, edited } 또는 null. 평가자 1명이면 제출된 값으로 자동 제안. */
+export function confirmedOf(rfp, item) {
+  const saved = state.confirmed[confKey(rfp.id, item.id)]
+  if (saved) return saved
+  if (rfp.evaluators.length === 1 && isSubmitted(rfp.id, rfp.evaluators[0])) {
+    const n = rfp.evaluators[0]
+    return { evaluator: n, md: mdOf(getEval(rfp.id, item.id, n)), edited: false, auto: true }
+  }
+  return null
+}
+
+/** 확정 평가자를 고른다 — 그 평가자(제출 완료)의 M/D가 확정 값이 된다. evaluator가 빈 값이면 확정 해제. */
+export function confirmEvaluator(rfpId, itemIdValue, evaluator) {
+  const k = confKey(rfpId, itemIdValue)
+  const next = { ...state.confirmed }
+  if (!evaluator) delete next[k]
+  else next[k] = { evaluator, md: mdOf(getEval(rfpId, itemIdValue, evaluator)), edited: false }
+  emit({ ...state, confirmed: next })
+}
+
+/** 확정 M/D를 직접 수정 — 확정 평가자는 유지하고 「수정됨」으로 표시한다. */
+export function setConfirmedMd(rfp, item, md) {
+  const k = confKey(rfp.id, item.id)
+  const cur = confirmedOf(rfp, item)
+  const value = Math.max(0, Number(md) || 0)
+  emit({ ...state, confirmed: { ...state.confirmed, [k]: { evaluator: cur?.evaluator ?? '', md: value, edited: true } } })
+}
+
+/** 모든 항목의 확정 평가자를 한 명으로 일괄 지정(입력 보조). */
+export function confirmAllWith(rfp, evaluator) {
+  const next = { ...state.confirmed }
+  rfp.items.forEach((i) => {
+    next[confKey(rfp.id, i.id)] = { evaluator, md: mdOf(getEval(rfp.id, i.id, evaluator)), edited: false }
+  })
+  emit({ ...state, confirmed: next })
 }
 
 /** 재평가 요청 — 제출을 풀어 평가자가 다시 수정할 수 있게 한다(평가관리 화면). */

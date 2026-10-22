@@ -632,3 +632,9 @@
   margin-bottom: 14px;
   line-height: 1.7;
 }
+
+/* 투입 인력 편집 표: 한 사람을 한 줄로 관리 */
+.pms-team th,
+.pms-team td { white-space: nowrap; padding-left: 6px; padding-right: 6px; }
+.pms-team td label { margin-right: 6px; }
+

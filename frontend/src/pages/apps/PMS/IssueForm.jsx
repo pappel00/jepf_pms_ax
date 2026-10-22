@@ -57,7 +57,7 @@ export default function IssueForm({ initial, isNew, lockTask, projects: projectO
   const [errors, setErrors] = useState({})
   const [note, setNote] = useState('')
   const set = (k, v) => setIt((p) => ({ ...p, [k]: v }))
-  const task = all.find((t) => t.id === it.taskId)
+  const linkedTasks = it.taskIds.map((id) => all.find((t) => t.id === id)).filter(Boolean)
   const needResolution = !isOpenStatus(it.status)
 
   const submit = () => {
@@ -69,7 +69,7 @@ export default function IssueForm({ initial, isNew, lockTask, projects: projectO
     if (needResolution && !it.resolution.trim()) e.resolution = '해결/종결 시 조치 내용을 기록하세요.'
     setErrors(e)
     if (Object.keys(e).length) return
-    saveIssue({ ...it, title: it.title.trim(), taskId: it.taskId || null }, ME, TODAY)
+    saveIssue({ ...it, title: it.title.trim() }, ME, TODAY)
     onSaved?.(it.id)
     onClose()
   }
@@ -81,7 +81,7 @@ export default function IssueForm({ initial, isNew, lockTask, projects: projectO
           <select
             value={it.projectId ?? ''}
             disabled={!isNew || lockTask}
-            onChange={(e) => setIt((p) => ({ ...p, projectId: e.target.value, taskId: null }))}
+            onChange={(e) => setIt((p) => ({ ...p, projectId: e.target.value, taskIds: [] }))}
           >
             <option value="">선택하세요</option>
             {options.map((p) => (
@@ -133,15 +133,30 @@ export default function IssueForm({ initial, isNew, lockTask, projects: projectO
         </Field>
         <Field
           label="연결 업무 (WBS)"
-          hint={task ? `${task.phase} 단계 · 담당 ${task.assignee || '미배정'} · ${task.start} ~ ${task.end}` : '특정 업무와 무관하면 연결하지 않아도 됩니다 (프로젝트 공통 이슈)'}
+          hint="이슈 1건에 업무 여러 건을 연결할 수 있습니다. 특정 업무와 무관하면 연결하지 않아도 됩니다 (프로젝트 공통 이슈)"
           wide
         >
-          <select value={it.taskId ?? ''} disabled={lockTask} onChange={(e) => set('taskId', e.target.value || null)}>
-            <option value="">연결 안 함 (프로젝트 공통)</option>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+            {linkedTasks.length === 0 && <span className="muted">연결된 업무 없음 (프로젝트 공통)</span>}
+            {linkedTasks.map((t) => (
+              <span key={t.id} className="pms-tag req" title={`${t.phase} 단계 · 담당 ${t.assignee || '미배정'} · ${t.start} ~ ${t.end}`}>
+                {t.phase} · {t.name}
+                {!(lockTask && t.id === initial.taskIds[0]) && (
+                  <button type="button" className="link-btn" style={{ marginLeft: 4 }} onClick={() => set('taskIds', it.taskIds.filter((x) => x !== t.id))}>
+                    ✕
+                  </button>
+                )}
+              </span>
+            ))}
+          </div>
+          <select
+            value=""
+            onChange={(e) => e.target.value && !it.taskIds.includes(e.target.value) && set('taskIds', [...it.taskIds, e.target.value])}
+          >
+            <option value="">업무 추가…</option>
             <TaskOptions all={all} projectId={it.projectId} />
           </select>
-        </Field>
-        <Field label="이슈 내용" required error={errors.content} wide>
+        </Field>        <Field label="이슈 내용" required error={errors.content} wide>
           <textarea rows={3} value={it.content} onChange={(e) => set('content', e.target.value)} />
         </Field>
         <Field label="조치 내용 / 해결 방안" conditional={needResolution} error={errors.resolution} wide>

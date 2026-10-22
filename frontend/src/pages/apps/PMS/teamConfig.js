@@ -11,6 +11,8 @@ export const TEAM_ROLES = ['PL', '분석', '설계', '분석/설계', '개발', 
 /** 운영 단계 투입 인력의 역할. */
 export const OPS_ROLES = ['운영', '장애대응', '기술지원', 'DBA', 'UI/UX', 'QA', 'TA', 'PL', 'PMO', '기타']
 export const OPS_MANAGER_ROLES = ['운영 PM', 'PL', 'PMO']
+/** 프로젝트 멤버 접근 권한 — 관리자는 항상 관리 권한. 편집: 진척·이슈 입력, 열람: 조회만(예: 고객사 열람자). */
+export const ACCESS_LEVELS = ['편집', '열람']
 export const NOTIFY_CHANNELS = ['Mattermost', '텔레그램', '이메일', '미설정']
 
 /** 단계별 역할 우선순위 — 업무 배정 후보를 이 순서로 정렬한다(그 단계의 주 역할, 특히 개발자가 위). */
@@ -38,7 +40,41 @@ export function monthsBetween(from, to) {
   return Math.round((days / 30.4) * 2) / 2
 }
 
-export const defaultManager = () => ({ name: MEMBERS.find((m) => m.role === 'PM')?.name ?? MEMBERS[0].name, role: 'PM' })
+const isoOf = (d) => d.toISOString().slice(0, 10)
+export const addDaysIso = (s, n) => {
+  const d = parse(s)
+  d.setUTCDate(d.getUTCDate() + n)
+  return isoOf(d)
+}
+/** 공백 구간(비투입)의 총 일수 — from~to 안에 걸친 부분만. */
+export function gapDays(gaps, from, to) {
+  return (gaps ?? []).reduce((s, g) => {
+    if (!g.from || !g.to || g.to < g.from) return s
+    const a = g.from > from ? g.from : from
+    const b = g.to < to ? g.to : to
+    return b < a ? s : s + (parse(b) - parse(a)) / 86400000 + 1
+  }, 0)
+}
+/**
+ * 투입 종료일 자동 계산 — M/M ÷ (투입 비율/100) 개월 만큼의 "투입 일수"를 시작일부터 채우되, 공백 구간은 건너뛴다.
+ * M/M·투입 비율·시작일이 없으면 null.
+ */
+export function calcEnd(from, mm, rate, gaps) {
+  const m = Number(mm)
+  const r = Number(rate)
+  if (!from || !(m > 0) || !(r > 0)) return null
+  const workDays = Math.max(1, Math.round((m / (r / 100)) * 30.4))
+  let end = addDaysIso(from, workDays - 1)
+  // 공백 일수만큼 종료일을 뒤로 민다(공백이 늘어나면 다시 계산)
+  for (let i = 0; i < 5; i += 1) {
+    const next = addDaysIso(from, workDays - 1 + gapDays(gaps, from, end))
+    if (next === end) break
+    end = next
+  }
+  return end
+}
+
+export const defaultManager =() => ({ name: MEMBERS.find((m) => m.role === 'PM')?.name ?? MEMBERS[0].name, role: 'PM' })
 
 /** 신규 투입 인력 한 줄 기본값. */
 export function newMember(name, period, phaseList = CHAIN) {
@@ -47,6 +83,10 @@ export function newMember(name, period, phaseList = CHAIN) {
     role: '개발',
     phases: [...phaseList],
     mm: '',
+    access: '편집', // 접근 권한
+    rate: 100, // 월 투입 비율(%) — M/M과 함께 입력하면 투입 기간이 자동 계산된다
+    gaps: [], // 중간에 투입이 빠지는 공백 구간 [{ from, to }]
+    auto: true, // true면 M/M·투입 비율·공백 구간이 바뀔 때 종료일을 자동 계산한다(날짜를 직접 고치면 해제)
     from: period?.start ?? '',
     to: period?.end ?? '',
     notify: name && isPartner(name) ? 'Mattermost' : '',

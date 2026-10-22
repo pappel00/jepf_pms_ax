@@ -5,6 +5,8 @@ import './pms.css'
 import { cancelChange, computeConflicts, diffPlan, pendingOf, submitChange, useChanges } from './changeStore'
 import { DEFAULT_PROJECT_ID } from './docStore'
 import { isOpenStatus, useIssues } from './issueStore'
+import { ProcessButton } from './ProcessModal'
+import { changeProcess } from './processModels'
 import TeamEditor from './TeamEditor'
 import { CHAIN, ME, TODAY, isLeaf, useTasks } from './pmsStore'
 import { endExecution, formatKoreanWon, useProjects } from './projectStore'
@@ -28,7 +30,7 @@ function ChangeRequestModal({ project, after, onClose, onSubmitted }) {
   const [reason, setReason] = useState('')
   const [error, setError] = useState('')
   const exec = project.transitioned
-  const summary = diffPlan({ manager: exec.manager, team: exec.team }, after)
+  const summary = diffPlan({ manager: exec.manager, team: exec.team, restricted: !!exec.restricted }, after)
   const conflicts = computeConflicts(projects, project.id, after)
 
   return (
@@ -144,6 +146,7 @@ function ExecProject({ project }) {
   const exec = project.transitioned
   const [manager, setManager] = useState(exec.manager)
   const [team, setTeam] = useState(exec.team)
+  const [restricted, setRestricted] = useState(!!exec.restricted)
   const [requestOpen, setRequestOpen] = useState(false)
   const [endOpen, setEndOpen] = useState(false)
   const [sent, setSent] = useState(false)
@@ -153,7 +156,7 @@ function ExecProject({ project }) {
   const running = project.status === '수행 중'
   const pending = pendingOf(changes, project.id)
   const canEdit = isManager && running && !pending
-  const dirty = JSON.stringify({ manager, team }) !== JSON.stringify({ manager: exec.manager, team: exec.team })
+  const dirty = JSON.stringify({ manager, team, restricted }) !== JSON.stringify({ manager: exec.manager, team: exec.team, restricted: !!exec.restricted })
   const rfp = rfps.find((r) => r.id === exec.rfpId)
   const partners = team.filter((m) => isPartner(m.name))
   const totalMm = team.reduce((s, m) => s + (Number(m.mm) || 0), 0)
@@ -244,6 +247,7 @@ function ExecProject({ project }) {
               </button>
             )}
             <div style={{ fontSize: 12, marginTop: 4 }}>{pending.summary.join(' / ')}</div>
+            <ProcessButton getModel={() => changeProcess(pending)} label="누구에게 있나?" />
           </div>
         )}
         <p className="muted" style={{ margin: '8px 0' }}>
@@ -259,6 +263,10 @@ function ExecProject({ project }) {
           period={{ start: project.start, end: project.end }}
           readOnly={!canEdit}
         />
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 13 }}>
+          <input type="checkbox" disabled={!canEdit} checked={restricted} onChange={(e) => setRestricted(e.target.checked)} />
+          멤버 외 열람 제한 <span className="muted">(켜면 프로젝트 관리자·투입 인력만 이 프로젝트의 WBS·이슈·보고서를 볼 수 있습니다. 센터장·admin은 예외)</span>
+        </label>
 
         {canEdit && (
           <div style={{ display: 'flex', gap: 8, marginTop: 14, alignItems: 'center' }}>
@@ -272,6 +280,7 @@ function ExecProject({ project }) {
               onClick={() => {
                 setManager(exec.manager)
                 setTeam(exec.team)
+                setRestricted(!!exec.restricted)
               }}
             >
               되돌리기
@@ -379,6 +388,7 @@ function ExecProject({ project }) {
                       {c.comment && <div>“{c.comment}”</div>}
                     </div>
                   )}
+                  <ProcessButton getModel={() => changeProcess(c)} />
                 </td>
               </tr>
             ))}
@@ -386,7 +396,7 @@ function ExecProject({ project }) {
         </table>
       </div>
 
-      {requestOpen && <ChangeRequestModal project={project} after={{ manager, team }} onClose={() => setRequestOpen(false)} onSubmitted={() => setSent(true)} />}
+      {requestOpen && <ChangeRequestModal project={project} after={{ manager, team, restricted }} onClose={() => setRequestOpen(false)} onSubmitted={() => setSent(true)} />}
       {endOpen && (
         <EndExecutionModal project={project} defaultFeatures={defaultFeatures} openTasks={openTasks} openIssues={openIssues} onClose={() => setEndOpen(false)} />
       )}

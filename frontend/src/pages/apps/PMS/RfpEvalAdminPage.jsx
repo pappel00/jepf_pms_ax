@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import './pms.css'
-import { getEval, isComplete, isSubmitted, mdOf, reopenEvals, useEvals } from './evalStore'
+import { confirmAllWith, confirmEvaluator, confirmedOf, getEval, isComplete, isSubmitted, mdOf, reopenEvals, setConfirmedMd, useEvals } from './evalStore'
 import { REQ_CATEGORIES, rfpStatusOf, useRfps } from './rfpStore'
 
 const fmt = (n) => (Number.isInteger(n) ? `${n}.0` : `${n}`)
@@ -27,6 +27,38 @@ function EvalCell({ ev, submitted }) {
   )
 }
 
+/** 항목 하나의 확정 M/D — 확정 평가자 선택 + 값 직접 수정. */
+function ConfirmCell({ rfp, item, names }) {
+  const c = confirmedOf(rfp, item)
+  return (
+    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+      <select
+        className="pms-cell-input"
+        style={{ minWidth: 0, width: 96 }}
+        value={c?.evaluator ?? ''}
+        disabled={names.length === 0}
+        onChange={(e) => confirmEvaluator(rfp.id, item.id, e.target.value)}
+        title={names.length === 0 ? '제출된 평가가 없습니다' : '이 평가자의 M/D를 확정 값으로 사용'}
+      >
+        <option value="">{c && !c.evaluator ? '(직접 입력)' : '확정 평가자'}</option>
+        {names.map((n) => (
+          <option key={n}>{n}</option>
+        ))}
+      </select>
+      <input
+        type="number"
+        min="0"
+        step="0.5"
+        className="pms-cell-input"
+        style={{ width: 64, minWidth: 0 }}
+        value={c ? c.md : ''}
+        placeholder="M/D"
+        onChange={(e) => setConfirmedMd(rfp, item, e.target.value)}
+      />
+      {c?.edited && <span className="pms-tag manual" title="확정 평가자의 값에서 수정됨">수정됨</span>}
+    </div>
+  )
+}
 /**
  * RFP 평가 관리 (평가 관리자 화면) — RFP 관리처럼 항목을 열거하고, 평가자별 평가 현황을 나란히 보여준다.
  * M/D는 자동으로 합치지 않는다(평균/최댓값 없음) — 평가자별 값과 분류별 소계, 총합만 보여준다.
@@ -71,6 +103,10 @@ export default function RfpEvalAdminPage() {
     return new Set(kinds).size > 1
   }
   const status = rfpStatusOf(rfp)
+  const submittedNames = evaluators.filter((n) => isSubmitted(rfp.id, n))
+  const confMd = (item) => confirmedOf(rfp, item)?.md ?? 0
+  const sumConfirmed = (items) => items.reduce((s, i) => s + confMd(i), 0)
+  const confirmedCount = rfp.items.filter((i) => confirmedOf(rfp, i)).length
 
   return (
     <div>
@@ -125,6 +161,21 @@ export default function RfpEvalAdminPage() {
         })}
       </div>
 
+      <div className="pms-toolbar">
+        <b>확정 M/D</b>
+        <span className="muted">원가 산정에 쓰는 값입니다. 항목마다 확정 평가자를 고르면 그 평가자의 M/D가 들어가고, 숫자는 직접 수정할 수 있습니다.</span>
+        {submittedNames.length > 1 && (
+          <select
+            value=""
+            onChange={(e) => e.target.value && window.confirm(`모든 항목의 확정 평가자를 ${e.target.value}(으)로 일괄 지정할까요? 기존 확정·수정 값은 덮어씁니다.`) && confirmAllWith(rfp, e.target.value)}
+          >
+            <option value="">전체 항목 일괄 지정…</option>
+            {submittedNames.map((n) => (
+              <option key={n} value={n}>{n} 값으로</option>
+            ))}
+          </select>
+        )}
+      </div>
       <table className="data-table pms-wbs pms-eval-matrix">
         <thead>
           <tr>
@@ -136,6 +187,7 @@ export default function RfpEvalAdminPage() {
               </th>
             ))}
             <th></th>
+            <th style={{ minWidth: 190 }}>확정 M/D (원가 산정용)</th>
           </tr>
         </thead>
         <tbody>
@@ -144,7 +196,7 @@ export default function RfpEvalAdminPage() {
             const open = !collapsed.has(c.code)
             return [
               <tr key={`h-${c.code}`} className="phase-row">
-                <td colSpan={3 + evaluators.length}>
+                <td colSpan={4 + evaluators.length}>
                   <button className="toggle" onClick={() => toggle(c.code)}>
                     {open ? '▼' : '▶'}
                   </button>{' '}
@@ -167,6 +219,9 @@ export default function RfpEvalAdminPage() {
                         </td>
                       ))}
                       <td>{kindsDiffer(item) && <span className="pms-tag late">구분 상이</span>}</td>
+                      <td>
+                        <ConfirmCell rfp={rfp} item={item} names={submittedNames} />
+                      </td>
                     </tr>
                   ))
                 : []),
@@ -176,6 +231,7 @@ export default function RfpEvalAdminPage() {
                   <td key={n}>{isSubmitted(rfp.id, n) ? fmt(sumFor(rows, n)) : '-'}</td>
                 ))}
                 <td />
+                <td><b>{fmt(sumConfirmed(rows))}</b></td>
               </tr>,
             ]
           })}
@@ -185,6 +241,7 @@ export default function RfpEvalAdminPage() {
               <td key={n}>{isSubmitted(rfp.id, n) ? fmt(sumFor(rfp.items, n)) : '-'}</td>
             ))}
             <td />
+            <td><b>{fmt(sumConfirmed(rfp.items))}</b></td>
           </tr>
           <tr className="subtotal-row">
             <td colSpan={2}>기능 / 비기능 항목 수</td>
@@ -192,6 +249,7 @@ export default function RfpEvalAdminPage() {
               <td key={n}>{isSubmitted(rfp.id, n) ? `${countKind(n, '기능')} / ${countKind(n, '비기능')}` : '-'}</td>
             ))}
             <td />
+            <td className="muted">확정 {confirmedCount}/{rfp.items.length}건</td>
           </tr>
         </tbody>
       </table>
