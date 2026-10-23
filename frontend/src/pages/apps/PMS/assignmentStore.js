@@ -58,6 +58,16 @@ export const addMonths = (key, n) => {
  * M/M이 있으면 기간(월 환산)으로 나눠 월별 투입률(1.0 = 100%)로, 없으면 100%로 가정한다. 첫/마지막 달은 걸친 일수만큼 비례.
  */
 export function monthlyPlan(a) {
+  const base = autoMonthlyPlan(a)
+  // 월별 조정(a.monthPlan: { 'YYYY-MM': 투입률(%) })이 있는 달은 자동 계산값 대신 그 값을 쓴다.
+  Object.entries(a.monthPlan ?? {}).forEach(([month, pct]) => {
+    if (month in base && pct !== '' && pct != null) base[month] = Math.round((Number(pct) / 100) * 100) / 100
+  })
+  return base
+}
+
+/** 월별 조정 없이 M/M·투입 비율·기간·공백 구간만으로 계산한 월별 계획 투입률(1.0 = 100%). */
+export function autoMonthlyPlan(a) {
   if (!a.from || !a.to || a.to < a.from) return {}
   // 투입 비율(rate)이 있으면: 월 투입률 = 비율, 공백 구간(gaps)의 날짜는 투입에서 제외
   if (a.rate != null && a.rate !== '') {

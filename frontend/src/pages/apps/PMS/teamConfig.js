@@ -85,6 +85,7 @@ export function newMember(name, period, phaseList = CHAIN) {
     mm: '',
     access: '편집', // 접근 권한
     rate: 100, // 월 투입 비율(%) — M/M과 함께 입력하면 투입 기간이 자동 계산된다
+    monthPlan: {}, // 월별 조정 { 'YYYY-MM': 투입률(%) } — 직접 고친 달만 저장, 나머지는 자동 계산
     gaps: [], // 중간에 투입이 빠지는 공백 구간 [{ from, to }]
     auto: true, // true면 M/M·투입 비율·공백 구간이 바뀔 때 종료일을 자동 계산한다(날짜를 직접 고치면 해제)
     from: period?.start ?? '',

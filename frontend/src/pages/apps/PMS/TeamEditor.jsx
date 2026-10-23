@@ -1,4 +1,6 @@
+import { Fragment, useState } from 'react'
 import './pms.css'
+import { autoMonthlyPlan, monthsOf } from './assignmentStore'
 import { CHAIN, MEMBERS } from './pmsStore'
 import { MANAGER_ROLES, NOTIFY_CHANNELS, TEAM_ROLES, ACCESS_LEVELS, calcEnd, gapDays, isPartner, monthsBetween, newMember, orgOf } from './teamConfig'
 
@@ -11,7 +13,90 @@ import { MANAGER_ROLES, NOTIFY_CHANNELS, TEAM_ROLES, ACCESS_LEVELS, calcEnd, gap
  */
 const nowrap = { whiteSpace: 'nowrap' }
 
+/**
+ * 월별 조정 격자 — 자동 계산값(M/M·투입 비율·기간·공백)을 월별로 보여주고, 달라지는 달만 직접 고친다.
+ * 직접 고친 달만 monthPlan에 저장하고(나머지는 자동 계산), 자동값과 같아지면 조정이 해제된다.
+ */
+function MonthGrid({ m, readOnly, onChange }) {
+  const months = monthsOf(m.from, m.to)
+  const auto = autoMonthlyPlan({ ...m, monthPlan: undefined })
+  const plan = m.monthPlan ?? {}
+  const autoPct = (k) => Math.round((auto[k] ?? 0) * 100)
+  const effPct = (k) => (k in plan ? Number(plan[k]) : autoPct(k))
+  const total = Math.round(months.reduce((s, k) => s + effPct(k) / 100, 0) * 100) / 100
+  const diff = Number(m.mm) > 0 ? Math.round((total - Number(m.mm)) * 100) / 100 : null
+  const [range, setRange] = useState({ from: months[0] ?? '', to: months[months.length - 1] ?? '', pct: 100 })
+
+  const setMonth = (k, value) => {
+    const next = { ...plan }
+    if (value === '' || Number(value) === autoPct(k)) delete next[k]
+    else next[k] = Math.max(0, Number(value))
+    onChange(next)
+  }
+  const applyRange = () => {
+    const next = { ...plan }
+    months.filter((k) => k >= range.from && k <= range.to).forEach((k) => {
+      if (Number(range.pct) === autoPct(k)) delete next[k]
+      else next[k] = Math.max(0, Number(range.pct))
+    })
+    onChange(next)
+  }
+  const editedCount = Object.keys(plan).filter((k) => months.includes(k)).length
+
+  if (months.length === 0) return <div className="muted">투입 기간을 먼저 입력하세요.</div>
+  return (
+    <div style={{ padding: '6px 4px' }}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {months.map((k) => {
+          const edited = k in plan
+          return (
+            <div key={k} style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 11, color: '#7a8599' }}>{k.slice(2, 4)}.{k.slice(5, 7)}</div>
+              <input
+                type="number"
+                min="0"
+                max="200"
+                step="5"
+                className="pms-cell-input"
+                disabled={readOnly}
+                style={{ width: 62, minWidth: 0, textAlign: 'right', background: edited ? '#fff4d6' : undefined, borderColor: effPct(k) > 105 ? '#e6a3a3' : undefined }}
+                value={effPct(k)}
+                title={edited ? `수정됨 (자동 계산값 ${autoPct(k)}%)` : '자동 계산값 — 숫자를 고치면 이 달만 수정됩니다'}
+                onChange={(e) => setMonth(k, e.target.value)}
+              />
+            </div>
+          )
+        })}
+      </div>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 6, fontSize: 12 }}>
+        <span>
+          계획 합계 <b>{total} M/M</b>
+          {diff !== null && (diff === 0 ? <span className="pms-tag done" style={{ marginLeft: 4 }}>입력 M/M과 일치</span> : <span className="pms-tag manual" style={{ marginLeft: 4 }}>입력 M/M({m.mm}) 대비 {diff > 0 ? '+' : ''}{diff}</span>)}
+        </span>
+        {editedCount > 0 && <span className="pms-tag manual">수정됨 {editedCount}개월</span>}
+        {!readOnly && (
+          <>
+            <span className="muted">구간 일괄</span>
+            <select className="pms-cell-input" style={{ minWidth: 0, width: 80 }} value={range.from} onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))}>
+              {months.map((k) => <option key={k} value={k}>{k.slice(2)}</option>)}
+            </select>
+            ~
+            <select className="pms-cell-input" style={{ minWidth: 0, width: 80 }} value={range.to} onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))}>
+              {months.map((k) => <option key={k} value={k}>{k.slice(2)}</option>)}
+            </select>
+            <input type="number" min="0" max="200" step="5" className="pms-cell-input" style={{ width: 62, minWidth: 0 }} value={range.pct} onChange={(e) => setRange((r) => ({ ...r, pct: e.target.value }))} />%
+            <button className="secondary small" style={{ marginTop: 0 }} onClick={applyRange}>적용</button>
+            {editedCount > 0 && <button className="link-btn danger" onClick={() => onChange({})}>자동 계산으로 되돌리기</button>}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function TeamEditor({ manager, setManager, team, setTeam, phases, period, readOnly = false, managerRoles = MANAGER_ROLES, roles = TEAM_ROLES, phaseList = CHAIN, managerHint }) {
+  const [openMonths, setOpenMonths] = useState(new Set()) // 월별 조정 격자를 펼친 인력(이름)
+  const toggleMonths = (name) => setOpenMonths((prev) => { const n = new Set(prev); n.has(name) ? n.delete(name) : n.add(name); return n })
   // M/M·투입 비율·시작일·공백 구간이 바뀌면(자동 모드) 종료일을 다시 계산한다. 종료일을 직접 고치면 자동 모드가 해제된다.
   const patchMember = (idx, patch) =>
     setTeam((prev) =>
@@ -108,7 +193,8 @@ export default function TeamEditor({ manager, setManager, team, setTeam, phases,
             const outside = period && m.from && m.to && !badPeriod && (m.from < period.start || m.to > period.end)
             const suggest = monthsBetween(m.from, m.to)
             return (
-              <tr key={idx}>
+              <Fragment key={idx}>
+              <tr>
                 <td style={nowrap}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <select
@@ -216,6 +302,12 @@ export default function TeamEditor({ manager, setManager, team, setTeam, phases,
                         +공백
                       </button>
                     )}
+                    {m.from && m.to && m.to >= m.from && (
+                      <button className="link-btn" style={{ fontSize: 11 }} title="월별로 투입률을 직접 조정합니다(달라지는 달만 수정)" onClick={() => toggleMonths(m.name)}>
+                        {openMonths.has(m.name) ? '월별 ▲' : '월별 ▼'}
+                        {Object.keys(m.monthPlan ?? {}).length > 0 && <span className="pms-tag manual" style={{ marginLeft: 3 }}>수정 {Object.keys(m.monthPlan ?? {}).length}</span>}
+                      </button>
+                    )}
                     {(m.gaps ?? []).length > 0 && m.from && m.to && <span className="pms-tag late" title="공백 구간으로 제외된 일수">공백 {gapDays(m.gaps, m.from, m.to)}일</span>}
                     {badPeriod && <span className="pms-tag late" title="종료일이 시작일보다 빠릅니다.">⚠ 기간 오류</span>}
                     {outside && <span className="pms-tag manual" title={`프로젝트 기간(${period.start} ~ ${period.end}) 밖입니다.`}>⚠ 기간 밖</span>}
@@ -238,6 +330,15 @@ export default function TeamEditor({ manager, setManager, team, setTeam, phases,
                   </td>
                 )}
               </tr>
+              {openMonths.has(m.name) && (
+                <tr>
+                  <td colSpan={readOnly ? 7 : 8} style={{ background: '#fafbfd', whiteSpace: 'normal' }}>
+                    <b style={{ fontSize: 12 }}>{m.name} · 월별 투입률(%)</b> <span className="muted" style={{ fontSize: 12 }}>자동 계산값이 채워져 있고, 달라지는 달만 고치면 됩니다</span>
+                    <MonthGrid m={m} readOnly={readOnly} onChange={(monthPlan) => patchMember(idx, { monthPlan })} />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             )
           })}
           {team.length > 0 && (

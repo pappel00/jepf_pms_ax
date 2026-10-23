@@ -36,6 +36,7 @@ export function diffPlan(before, after) {
     if (old.from !== m.from || old.to !== m.to) changes.push(`기간 ${old.from}~${old.to}→${m.from}~${m.to}`)
     if ((old.access ?? '편집') !== (m.access ?? '편집')) changes.push(`접근 권한 ${old.access ?? '편집'}→${m.access ?? '편집'}`)
     if ((old.rate ?? '') !== (m.rate ?? '')) changes.push(`투입 비율 ${old.rate ?? '-'}%→${m.rate ?? '-'}%`)
+    if (JSON.stringify(old.monthPlan ?? {}) !== JSON.stringify(m.monthPlan ?? {})) changes.push(`월별 조정 ${Object.keys(old.monthPlan ?? {}).length}건→${Object.keys(m.monthPlan ?? {}).length}건`)
     if (JSON.stringify(old.gaps ?? []) !== JSON.stringify(m.gaps ?? [])) changes.push(`투입 공백 ${(old.gaps ?? []).length}건→${(m.gaps ?? []).length}건`)
     if (changes.length) out.push(`투입 변경: ${m.name} — ${changes.join(', ')}`)
   })
