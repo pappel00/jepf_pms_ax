@@ -294,7 +294,7 @@ function CostTab({ state, projects, assignments }) {
         onClick={() => {
           if (missing.length && !window.confirm('단가가 없는 인력은 제외된 금액입니다. 그래도 반영할까요?')) return
           if (project.costEstimate && !window.confirm(`기존 예상 원가 ${formatKoreanWon(project.costEstimate)}을(를) ${formatKoreanWon(totalCost)}으로 바꿀까요?`)) return
-          saveProject({ ...project, costEstimate: totalCost, costSource: `단가 환산 인건비 (${TODAY} 기준, 투입 ${fmt1(totalMm)} M/M)` })
+          saveProject({ ...project, costEstimate: totalCost, costSourceType: 'RATE_CALC', costSource: `단가 환산 인건비 (${TODAY} 기준, 투입 ${fmt1(totalMm)} M/M)` }).catch((e) => window.alert(e.message))
         }}
       >
         예상 원가에 반영

@@ -1,5 +1,6 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { usersApi } from '../../../api/entities'
 import Modal from '../../../components/Modal'
 import './pms.css'
 import { contactOf, useCustomerState } from './customerStore'
@@ -96,11 +97,16 @@ function HandoverModal({ projects, notes, customers, onClose }) {
   const [to, setTo] = useState('')
   const [memo, setMemo] = useState('')
   const [done, setDone] = useState(false)
+  const [users, setUsers] = useState([])
+  const [saving, setSaving] = useState(false)
+  useEffect(() => {
+    usersApi.list().then((res) => setUsers(res.data || [])).catch(() => setUsers([]))
+  }, [])
   const project = projects.find((p) => p.id === pid)
   const hist = notes.filter((n) => n.projectId === pid).sort((a, b) => a.date.localeCompare(b.date))
   const open = hist.filter((n) => n.nextAction && !n.done)
   const customer = project ? customers.find((c) => c.name === project.client) : null
-  const names = [...new Set([...MEMBERS.map((m) => m.name), ...projects.map((p) => p.salesName).filter(Boolean)])]
+  const names = users.map((u) => u.userName)
 
   const summary = project
     ? [
@@ -117,8 +123,16 @@ function HandoverModal({ projects, notes, customers, onClose }) {
       ].join('\n')
     : ''
 
-  const submit = () => {
-    saveProject({ ...project, salesName: to, salesId: null })
+  const submit = async () => {
+    const user = users.find((u) => u.userName === to)
+    if (!user) return window.alert('인수 담당자는 사용자 목록에서 선택하세요.')
+    setSaving(true)
+    try {
+      await saveProject({ ...project, salesName: user.userName, salesId: user.id })
+    } catch (e) {
+      setSaving(false)
+      return window.alert(e.message)
+    }
     saveNote({ ...emptyNote(ME, TODAY), type: '인수인계', projectId: project.id, customerId: customer?.id ?? '', title: `영업 담당 인수인계: ${project.salesName || '-'} → ${to}`, content: memo || '인수인계 완료' })
     setDone(true)
   }
@@ -142,7 +156,7 @@ function HandoverModal({ projects, notes, customers, onClose }) {
             </div>
             <div className="field">
               <label>인수 담당자<span className="req-mark"> *</span></label>
-              <input list="sales-people" value={to} onChange={(e) => setTo(e.target.value)} placeholder="이름 선택/입력" />
+              <input list="sales-people" value={to} onChange={(e) => setTo(e.target.value)} placeholder="사용자 이름 선택" />
               <datalist id="sales-people">{names.filter((x) => x !== project?.salesName).map((x) => <option key={x} value={x} />)}</datalist>
             </div>
           </div>
@@ -154,7 +168,7 @@ function HandoverModal({ projects, notes, customers, onClose }) {
           <textarea readOnly rows={10} style={{ width: '100%', fontSize: 12 }} value={summary} />
           <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
             <button className="secondary small" onClick={() => navigator.clipboard?.writeText(summary)}>요약 복사</button>
-            <button className="primary" disabled={!project || !to.trim() || to === project.salesName} onClick={submit}>인수인계 처리</button>
+            <button className="primary" disabled={saving || !project || !users.some((u) => u.userName === to) || to === project.salesName} onClick={submit}>인수인계 처리</button>
           </div>
         </>
       )}

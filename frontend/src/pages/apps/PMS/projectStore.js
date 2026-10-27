@@ -2,7 +2,9 @@
  * PMS 프로젝트(사업) 관리 목업 스토어 — 더미 데이터, API 연동 없음(새로고침하면 초기화).
  * 영업 담당자만 실제 사용자 관리(/api/v1/users) 연동을 목업으로 보여준다(ProjectsPage 참고).
  */
-import { useSyncExternalStore } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
+import { pmsProjectsApi } from '../../../api/entities'
+import { contactCodeOfDbId, contactDbId, customerCodeOfDbId, customerDbId, ensureCustomersLoaded } from './customerStore'
 
 /**
  * 사업 상태 — 영업(수주 전) 파이프라인 + 수행 + 종료.
@@ -38,15 +40,9 @@ export const FAIL_REASON_CODES = ['가격 경쟁력 열세', '기술·제안 평
 export const BUSINESS_TYPES = ['SI 구축', 'SM 운영/유지보수', '컨설팅', '솔루션 공급', '기타']
 export const BID_TYPES = ['공개 경쟁입찰', '제한 경쟁입찰', '협상에 의한 계약', '수의계약', '내부/그룹사']
 
-const seed = [
-  {
-    id: 'PRJ-2026-001', name: '통합업무포탈 구축사업', client: '(샘플) 고객사',
-    start: '2026-09-01', end: '2027-03-31', amount: 3200000000, status: '수행 중', probability: 100,
-    contactName: '한고객', contactTitle: '부장', contactPhone: '010-1234-5678', contactEmail: 'client@example.com',
-    salesId: null, salesName: '관리자',
-    businessType: 'SI 구축', bidType: '협상에 의한 계약', noticeNo: '2026-0412', dueDate: '2026-07-10', presentDate: '2026-07-24',
-    competitors: '○○시스템, △△정보', pmName: '관리자', costEstimate: 2650000000, failReason: '', memo: 'WBS 목업의 기준 프로젝트',
-    // 이미 수행 중인 기준 프로젝트의 수행 관리 정보(단계전환 시 지정한 프로젝트 관리자·투입 인력과 같은 형태)
+// 서버 테이블이 아직 없는 목업 전용 정보(프로젝트 코드별). 이후 단계에서 pms_project_member 등으로 옮긴다.
+const EXTRAS_SEED = {
+  'PRJ-2026-001': {
     transitioned: {
       date: '2026-09-01', rfpId: '', itemCount: 0, phases: ['분석', '설계', '개발', '테스트'],
       manager: { name: '관리자', role: 'PM' },
@@ -58,62 +54,7 @@ const seed = [
       ],
     },
   },
-  {
-    id: 'PRJ-2026-002', name: '차세대 인사시스템 구축', client: '한빛전자',
-    start: '2027-01-04', end: '2027-09-30', amount: 1850000000, status: '공고 중', probability: 20,
-    contactName: '', contactTitle: '', contactPhone: '', contactEmail: '',
-    salesId: null, salesName: '김영업',
-    businessType: 'SI 구축', bidType: '공개 경쟁입찰', noticeNo: '2026-1103', dueDate: '2026-10-30', presentDate: '',
-    competitors: '', pmName: '', costEstimate: null, failReason: '', memo: 'RFP 검토 중',
-  },
-  {
-    id: 'PRJ-2026-003', name: '전사 문서중앙화(ECM) 고도화', client: '대한물산',
-    start: '2026-12-01', end: '2027-05-31', amount: 920000000, status: '제안 중', probability: 30,
-    contactName: '박담당', contactTitle: '과장', contactPhone: '02-555-0101', contactEmail: '',
-    salesId: null, salesName: '최영업',
-    businessType: 'SI 구축', bidType: '제한 경쟁입찰', noticeNo: '2026-0988', dueDate: '2026-10-21', presentDate: '2026-11-03',
-    competitors: '□□소프트', pmName: '관리자', costEstimate: 740000000, failReason: '', memo: '',
-  },
-  {
-    id: 'PRJ-2026-004', name: '모바일 앱 통합 플랫폼', client: '새솔금융',
-    start: '2026-12-15', end: '2027-08-31', amount: 2400000000, status: '수주', probability: 100,
-    contactName: '이팀장', contactTitle: '팀장', contactPhone: '010-9876-5432', contactEmail: 'lee@saesol.example',
-    salesId: null, salesName: '관리자',
-    businessType: 'SI 구축', bidType: '협상에 의한 계약', noticeNo: '2026-0871', dueDate: '2026-09-25', presentDate: '2026-10-16',
-    competitors: '◇◇정보통신, ○○시스템', pmName: '이설계', costEstimate: 1980000000, failReason: '', memo: '발표 PT 준비',
-  },
-  {
-    id: 'PRJ-2026-005', name: 'ERP 연계 인터페이스 개선', client: '푸른물류',
-    start: '2026-11-16', end: '2027-02-26', amount: 560000000, status: '협상 중', probability: 80,
-    contactName: '정구매', contactTitle: '대리', contactPhone: '031-777-2020', contactEmail: '',
-    salesId: null, salesName: '김영업',
-    businessType: 'SI 구축', bidType: '수의계약', noticeNo: '', dueDate: '', presentDate: '',
-    competitors: '', pmName: '김개발', costEstimate: 430000000, failReason: '', memo: '단가 협상 중',
-  },
-  {
-    id: 'PRJ-2026-006', name: '데이터 거버넌스 컨설팅', client: '미래제약',
-    start: '2027-02-01', end: '2027-06-30', amount: 300000000, status: '공고 전', probability: 10,
-    contactName: '', contactTitle: '', contactPhone: '', contactEmail: '',
-    salesId: null, salesName: '최영업',
-    businessType: '컨설팅', bidType: '', noticeNo: '', dueDate: '', presentDate: '',
-    competitors: '', pmName: '', costEstimate: null, failReason: '', memo: '내년 상반기 발주 예정 (사전 미팅)',
-  },
-  {
-    id: 'PRJ-2026-007', name: '포털 유지보수 (2027)', client: '대한물산',
-    start: '2027-01-01', end: '2027-12-31', amount: 480000000, status: '수주', probability: 100,
-    contactName: '박담당', contactTitle: '과장', contactPhone: '02-555-0101', contactEmail: '',
-    salesId: null, salesName: '관리자',
-    businessType: 'SM 운영/유지보수', bidType: '수의계약', noticeNo: '', dueDate: '', presentDate: '',
-    competitors: '', pmName: '김개발', costEstimate: 390000000, failReason: '', memo: '계약서 날인 진행',
-  },
-  {
-    // 인력 투입 겹침(과투입)·가용 인력 조회를 보여주기 위한 또 하나의 수행 중 프로젝트(이설계가 관리자라 내 계정으로는 읽기 전용)
-    id: 'PRJ-2026-009', name: '그룹사 인트라넷 운영', client: '대한물산',
-    start: '2026-09-01', end: '2026-12-31', amount: 360000000, status: '수행 중', probability: 100,
-    contactName: '송운영', contactTitle: '대리', contactPhone: '02-555-0202', contactEmail: '',
-    salesId: null, salesName: '최영업',
-    businessType: 'SM 운영/유지보수', bidType: '수의계약', noticeNo: '', dueDate: '', presentDate: '',
-    competitors: '', pmName: '', costEstimate: 290000000, failReason: '', memo: '2026년 하반기 운영 계약',
+  'PRJ-2026-009': {
     transitioned: {
       date: '2026-08-25', rfpId: '', itemCount: 0, phases: ['개발', '테스트'],
       manager: { name: '이설계', role: 'PL' },
@@ -123,14 +64,7 @@ const seed = [
       ],
     },
   },
-  {
-    // 수행 종료(준공/검수 완료) 상태 — 운영단계전환 대상 시연용
-    id: 'PRJ-2026-010', name: '사내 협업툴 구축', client: '한빛전자',
-    start: '2026-03-02', end: '2026-08-28', amount: 780000000, status: '수행 종료', probability: 100,
-    contactName: '유협업', contactTitle: '과장', contactPhone: '031-888-0101', contactEmail: '',
-    salesId: null, salesName: '관리자',
-    businessType: 'SI 구축', bidType: '협상에 의한 계약', noticeNo: '2026-0210', dueDate: '2026-01-16', presentDate: '2026-01-30',
-    competitors: '', pmName: '관리자', costEstimate: 620000000, failReason: '', memo: '2026-08-28 검수 완료',
+  'PRJ-2026-010': {
     transitioned: {
       date: '2026-02-23', rfpId: '', itemCount: 0, phases: ['분석', '설계', '개발', '테스트'],
       manager: { name: '관리자', role: 'PM' },
@@ -147,14 +81,7 @@ const seed = [
       openIssues: 0,
     },
   },
-  {
-    // 운영 중 프로젝트 — 운영 업무·운영 이슈·운영 영업 목업 시연용(운영단계전환을 마친 상태)
-    id: 'PRJ-2026-011', name: '그룹웨어 유지보수 (2026 하반기)', client: '대한물산',
-    start: '2026-01-05', end: '2026-06-30', amount: 150000000, status: '운영 중', probability: 100,
-    contactName: '박담당', contactTitle: '과장', contactPhone: '02-555-0101', contactEmail: '',
-    salesId: null, salesName: '관리자',
-    businessType: 'SM 운영/유지보수', bidType: '수의계약', noticeNo: '', dueDate: '', presentDate: '',
-    competitors: '', pmName: '관리자', costEstimate: 110000000, failReason: '', memo: '2026-06-30 검수 완료 후 유상 유지보수 전환',
+  'PRJ-2026-011': {
     transitioned: {
       date: '2026-01-02', rfpId: '', itemCount: 0, phases: ['개발', '테스트'],
       manager: { name: '관리자', role: 'PM' },
@@ -169,74 +96,127 @@ const seed = [
       features: ['전자결재', '통합검색', '모바일 결재'], docs: [], carriedIssues: [],
     },
   },
-  {
-    id: 'PRJ-2026-008', name: '스마트팩토리 MES 구축', client: '동서에너지',
-    start: '2026-10-01', end: '2027-06-30', amount: 4100000000, status: '실패', probability: 0,
-    contactName: '오책임', contactTitle: '책임', contactPhone: '052-300-1100', contactEmail: '',
-    salesId: null, salesName: '김영업',
-    businessType: 'SI 구축', bidType: '공개 경쟁입찰', noticeNo: '2026-0655', dueDate: '2026-08-14', presentDate: '2026-08-28',
-    competitors: '◇◇정보통신', pmName: '', costEstimate: null, failReasonCode: '가격 경쟁력 열세', failReason: '경쟁사 대비 약 12% 높음', memo: '',
-  },
-]
-
-let projects = seed
-const listeners = new Set()
-
-function emit(next) {
-  projects = next
-  listeners.forEach((l) => l())
 }
 
+let base = [] // 서버 데이터를 화면 형태로 바꾼 목록
+let extras = structuredClone(EXTRAS_SEED) // 프로젝트 코드 → 목업 전용 정보(+ 메모리에서 바뀐 pmName 등)
+let projects = []
+let loaded = false
+let loading = null
+const listeners = new Set()
+
+const combine = () => base.map((b) => ({ ...b, ...(extras[b.id] ?? {}) }))
+function emit() {
+  projects = combine()
+  listeners.forEach((l) => l())
+}
 function subscribe(listener) {
   listeners.add(listener)
   return () => listeners.delete(listener)
 }
 
+/** 서버 응답 → 화면 형태. */
+const fromApi = (a) => ({
+  id: a.projectCode, dbId: a.id, name: a.projectName, client: a.clientName, status: a.statusCode, probability: Number(a.probabilityPct),
+  customerId: customerCodeOfDbId(a.customerId), contactId: contactCodeOfDbId(a.contactId),
+  contactName: a.contactName ?? '', contactTitle: a.contactTitle ?? '', contactPhone: a.contactPhone ?? '', contactEmail: a.contactEmail ?? '',
+  start: a.startDate ?? '', end: a.endDate ?? '', amount: a.amount, vatIncluded: a.vatIncludedYn === 'Y',
+  salesId: a.salesUserId, salesName: a.salesUserName ?? '', pmId: a.pmUserId ?? null, pmName: a.pmUserName ?? '',
+  businessType: a.businessTypeCode ?? '', bidType: a.bidTypeCode ?? '', noticeNo: a.noticeNo ?? '',
+  dueDate: a.dueDate ?? '', presentDate: a.presentDate ?? '', competitors: a.competitors ?? '',
+  costEstimate: a.costEstimate ?? null, costSourceType: a.costSourceType ?? '', costSource: a.costSourceNote ?? '',
+  failReasonCode: a.failReasonCode ?? '', failReason: a.failReasonDetail ?? '', viewRestricted: a.viewRestrictedYn === 'Y', memo: a.memo ?? '',
+})
+
+/** 화면 형태 → 서버 요청. */
+const toApi = (p) => ({
+  projectName: p.name, statusCode: p.status, probabilityPct: Number(p.probability) || 0,
+  customerId: customerDbId(p.customerId), contactId: contactDbId(p.contactId) || null,
+  startDate: p.start, endDate: p.end, amount: p.amount ?? 0, vatIncludedYn: p.vatIncluded ? 'Y' : 'N',
+  salesUserId: p.salesId, pmUserId: p.pmId || null,
+  businessTypeCode: p.businessType || null, bidTypeCode: p.bidType || null, noticeNo: p.noticeNo || null,
+  dueDate: p.dueDate || null, presentDate: p.presentDate || null, competitors: p.competitors || null,
+  costEstimate: p.costEstimate ?? null, costSourceType: p.costEstimate ? p.costSourceType || 'MANUAL' : null, costSourceNote: p.costSource || null,
+  failReasonCode: p.failReasonCode || null, failReasonDetail: p.failReason || null,
+  viewRestrictedYn: p.viewRestricted ? 'Y' : 'N', memo: p.memo || null,
+})
+
+/** 서버에서 프로젝트 목록을 다시 읽는다(고객사 코드 변환을 위해 고객사를 먼저 불러온다). */
+export function loadProjects() {
+  if (loading) return loading
+  loading = ensureCustomersLoaded()
+    .then(() => pmsProjectsApi.list('?size=1000&sort=projectCode'))
+    .then((res) => {
+      base = (res.data || []).map(fromApi)
+      loaded = true
+      emit()
+    })
+    .catch((e) => {
+      console.error('[projectStore] 프로젝트 목록 조회 실패:', e.message)
+      loaded = true
+      emit()
+    })
+    .finally(() => {
+      loading = null
+    })
+  return loading
+}
+
 export function useProjects() {
+  useEffect(() => {
+    if (!loaded) loadProjects()
+  }, [])
   return useSyncExternalStore(subscribe, () => projects)
 }
 
-/** 프로젝트 코드 자동 채번: PRJ-{연도}-{3자리 일련번호}. */
-export function nextProjectId(all) {
-  const year = new Date().getFullYear()
-  const max = all
-    .map((p) => p.id.match(/^PRJ-(\d{4})-(\d+)$/))
-    .filter((m) => m && Number(m[1]) === year)
-    .reduce((s, m) => Math.max(s, Number(m[2])), 0)
-  return `PRJ-${year}-${String(max + 1).padStart(3, '0')}`
+/** 저장(신규/수정). 실패하면 예외 — 서버 검증 메시지(errors)는 error.errors 로 온다. */
+export async function saveProject(project) {
+  await ensureCustomersLoaded()
+  const body = toApi(project)
+  const res = project.dbId ? await pmsProjectsApi.update(project.dbId, body) : await pmsProjectsApi.create(body)
+  await loadProjects()
+  return res.data
 }
 
-export function saveProject(project) {
-  const exists = projects.some((p) => p.id === project.id)
-  emit(exists ? projects.map((p) => (p.id === project.id ? project : p)) : [...projects, project])
+export async function deleteProject(id) {
+  const p = base.find((x) => x.id === id)
+  if (!p) return
+  await pmsProjectsApi.remove(p.dbId)
+  delete extras[id]
+  await loadProjects()
+}
+
+/** 상태를 화면에 즉시 반영하고 서버에도 저장한다(실패하면 서버 값으로 되돌리기 위해 다시 불러온다). */
+function setStatus(id, status, memo) {
+  const p = base.find((x) => x.id === id)
+  if (!p) return
+  base = base.map((x) => (x.id === id ? { ...x, status } : x))
+  emit()
+  pmsProjectsApi
+    .changeStatus(p.dbId, { statusCode: status, memo: memo ?? null })
+    .catch((e) => console.error('[projectStore] 상태 저장 실패:', e.message))
+    .finally(() => loadProjects())
+}
+
+const patchExtras = (id, patch) => {
+  extras = { ...extras, [id]: { ...(extras[id] ?? {}), ...patch } }
 }
 
 /** 단계전환 — 수주 프로젝트를 수행 중으로 바꾸고 수행 PM·전환 이력을 남긴다. */
 export function transitionProject(id, { manager, team, date, rfpId, itemCount, phases }) {
-  emit(
-    projects.map((p) =>
-      p.id === id
-        ? {
-            ...p,
-            status: '수행 중',
-            // 프로젝트 관리자의 프로젝트 내 역할이 PM이면 수행 PM으로도 기록한다(PL/PMO 관리자면 PM은 비움).
-            pmName: manager.role === 'PM' ? manager.name : '',
-            transitioned: { date, rfpId: rfpId ?? '', itemCount, phases, manager, team },
-          }
-        : p,
-    ),
-  )
+  // 프로젝트 관리자의 프로젝트 내 역할이 PM이면 수행 PM으로도 기록한다(PL/PMO 관리자면 PM은 비움).
+  patchExtras(id, {
+    pmName: manager.role === 'PM' ? manager.name : '',
+    transitioned: { date, rfpId: rfpId ?? '', itemCount, phases, manager, team },
+  })
+  setStatus(id, '수행 중', '단계전환')
 }
 
 /** 단계전환 롤백 — 수행 중이던 프로젝트를 「수주」로 되돌리고 수행 관리 정보를 지운다. */
 export function rollbackTransition(id) {
-  emit(
-    projects.map((p) => {
-      if (p.id !== id) return p
-      const { transitioned, ...rest } = p
-      return { ...rest, status: '수주', pmName: '' }
-    }),
-  )
+  const { transitioned, pmName, ...rest } = extras[id] ?? {}
+  extras = { ...extras, [id]: { ...rest, pmName: '' } }
+  setStatus(id, '수주', '단계전환 롤백')
 }
 
 /**
@@ -244,18 +224,18 @@ export function rollbackTransition(id) {
  * 영업단계 기본 정보는 수정하지 않는다.
  */
 export function updateExecution(id, { manager, team, restricted }) {
-  emit(
-    projects.map((p) =>
-      p.id === id
-        ? { ...p, pmName: manager.role === 'PM' ? manager.name : '', transitioned: { ...p.transitioned, manager, team, restricted: restricted ?? p.transitioned.restricted ?? false } }
-        : p,
-    ),
-  )
+  const cur = projects.find((p) => p.id === id)
+  patchExtras(id, {
+    pmName: manager.role === 'PM' ? manager.name : '',
+    transitioned: { ...cur?.transitioned, manager, team, restricted: restricted ?? cur?.transitioned?.restricted ?? false },
+  })
+  emit()
 }
 
 /** 수행 종료 처리 — 프로젝트 관리자가 준공/검수 완료를 확정한다. 운영단계 인수 대상 기능 목록을 함께 남긴다. */
 export function endExecution(id, { date, memo, features, openIssues }) {
-  emit(projects.map((p) => (p.id === id ? { ...p, status: '수행 종료', end: p.end, completed: { date, memo, features, openIssues } } : p)))
+  patchExtras(id, { completed: { date, memo, features, openIssues } })
+  setStatus(id, '수행 종료', memo)
 }
 
 /**
@@ -263,18 +243,16 @@ export function endExecution(id, { date, memo, features, openIssues }) {
  * operation: { date, type, startDate, endDate, sla, manager, team, features, docs, carriedIssueIds }
  */
 export function transitionToOperation(id, operation) {
-  emit(projects.map((p) => (p.id === id ? { ...p, status: '운영 중', operation } : p)))
+  patchExtras(id, { operation })
+  setStatus(id, '운영 중', '운영단계전환')
 }
 
 /** 운영 정보 수정(운영 관리자). */
 export function updateOperation(id, patch) {
-  emit(projects.map((p) => (p.id === id ? { ...p, operation: { ...p.operation, ...patch } } : p)))
+  const cur = projects.find((p) => p.id === id)
+  patchExtras(id, { operation: { ...cur?.operation, ...patch } })
+  emit()
 }
-
-export function deleteProject(id) {
-  emit(projects.filter((p) => p.id !== id))
-}
-
 /** 금액을 "12억 3,000만원" 식으로 읽기 쉽게. */
 export function formatKoreanWon(n) {
   if (!n) return '-'

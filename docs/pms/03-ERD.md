@@ -431,10 +431,14 @@ erDiagram
 erDiagram
   pms_project ||--o{ pms_doc_tailoring : "적용/미적용 문서"
   pms_doc_tailoring ||--o{ pms_doc_version : "버전"
+  pms_std_doc ||--o{ pms_doc_tailoring : "표준 → 프로젝트 복사"
   pms_project ||--o{ pms_issue : has
   pms_issue ||--o{ pms_issue_task : "N:M"
   pms_wbs_task ||--o{ pms_issue_task : "N:M"
   pms_issue ||--o{ pms_issue_history : "처리 이력"
+  pms_issue ||--o{ pms_schedule_proposal : "해결 시 일정 조정 제안"
+  pms_schedule_proposal ||--o{ pms_schedule_proposal_item : "대상 업무"
+  pms_wbs_task ||--o{ pms_schedule_proposal_item : "일정 변경"
 ```
 
 ### pms_doc_tailoring — 문서 테일러링(프로젝트별 적용 산출물)
@@ -451,10 +455,19 @@ erDiagram
 | note | VARCHAR(500) | Y | |
 | reviewed_yn | VARCHAR(1) | N | 검토 완료(최신 버전 수정 시 해제) |
 
-표준 산출물 목록(표준 문서 마스터)은 공통코드 `PMS_STD_DOC`(단계·문서명·필수 여부 속성) 또는 별도 `pms_std_doc`으로 관리 — 8절 결정 사항.
+표준 산출물 목록(표준 문서 마스터)은 별도 `pms_std_doc`(확정). 프로젝트에 적용할 때 이 마스터에서 복사해 `pms_doc_tailoring`을 만든다(마스터가 바뀌어도 기존 프로젝트는 유지).
 
-### pms_doc_version — 산출물 버전
-`tailoring_id`, `ver`(v1.0, v1.1…), `version_date`, `author_user_id`, `file_item_id`(cmn_file_item), `file_name`, `file_size`, `note`. `(tailoring_id, ver)` 유니크. 삭제는 최신 버전만.
+### pms_std_doc — 표준 산출물 마스터 (테넌트 단위)
+| 컬럼 | 타입 | Null | 설명 |
+|---|---|---|---|
+| phase_code | VARCHAR(20) | N | 분석/설계/개발/테스트 (단계말 검토가 있는 4개 단계) |
+| doc_name | VARCHAR(200) | N | 문서 종류, `(tenant_id, phase_code, doc_name)` 유니크 |
+| required_yn | VARCHAR(1) | N | 표준 필수 여부 |
+| rfp_category_code | VARCHAR(10) | Y | 자동 적용 트리거가 되는 RFP 분류(SER→보안 설계서 등). 단계전환 시 선택 항목에 해당 분류가 있으면 권장 문서를 자동 적용 |
+| sort_order | INT | N | 정렬 |
+| use_yn | VARCHAR(1) | N | 사용 여부(삭제 대신 미사용) |
+
+### pms_doc_version — 산출물 버전`tailoring_id`, `ver`(v1.0, v1.1…), `version_date`, `author_user_id`, `file_item_id`(cmn_file_item), `file_name`, `file_size`, `note`. `(tailoring_id, ver)` 유니크. 삭제는 최신 버전만.
 
 ### pms_issue — 이슈
 | 컬럼 | 타입 | Null | 설명 |
@@ -479,6 +492,21 @@ erDiagram
 ### pms_issue_history — 이슈 처리 이력
 `issue_id`, `action_code`(등록/상태 변경/업무 연결/업무 연결 해제/메모), `actor_user_id`, `acted_at`, `text`.
 
+
+### pms_schedule_proposal — 이슈 해결 시 일정 조정 제안
+이슈를 **해결**로 바꿀 때, 연결 업무의 일정 영향(`impact_days`)이 있으면 시스템이 후행 업무 일정을 조정하자고 **제안**을 만들고, 프로젝트 관리자가 승인하면 반영한다.
+| 컬럼 | 타입 | Null | 설명 |
+|---|---|---|---|
+| proposal_code | VARCHAR(30) | N | `SCP-연도-###` |
+| project_id | VARCHAR(64) | N | |
+| issue_id | VARCHAR(64) | N | 제안을 만든 이슈 |
+| status_code | VARCHAR(20) | N | 제안/승인/반려/무시 |
+| shift_days | INT | N | 조정 일수(기본: 이슈 일정 영향. 음수=앞당김) |
+| basis_text | VARCHAR(500) | Y | 제안 근거(예: "ISS-001 해결, 일정 영향 5일") |
+| decided_by / decided_at / comment | | Y | 프로젝트 관리자 승인·반려(반려 사유 필수) |
+
+### pms_schedule_proposal_item — 제안 대상 업무와 변경 전후 일정
+`proposal_id`, `task_id`, `old_start`, `old_end`, `new_start`, `new_end`, `applied_yn`(승인 후 반영 여부). 승인하면 `pms_wbs_task`의 일정을 `new_*`로 바꾸고 업무 일정 변경 이력으로 남는다(이 테이블이 곧 이력). 대상은 연결 업무와 **후행 업무(`pred_task_id` 체인)**, 진척 100%인 업무는 제외.
 ---
 
 ## 8. 인력·원가
@@ -526,7 +554,9 @@ erDiagram
 ```
 
 ### pms_ops_task — 운영 업무
-`task_code`(`OT-###`), `project_id`, `title`, `category_code`(정기 점검/패치·배포/장애 조치/문의 대응/요청 작업/보고/기타), `assignee_user_id`, `due_date`, `status_code`(대기/진행 중/완료/보류), `priority_code`, `repeat_code`(없음/매주/매월/분기 — 자동 생성은 후속), `memo`, `incident_id`(연결 운영 이슈).
+`task_code`(`OT-###`), `project_id`, `title`, `category_code`(정기 점검/패치·배포/장애 조치/문의 대응/요청 작업/보고/기타), `assignee_user_id`, `due_date`, `status_code`(대기/진행 중/완료/보류), `priority_code`, `repeat_code`(없음/매주/매월/분기), `repeat_end_date`(반복 종료일, 비우면 운영 종료일까지), `prev_task_id`(반복으로 만들어진 이전 업무), `auto_created_yn`(자동 생성 여부), `memo`, `incident_id`(연결 운영 이슈).
+
+**반복 업무 자동 생성 규칙(확정)**: 반복 업무를 **완료**하면 다음 주기(매주 +7일 / 매월 +1개월 / 분기 +3개월)의 업무를 같은 제목·구분·담당자·우선순위·반복 설정으로 자동 생성(상태 대기, 기한 = 이전 기한 + 주기, `prev_task_id` 연결). 반복 종료일을 넘기거나 운영 종료일을 넘으면 생성하지 않는다. 같은 기한의 업무가 이미 있으면 중복 생성하지 않는다.
 
 ### pms_ops_incident — 운영 이슈(장애·문의·개선 요청)
 | 컬럼 | 타입 | 설명 |
@@ -585,7 +615,6 @@ SLA 판정(충족/정상/임박/위반)은 `pms_project_operation`의 목표 시
 | PMS_OPS_* | 운영 업무 구분·상태·반복, 운영 이슈 유형·상태, 운영 영업 유형·단계, SLA 등급, 운영 형태 |
 | PMS_NEXT_* | 차기 기회 유형·발생 경로·단계·예산 상태 |
 | PMS_NOTIFY_CHANNEL | Mattermost, 텔레그램, 이메일, 미설정 |
-| PMS_STD_DOC | 표준 산출물(단계·문서명·필수 여부) |
 
 ---
 
@@ -601,8 +630,8 @@ SLA 판정(충족/정상/임박/위반)은 `pms_project_operation`의 목표 시
 | pmsStore(WBS) | pms_wbs_task, pms_task_progress_log |
 | snapshotStore | pms_progress_snapshot |
 | reportStore | pms_report, pms_report_version, pms_report_history |
-| docStore | pms_doc_tailoring, pms_doc_version |
-| issueStore | pms_issue, pms_issue_task, pms_issue_history |
+| docStore | pms_std_doc(표준 마스터), pms_doc_tailoring, pms_doc_version |
+| issueStore | pms_issue, pms_issue_task, pms_issue_history, pms_schedule_proposal(+item) — 일정 조정 제안은 목업 전 |
 | transitionStore | pms_transition |
 | changeStore | pms_team_change |
 | assignmentStore | pms_actual_mm, pms_setting(과투입 기준), pms_member_month_plan(월별 조정) — 월별 계획 투입률은 계산 + 조정값 |
@@ -620,17 +649,20 @@ SLA 판정(충족/정상/임박/위반)은 `pms_project_operation`의 목표 시
 - **접근 권한**: 멤버별 `access_level_code`(편집/열람), 관리자는 `manager_yn`. 승인(단계전환·투입 변경)은 별도 역할(센터장·admin / 인력 관리자) — 권한 테이블이 아니라 기존 `usr_role` 기반.
 - 고객사 담당자에게 PMS 비노출(확정) — `pms_customer_contact`는 로그인 계정과 연결하지 않는다.
 
-## 13. 남은 결정 (ERD 확정 전 확인)
+## 13. 결정 사항 정리 (2026-10-23)
 
-1. **표준 산출물 마스터**: 공통코드(`PMS_STD_DOC`)로 둘지 별도 `pms_std_doc`(필수 여부·단계·정렬)로 둘지.
-2. ~~월 단위 직접 입력~~ — **확정(2026-10-22)**: 자동 계산 + 월 격자에서 달라지는 달만 직접 수정, 수정한 달만 `pms_member_month_plan`에 저장.
-3. **메신저 연동 테이블**: 프로젝트별 채널 설정·알림 발송 이력·콜백 토큰(`pms_notify_setting`, `pms_notify_log`) — Mattermost 환경 확인(네트워크 경로, 봇 권한, 매핑 키) 후 설계.
-4. **보고서 확정·발주사 공유 양식**: 고객사 열람자 미도입이므로 내보내기(엑셀/PDF) 이력 정도만 필요한지 결정.
-5. **JSONB 사용 범위**: `pms_transition.selection_json`, `pms_team_change.before/after_json`을 JSONB로 둘 때 기존 DDL 스크립트의 DB 종속성(PostgreSQL) 허용 여부 — 기존 전체가 PostgreSQL 전제라 문제 없다고 판단.
-6. **상태 이력 통합 범위**: 전용 이력(이슈·보고서)을 `pms_status_history`로 통합할지(단순) 유지할지(메모·업무 연결 등 이벤트 종류가 다름).
-7. **운영 반복 업무 자동 생성**, **SLA 서비스 시간·휴일 반영**, **이슈 해결 시 일정 조정 제안**: 기능 결정 후 컬럼 추가.
-8. **월 마감(실적 M/M)**: 마감 상태·승인 필요 여부.
+| # | 항목 | 결정 |
+|---|---|---|
+| 1 | 표준 산출물 마스터 | **확정** — 별도 `pms_std_doc` 테이블(공통코드 아님) |
+| 2 | 월 단위 직접 입력 | **확정(10-22)** — `pms_member_month_plan`(수정한 달만 저장) |
+| 3 | 메신저 연동 테이블 | **TODO로 이월** — Mattermost·텔레그램 사전 확인 후 설계(`pms_notify_*` 미포함). 필요 사항은 `02-TODO.md` 메신저 항목 참고 |
+| 4 | 보고서 확정·발주사 공유 양식 | **현재 설계 범위까지만**(작성·제출·수정·재제출). 확정 상태·공유 양식·내보내기 이력은 미포함 |
+| 5 | JSONB 사용 범위 | **확정(10-23)** — pms_transition.selection_json, pms_team_change.before_json/after_json/conflict_json을 JSONB로 저장(이력 보관용, 조회 위주) |
+| 6 | 상태 이력 통합 | **유지** — 이슈(`pms_issue_history`)·보고서(`pms_report_history`) 전용 이력 유지, 그 외는 `pms_status_history` |
+| 7 | 운영 반복 업무 자동 생성 / SLA 서비스 시간·휴일 / 이슈 해결 시 일정 조정 제안 | **확정(10-23)** — ① 자동 생성: 반영(pms_ops_task 컬럼 추가) ② SLA 서비스 시간·휴일: **미반영**(시계 시간 계산 유지) ③ 이슈 해결 시 일정 조정 제안: 반영(pms_schedule_proposal, pms_schedule_proposal_item 신규) |
+| 8 | 월 마감(실적 M/M) | **현재 불필요** — 마감 상태 컬럼 미포함(필요 시 `closed_yn`, `closed_at` 추가) |
 
+**5번(JSONB) 쉬운 설명**: `pms_transition`(단계전환)과 `pms_team_change`(투입 변경 요청)는 "요청 시점의 투입 인력 목록·선택 항목"을 통째로 기억해야 한다. 표(행/열)로 쪼개면 요청마다 하위 테이블이 여러 개 필요해지므로, 한 칸에 묶음 데이터를 텍스트(JSON)로 저장하는 방식을 제안했다. PostgreSQL의 JSONB는 그 묶음을 저장하면서 내부 값도 검색할 수 있게 해 주는 타입이다. 대안은 (a) 하위 테이블로 정규화(조회·집계가 쉽지만 테이블 증가), (b) 일반 TEXT에 JSON 문자열 저장(DB 종속 없음, 내부 검색 불가).
 ## 14. 구현 순서 제안 (`module-pms`)
 
 1. 마스터: `pms_customer`, `pms_customer_contact`, `pms_user_profile`, 공통코드 시드
@@ -638,7 +670,29 @@ SLA 판정(충족/정상/임박/위반)은 `pms_project_operation`의 목표 시
 3. RFP·제안서: `pms_rfp*`, `pms_proposal*`
 4. 멤버·전환: `pms_project_member*`(월별 조정 포함), `pms_transition`, `pms_team_change` (+ 승인 권한)
 5. WBS·진척·보고: `pms_wbs_task`, `pms_task_progress_log`, `pms_progress_snapshot`(스케줄러), `pms_report*`
-6. 산출물·이슈: `pms_doc_*`, `pms_issue*`
+6. 산출물·이슈: `pms_std_doc`, `pms_doc_*`, `pms_issue*`, `pms_schedule_proposal*`
 7. 인력·원가: `pms_actual_mm`, `pms_rate`, `pms_setting`
 8. 운영·기회: `pms_project_operation`, `pms_ops_*`, `pms_next_opportunity`
 9. 메신저 연동: 별도 설계 후 추가
+
+## 15. 구현 산출물 (2026-10-23)
+
+- DDL: `db/postgresql/03_ddl_pms.sql` — 44개 테이블(jepf 계정으로 실행, FK 없음). 재생성용 DROP 스크립트는 파일 맨 아래 주석.
+- 엔티티·리포지토리: `module-pms` (`com.platform.module.pms.domain` / `repository`) — 엔티티는 DDL과 1:1 생성 골격(`Xxx.create().withField(...)` 방식, 상태 전이 등 도메인 메서드는 서비스 구현 시 추가).
+- 모듈 등록: `settings.gradle.kts`, `app-sandbox/build.gradle.kts`, `ModulePmsAutoConfiguration`.
+
+## 16. 구현 현황 (module-pms)
+
+| 단계 | 범위 | 상태 |
+|---|---|---|
+| 1단계 | 마스터·프로젝트: `pms_customer`, `pms_customer_contact`, `pms_project`, `pms_user_profile`, `pms_status_history`(프로젝트 상태 이력), 공통코드 시드(`PMS_*` 13개 그룹) | **완료(2026-10-27)** — API `/api/v1/pms/customers`, `/customer-contacts`, `/projects`(+`/status`, `/history`), `/user-profiles` |
+| 2단계 | 멤버·전환: `pms_project_member*`, `pms_transition`, `pms_team_change` | 예정 |
+| 3단계 | WBS·이슈 | 예정 |
+| 4~5단계 | RFP·제안서·보고서·산출물 / 인력·원가·운영·사업 기회 | 예정 |
+
+**1단계 구현 메모**
+- 권한: 조회·등록·수정·상태 변경은 로그인 사용자, 삭제는 `ROLE_ADMIN`(프로젝트 멤버 기반 조회 범위는 2단계 이후).
+- 프로젝트 코드(`PRJ-연도-###`)·고객사 코드(`CUS-###`)·담당자 코드(`CTC-###`)는 서버가 채번. 발주사·담당자 정보는 프로젝트에 복사 저장.
+- 서버 검증: 상태별 조건부 필수(제안 단계부터 담당자·연락처, 공고 중/제안 중 마감일, 실패/보류 사유 코드), 고객사–담당자 일치, 수주 이후 삭제 불가, 사용 중인 고객사·담당자 삭제 불가.
+- 프론트: 고객사·담당자·프로젝트 화면은 API 사용(화면 id = 코드, 서버 PK = dbId). 수행 관리 정보(투입 인력 등)·수행 종료·운영 정보는 서버 테이블이 생기는 2단계 전까지 메모리(목업)로 유지.
+- 개발용 샘플 데이터: `PmsDevDataSeeder`(app-sandbox) — 고객사 7·담당자 9·프로젝트 11·샘플 사용자 6명(김영업·최영업·이설계·김개발·박협력·정QA, 비밀번호 `pms1234`). 운영 배포 시 제거.

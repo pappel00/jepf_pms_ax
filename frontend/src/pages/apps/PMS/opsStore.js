@@ -49,13 +49,64 @@ const tasks = make([
   T('OT-004', 'PRJ-2026-011', '9월 운영 보고서 작성·제출', '보고', '관리자', '2026-10-08', '대기', '보통', '매월', '기한 경과'),
 ])
 export const useOpsTasks = tasks.use
-export const emptyTask = (projectId, assignee) => ({ id: '', projectId, title: '', category: '요청 작업', assignee, due: '', status: '대기', priority: '보통', repeat: '없음', memo: '', incidentId: '' })
-export function saveTask(t) {
+export const emptyTask = (projectId, assignee) => ({ id: '', projectId, title: '', category: '요청 작업', assignee, due: '', status: '대기', priority: '보통', repeat: '없음', repeatEnd: '', prevTaskId: '', autoCreated: false, memo: '', incidentId: '' })
+
+const addDaysIso = (s, n) => new Date(new Date(`${s}T00:00:00Z`).getTime() + n * 86400000).toISOString().slice(0, 10)
+/** 매월/분기는 같은 일자로 N개월 뒤(말일 초과 시 말일). */
+function addMonthsIso(s, n) {
+  const [y, m, d] = s.split('-').map(Number)
+  const last = new Date(Date.UTC(y, m - 1 + n + 1, 0)).getUTCDate()
+  return new Date(Date.UTC(y, m - 1 + n, Math.min(d, last))).toISOString().slice(0, 10)
+}
+/** 다음 주기 기한 — 매주 +7일, 매월 +1개월, 분기 +3개월. 반복이 아니면 null. */
+export function nextDueOf(due, repeat) {
+  if (!due) return null
+  if (repeat === '매주') return addDaysIso(due, 7)
+  if (repeat === '매월') return addMonthsIso(due, 1)
+  if (repeat === '분기') return addMonthsIso(due, 3)
+  return null
+}
+
+/**
+ * 반복 업무가 완료되면 다음 주기 업무를 자동 생성한다(상태 대기, 기한 = 이전 기한 + 주기, 이전 업무 연결).
+ * 반복 종료일·운영 종료일을 넘기거나 같은 기한의 업무가 이미 있으면 만들지 않는다.
+ * 반환: { created } 또는 { skipped: 사유 } 또는 null(반복 아님/완료 아님).
+ */
+function spawnNext(task, list, opsEnd) {
+  if (task.status !== '완료' || !task.repeat || task.repeat === '없음') return null
+  const due = nextDueOf(task.due, task.repeat)
+  if (!due) return null
+  if (list.some((x) => x.prevTaskId === task.id)) return { skipped: '이미 다음 업무가 생성되었습니다.' }
+  if (task.repeatEnd && due > task.repeatEnd) return { skipped: `반복 종료일(${task.repeatEnd})을 넘어 생성하지 않았습니다.` }
+  if (opsEnd && due > opsEnd) return { skipped: `운영 종료일(${opsEnd})을 넘어 생성하지 않았습니다.` }
+  if (list.some((x) => x.projectId === task.projectId && x.title === task.title && x.due === due)) return { skipped: `같은 기한(${due})의 동일 업무가 이미 있습니다.` }
+  const created = { ...task, id: nextId('OT', list), due, status: '대기', prevTaskId: task.id, autoCreated: true, incidentId: '' }
+  return { created }
+}
+
+/** 저장 — 완료로 저장하면 반복 업무의 다음 업무를 자동 생성한다. 결과(spawn)를 돌려준다. */
+export function saveTask(t, opsEnd) {
   const list = tasks.get()
-  tasks.set(t.id ? list.map((x) => (x.id === t.id ? t : x)) : [...list, { ...t, id: nextId('OT', list) }])
+  const old = list.find((x) => x.id === t.id)
+  const saved = t.id ? t : { ...t, id: nextId('OT', list) }
+  let next = t.id ? list.map((x) => (x.id === t.id ? t : x)) : [...list, saved]
+  const spawn = !old || old.status !== '완료' ? spawnNext(saved, next, opsEnd) : null
+  if (spawn?.created) next = [...next, { ...spawn.created, id: nextId('OT', next) }]
+  tasks.set(next)
+  return spawn
 }
 export const deleteTask = (id) => tasks.set(tasks.get().filter((t) => t.id !== id))
-export const setTaskStatus = (id, status) => tasks.set(tasks.get().map((t) => (t.id === id ? { ...t, status } : t)))
+export function setTaskStatus(id, status, opsEnd) {
+  const list = tasks.get()
+  const cur = list.find((t) => t.id === id)
+  if (!cur) return null
+  const updated = { ...cur, status }
+  let next = list.map((t) => (t.id === id ? updated : t))
+  const spawn = cur.status !== '완료' ? spawnNext(updated, next, opsEnd) : null
+  if (spawn?.created) next = [...next, { ...spawn.created, id: nextId('OT', next) }]
+  tasks.set(next)
+  return spawn
+}
 
 /* ---------- 운영 이슈(장애·문의·개선 요청) ---------- */
 export const INCIDENT_TYPES = ['장애', '문의', '개선 요청', '기타']

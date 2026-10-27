@@ -16,7 +16,6 @@ import {
   defaultProbabilityOf,
   deleteProject,
   formatKoreanWon,
-  nextProjectId,
   saveProject,
   statusIndex,
   useProjects,
@@ -30,8 +29,8 @@ const dday = (date) => {
   return diff === 0 ? 'D-Day' : diff > 0 ? `D-${diff}` : `D+${-diff}`
 }
 
-const emptyProject = (all) => ({
-  id: nextProjectId(all),
+const emptyProject = () => ({
+  id: '', // 프로젝트 코드는 서버가 자동 채번한다
   name: '', client: '', start: '', end: '', amount: null,
   status: '공고 전', probability: defaultProbabilityOf('공고 전'),
   contactName: '', contactTitle: '', contactPhone: '', contactEmail: '',
@@ -117,17 +116,38 @@ function ProjectForm({ initial, isNew, users, onClose }) {
     return list
   }, [users, p.salesName])
 
+  const pmOptions = useMemo(() => users.map((u) => ({ value: u.userName, label: `${u.userName} (${u.loginId})`, id: u.id })), [users])
+
   const margin =
     p.amount && p.costEstimate ? Math.round(((p.amount - p.costEstimate) / p.amount) * 1000) / 10 : null
   const weighted = p.amount && p.probability !== '' ? Math.round((p.amount * p.probability) / 100) : null
   const statusInfo = STATUSES.find((s) => s.name === p.status)
 
-  const submit = () => {
+  const [saving, setSaving] = useState(false)
+  // 서버 검증 오류의 필드명 → 화면 오류 키
+  const FIELD_KEY = {
+    projectName: 'name', customerId: 'client', contactId: 'contactName', salesUserId: 'salesName', pmUserId: 'pmName',
+    failReasonCode: 'failReasonCode', dueDate: 'dueDate', startDate: 'start', endDate: 'end', amount: 'amount',
+    probabilityPct: 'probability', statusCode: 'status',
+  }
+
+  const submit = async () => {
     const err = validate(p)
     setErrors(err)
     if (Object.keys(err).length) return
-    saveProject({ ...p, name: p.name.trim(), client: p.client.trim() })
-    onClose()
+    setSaving(true)
+    try {
+      await saveProject({ ...p, name: p.name.trim(), client: p.client.trim() })
+      onClose()
+    } catch (e) {
+      const next = {}
+      ;(e.errors || []).forEach((d) => {
+        next[FIELD_KEY[d.field] ?? 'server'] = d.reason
+      })
+      if (!Object.keys(next).length) window.alert(e.message)
+      setErrors(next)
+      setSaving(false)
+    }
   }
 
   const text = (key, extra = {}) => (
@@ -178,8 +198,21 @@ function ProjectForm({ initial, isNew, users, onClose }) {
             ))}
           </select>
         </Field>
-        <Field label="수행 PM" hint="수주 후 지정해도 됩니다 (프로젝트 멤버와 연동 예정)">
-          {text('pmName')}
+        <Field label="수행 PM" hint="수주 후 지정해도 됩니다 (프로젝트 멤버와 연동 예정)" error={errors.pmName}>
+          <select
+            value={p.pmName}
+            onChange={(e) => {
+              const o = pmOptions.find((x) => x.value === e.target.value)
+              setP((prev) => ({ ...prev, pmName: e.target.value, pmId: o?.id ?? null }))
+            }}
+          >
+            <option value="">지정 안 함</option>
+            {pmOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
         </Field>
         <Field label="시작일(예정)" required error={errors.start}>
           <input type="date" value={p.start} onChange={(e) => set('start', e.target.value)} />
@@ -313,7 +346,7 @@ function ProjectForm({ initial, isNew, users, onClose }) {
           label="예상 원가 (원)"
           hint={`${margin !== null ? `예상 이익률 ${margin}%` : '입력하면 예상 이익률을 계산합니다'}${p.costSource ? ` · 출처: ${p.costSource}` : ''}`}
         >
-          {moneyInput('costEstimate', () => set('costSource', ''))}
+          {moneyInput('costEstimate', () => setP((prev) => ({ ...prev, costSource: '', costSourceType: 'MANUAL' })))}
         </Field>
       </div>
 
@@ -336,9 +369,10 @@ function ProjectForm({ initial, isNew, users, onClose }) {
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-        <button className="primary" style={{ flex: 1 }} onClick={submit}>
-          저장
+        <button className="primary" style={{ flex: 1 }} disabled={saving} onClick={submit}>
+          {saving ? '저장 중…' : '저장'}
         </button>
+        {errors.server && <span className="pms-field-error" style={{ alignSelf: 'center' }}>{errors.server}</span>}
         <button className="secondary" style={{ marginTop: 0 }} onClick={onClose}>
           취소
         </button>
@@ -349,7 +383,8 @@ function ProjectForm({ initial, isNew, users, onClose }) {
             onClick={() => {
               if (window.confirm(`"${p.name}" 프로젝트를 삭제할까요?`)) {
                 deleteProject(p.id)
-                onClose()
+                  .then(onClose)
+                  .catch((e) => window.alert(e.message))
               }
             }}
           >
@@ -399,14 +434,14 @@ export default function ProjectsPage() {
       <div className="page-header">
         <div>
           <h2>
-            프로젝트 관리 <span className="pms-mock-badge">목업 · 더미 데이터</span>
+            프로젝트 관리
           </h2>
           <p className="page-description">
             영업(공고 전 ~ 협상 중) → 수주 → 수행 → 종료까지 사업 단위를 관리합니다. 수주 후에는 같은 프로젝트로 WBS·진척 관리가
             이어집니다.
           </p>
         </div>
-        <button className="primary small" onClick={() => setEditing({ project: emptyProject(all), isNew: true })}>
+        <button className="primary small" onClick={() => setEditing({ project: emptyProject(), isNew: true })}>
           + 프로젝트 등록
         </button>
       </div>

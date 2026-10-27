@@ -18,5 +18,6 @@ dependencies {
     implementation(project(":module-notice"))
     implementation(project(":module-privacy"))
     implementation(project(":module-form"))
+    implementation(project(":module-pms"))
     runtimeOnly("org.postgresql:postgresql:42.7.4")
 }

@@ -69,7 +69,8 @@ export default function IssueForm({ initial, isNew, lockTask, projects: projectO
     if (needResolution && !it.resolution.trim()) e.resolution = '해결/종결 시 조치 내용을 기록하세요.'
     setErrors(e)
     if (Object.keys(e).length) return
-    saveIssue({ ...it, title: it.title.trim() }, ME, TODAY)
+    const proposal = saveIssue({ ...it, title: it.title.trim() }, ME, TODAY)
+    if (proposal) window.alert(`일정 조정 제안 ${proposal.id}을(를) 만들었습니다(대상 업무 ${proposal.items.length}건, +${proposal.shiftDays}영업일).\n이슈 관리 화면 상단 「일정 조정 제안」에서 검토·승인하세요.`)
     onSaved?.(it.id)
     onClose()
   }

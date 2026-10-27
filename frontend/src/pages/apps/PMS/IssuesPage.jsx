@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import './pms.css'
 import IssueForm from './IssueForm'
 import { ProcessButton } from './ProcessModal'
+import ScheduleProposalPanel from './ScheduleProposalPanel'
 import { issueProcess } from './processModels'
 import { ISSUE_STATUSES, ISSUE_TYPES, PRIORITIES, isHighPriority, isOpenStatus, nextIssueId, useIssues } from './issueStore'
 import { useAuth } from '../../../context/AuthContext'
@@ -120,6 +121,11 @@ export default function IssuesPage() {
           <div className="value">{open.reduce((s, i) => s + (i.impactDays || 0), 0)}일</div>
         </div>
       </div>
+
+      <ScheduleProposalPanel
+        scopeIds={scopeIds}
+        canDecideOf={(pid) => seeAll || projects.find((p) => p.id === pid)?.transitioned?.manager?.name === ME}
+      />
 
       {taskParam && (
         <div className="pms-blind" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

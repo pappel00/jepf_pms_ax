@@ -5,6 +5,7 @@
  * 양방향 관리 — 이슈 화면에서 연결 업무를 지정/이동하고, WBS 업무에서 연결된 이슈를 조회·등록·연결한다.
  */
 import { useSyncExternalStore } from 'react'
+import { createProposalForIssue } from './scheduleStore'
 
 export const ISSUE_TYPES = ['일정', '범위/요구사항', '품질', '인력/자원', '기술', '고객/협의', '기타']
 export const PRIORITIES = ['긴급', '높음', '보통', '낮음']
@@ -138,6 +139,9 @@ export function saveIssue(issue, actor, today) {
   if (isOpenStatus(next.status)) next.resolvedDate = ''
   next = { ...next, history }
   emit(prev ? issues.map((i) => (i.id === next.id ? next : i)) : [...issues, next])
+  // 열린 이슈가 해결로 바뀌면(일정 영향 + 연결 업무가 있을 때) 일정 조정 제안을 만든다.
+  if (prev && isOpenStatus(prev.status) && next.status === '해결') return createProposalForIssue(next, today)
+  return null
 }
 
 export function deleteIssue(id) {

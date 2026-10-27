@@ -60,7 +60,8 @@ function ContactForm({ initial, customers, onClose }) {
         disabled={!!err}
         onClick={() => {
           saveContact({ ...t, name: t.name.trim() })
-          onClose()
+            .then(onClose)
+            .catch((e) => window.alert(e.message))
         }}
       >
         저장
@@ -87,7 +88,7 @@ export default function CustomerContactsPage() {
   const remove = (t) => {
     const n = projectCount(t)
     if (n > 0) return window.alert(`프로젝트 ${n}건에서 사용 중이라 삭제할 수 없습니다. 사용 여부를 「미사용」으로 바꾸세요.`)
-    if (window.confirm(`${t.name} 담당자를 삭제할까요?`)) deleteContact(t.id)
+    if (window.confirm(`${t.name} 담당자를 삭제할까요?`)) deleteContact(t.id).catch((e) => window.alert(e.message))
   }
 
   return (
@@ -95,7 +96,7 @@ export default function CustomerContactsPage() {
       <div className="page-header">
         <div>
           <h2>
-            고객사 담당자 관리 <span className="pms-mock-badge">목업 · 더미 데이터</span>
+            고객사 담당자 관리
           </h2>
           <p className="page-description">
             고객사별 담당자(이름·직책·연락처)를 관리합니다. 프로젝트 관리에서 발주사를 고르면 해당 고객사의 담당자 중에서 선택합니다.

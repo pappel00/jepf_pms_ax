@@ -1,39 +1,17 @@
 /**
- * 고객사 / 고객사 담당자 관리 목업 스토어 — 더미 데이터, API 연동 없음(새로고침하면 초기화).
+ * 고객사 / 고객사 담당자 스토어 — module-pms API(/api/v1/pms/customers, /customer-contacts) 기반.
  *
- * 프로젝트마다 발주사·담당자를 텍스트로 입력하던 것을 자산(마스터)으로 관리한다.
- * 프로젝트 관리는 여기서 선택하며, 선택 시 이름·연락처를 프로젝트에 복사해 둔다(고객사 정보가 바뀌어도 과거 프로젝트 기록은 유지).
+ * 화면 전체가 동기 훅(useCustomerState)으로 읽으므로 이 모듈이 서버 결과를 메모리에 캐시한다. 화면에서 쓰는 id는
+ * 고객사 코드(CUS-###)·담당자 코드(CTC-###)이고(다른 목업 데이터가 이 코드를 참조), 서버 PK는 dbId에 둔다.
+ * 저장·삭제는 API 호출 후 목록을 다시 불러온다(실패하면 예외를 던지므로 호출한 화면이 메시지를 보여준다).
  */
-import { useSyncExternalStore } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
+import { pmsContactsApi, pmsCustomersApi } from '../../../api/entities'
 
 export const INDUSTRIES = ['제조', '금융', '유통/물류', '공공', '의료/제약', '에너지', 'IT/서비스', '기타']
 export const CUSTOMER_STATUSES = ['거래 중', '잠재', '거래 종료']
 
-const C = (id, name, industry, status, phone, address, bizNo = '') => ({ id, name, industry, status, phone, address, bizNo, homepage: '', memo: '' })
-const T = (id, customerId, name, title, dept, phone, email) => ({ id, customerId, name, title, dept, phone, email, memo: '', useYn: 'Y' })
-
-let state = {
-  customers: [
-    C('CUS-001', '(샘플) 고객사', 'IT/서비스', '거래 중', '02-100-0000', '서울 강남구 테헤란로 1', '123-45-67890'),
-    C('CUS-002', '한빛전자', '제조', '거래 중', '031-888-0000', '경기 수원시 영통구'),
-    C('CUS-003', '대한물산', '유통/물류', '거래 중', '02-555-0000', '서울 중구 세종대로'),
-    C('CUS-004', '새솔금융', '금융', '거래 중', '02-777-0000', '서울 영등포구 여의대로'),
-    C('CUS-005', '푸른물류', '유통/물류', '잠재', '031-777-0000', '경기 평택시'),
-    C('CUS-006', '미래제약', '의료/제약', '잠재', '043-200-0000', '충북 청주시'),
-    C('CUS-007', '동서에너지', '에너지', '거래 중', '052-300-0000', '울산 남구'),
-  ],
-  contacts: [
-    T('CTC-001', 'CUS-001', '한고객', '부장', 'IT기획팀', '010-1234-5678', 'client@example.com'),
-    T('CTC-002', 'CUS-003', '박담당', '과장', '정보시스템팀', '02-555-0101', ''),
-    T('CTC-003', 'CUS-004', '이팀장', '팀장', '디지털전략팀', '010-9876-5432', 'lee@saesol.example'),
-    T('CTC-004', 'CUS-005', '정구매', '대리', '구매팀', '031-777-2020', ''),
-    T('CTC-005', 'CUS-003', '송운영', '대리', '운영팀', '02-555-0202', ''),
-    T('CTC-006', 'CUS-002', '유협업', '과장', '업무혁신팀', '031-888-0101', ''),
-    T('CTC-007', 'CUS-007', '오책임', '책임', '스마트팩토리추진팀', '052-300-1100', ''),
-    T('CTC-008', 'CUS-002', '정이사', '이사', '경영지원본부', '031-888-0001', 'jung@hanbit.example'),
-    T('CTC-009', 'CUS-001', '최상무', '상무', 'IT전략실', '02-100-0001', ''),
-  ],
-}
+let state = { customers: [], contacts: [], loaded: false, error: '' }
 const listeners = new Set()
 const emit = (next) => {
   state = next
@@ -43,26 +21,91 @@ const subscribe = (l) => {
   listeners.add(l)
   return () => listeners.delete(l)
 }
-export const useCustomerState = () => useSyncExternalStore(subscribe, () => state)
 
-const nextId = (prefix, list) => `${prefix}-${String(list.reduce((m, x) => Math.max(m, Number(x.id.split('-')[1])), 0) + 1).padStart(3, '0')}`
+const customerFromApi = (c) => ({
+  id: c.customerCode, dbId: c.id, name: c.customerName, industry: c.industryCode ?? '', status: c.dealStatusCode,
+  bizNo: c.bizNo ?? '', phone: c.phone ?? '', address: c.address ?? '', homepage: c.homepage ?? '', memo: c.memo ?? '',
+})
+
+let loading = null
+/** 서버에서 고객사·담당자를 다시 읽어 캐시를 갱신한다. */
+export function loadCustomers() {
+  if (loading) return loading
+  loading = Promise.all([pmsCustomersApi.list('?size=1000&sort=customerCode'), pmsContactsApi.list('?size=2000&sort=contactCode')])
+    .then(([cRes, tRes]) => {
+      const customers = (cRes.data || []).map(customerFromApi)
+      const codeOfDbId = Object.fromEntries(customers.map((c) => [c.dbId, c.id]))
+      const contacts = (tRes.data || []).map((t) => ({
+        id: t.contactCode, dbId: t.id, customerId: codeOfDbId[t.customerId] ?? '', customerDbId: t.customerId, name: t.contactName,
+        title: t.jobTitle ?? '', dept: t.deptName ?? '', phone: t.phone ?? '', email: t.email ?? '', memo: t.memo ?? '', useYn: t.useYn,
+      }))
+      emit({ customers, contacts, loaded: true, error: '' })
+    })
+    .catch((e) => emit({ ...state, loaded: true, error: e.message }))
+    .finally(() => {
+      loading = null
+    })
+  return loading
+}
+
+/** 최초 한 번 서버에서 불러온다(다른 스토어가 코드↔PK 변환에 쓸 때도 이걸 기다린다). */
+export function ensureCustomersLoaded() {
+  return state.loaded ? Promise.resolve() : loadCustomers()
+}
+
+export function useCustomerState() {
+  useEffect(() => {
+    ensureCustomersLoaded()
+  }, [])
+  return useSyncExternalStore(subscribe, () => state)
+}
 
 export const emptyCustomer = () => ({ id: '', name: '', industry: '', status: '거래 중', bizNo: '', phone: '', address: '', homepage: '', memo: '' })
 export const emptyContact = (customerId = '') => ({ id: '', customerId, name: '', title: '', dept: '', phone: '', email: '', memo: '', useYn: 'Y' })
 
-export function saveCustomer(c) {
-  const customers = c.id ? state.customers.map((x) => (x.id === c.id ? c : x)) : [...state.customers, { ...c, id: nextId('CUS', state.customers) }]
-  emit({ ...state, customers })
-}
-export const deleteCustomer = (id) => emit({ customers: state.customers.filter((c) => c.id !== id), contacts: state.contacts.filter((t) => t.customerId !== id) })
+const customerBody = (c) => ({
+  customerName: c.name, industryCode: c.industry || null, dealStatusCode: c.status, bizNo: c.bizNo || null,
+  phone: c.phone || null, address: c.address || null, homepage: c.homepage || null, memo: c.memo || null,
+})
 
-export function saveContact(t) {
-  const contacts = t.id ? state.contacts.map((x) => (x.id === t.id ? t : x)) : [...state.contacts, { ...t, id: nextId('CTC', state.contacts) }]
-  emit({ ...state, contacts })
+export async function saveCustomer(c) {
+  if (c.dbId) await pmsCustomersApi.update(c.dbId, customerBody(c))
+  else await pmsCustomersApi.create(customerBody(c))
+  await loadCustomers()
 }
-export const deleteContact = (id) => emit({ ...state, contacts: state.contacts.filter((t) => t.id !== id) })
 
-/** 프로젝트에 저장된 발주사/담당자 이름으로 마스터를 찾는다(시드 데이터·id 없는 기존 프로젝트용). */
+export async function deleteCustomer(code) {
+  const c = state.customers.find((x) => x.id === code)
+  if (!c) return
+  await pmsCustomersApi.remove(c.dbId)
+  await loadCustomers()
+}
+
+export async function saveContact(t) {
+  const customer = state.customers.find((c) => c.id === t.customerId)
+  const body = {
+    customerId: customer?.dbId, contactName: t.name, jobTitle: t.title || null, deptName: t.dept || null,
+    phone: t.phone || null, email: t.email || null, memo: t.memo || null, useYn: t.useYn,
+  }
+  if (t.dbId) await pmsContactsApi.update(t.dbId, body)
+  else await pmsContactsApi.create(body)
+  await loadCustomers()
+}
+
+export async function deleteContact(code) {
+  const t = state.contacts.find((x) => x.id === code)
+  if (!t) return
+  await pmsContactsApi.remove(t.dbId)
+  await loadCustomers()
+}
+
+/** 화면의 고객사 코드/담당자 코드 → 서버 PK (프로젝트 저장용). */
+export const customerDbId = (code) => state.customers.find((c) => c.id === code)?.dbId
+export const contactDbId = (code) => state.contacts.find((t) => t.id === code)?.dbId
+export const customerCodeOfDbId = (dbId) => state.customers.find((c) => c.dbId === dbId)?.id ?? ''
+export const contactCodeOfDbId = (dbId) => state.contacts.find((t) => t.dbId === dbId)?.id ?? ''
+
+/** 프로젝트에 저장된 발주사/담당자 이름으로 마스터를 찾는다(id 없는 기존 데이터용). */
 export const customerOf = (customers, p) => customers.find((c) => c.id === p.customerId) ?? customers.find((c) => c.name === p.client)
 export const contactOf = (contacts, p) =>
   contacts.find((t) => t.id === p.contactId) ?? contacts.find((t) => t.name === p.contactName && t.phone === p.contactPhone)

@@ -353,6 +353,28 @@ export function featureMatrix(all) {
  * 진척률 입력. 선행 단계(분석 → 설계 → 개발 → 테스트)가 끝나지 않은 업무는 0%보다 큰 값을
  * 입력할 수 없다 — 막히면 선행 업무를 돌려주고 변경하지 않는다.
  */
+/** 현재 WBS 업무 목록(훅 없이 읽기) — 이슈 해결 시 일정 조정 제안 계산에 쓴다. */
+export const getTasks = () => tasks
+
+/** date에서 n영업일 이동(음수면 앞당김). 주말은 건너뛴다. */
+export function shiftWorkdays(date, n) {
+  const d = parse(date)
+  const step = n >= 0 ? 1 : -1
+  let left = Math.abs(n)
+  while (left > 0) {
+    d.setUTCDate(d.getUTCDate() + step)
+    if (!isWeekend(d)) left--
+  }
+  while (isWeekend(d)) d.setUTCDate(d.getUTCDate() + step)
+  return iso(d)
+}
+
+/** 일정 조정 승인 반영 — [{ id, start, end }]. */
+export function applyTaskDates(changes) {
+  const map = new Map(changes.map((c) => [c.id, c]))
+  emit(tasks.map((t) => (map.has(t.id) ? { ...t, start: map.get(t.id).start, end: map.get(t.id).end } : t)))
+}
+
 export function setProgress(id, value) {
   const task = tasks.find((t) => t.id === id)
   const v = Math.max(0, Math.min(100, Number(value) || 0))

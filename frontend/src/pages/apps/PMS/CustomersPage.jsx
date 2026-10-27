@@ -51,7 +51,8 @@ function CustomerForm({ initial, onClose }) {
         disabled={!!err}
         onClick={() => {
           saveCustomer({ ...c, name: c.name.trim() })
-          onClose()
+            .then(onClose)
+            .catch((e) => window.alert(e.message))
         }}
       >
         저장
@@ -75,7 +76,7 @@ export default function CustomersPage() {
   const remove = (c) => {
     const n = projectCount(c)
     if (n > 0) return window.alert(`프로젝트 ${n}건에서 사용 중이라 삭제할 수 없습니다. 거래 상태를 「거래 종료」로 바꾸세요.`)
-    if (window.confirm(`${c.name}과(와) 담당자 정보를 삭제할까요?`)) deleteCustomer(c.id)
+    if (window.confirm(`${c.name}과(와) 담당자 정보를 삭제할까요?`)) deleteCustomer(c.id).catch((e) => window.alert(e.message))
   }
 
   return (
@@ -83,7 +84,7 @@ export default function CustomersPage() {
       <div className="page-header">
         <div>
           <h2>
-            고객사 관리 <span className="pms-mock-badge">목업 · 더미 데이터</span>
+            고객사 관리
           </h2>
           <p className="page-description">발주사 정보를 자산으로 관리합니다. 프로젝트 관리에서는 여기 등록된 고객사를 선택해 입력합니다.</p>
         </div>

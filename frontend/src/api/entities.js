@@ -19,6 +19,20 @@ export const noticesApi = createCrudApi('/api/v1/notices')
 export const privacyPolicyGroupsApi = createCrudApi('/api/v1/privacy-policy-groups')
 export const formGroupsApi = createCrudApi('/api/v1/form-groups')
 
+// --- PMS (module-pms) ---
+export const pmsCustomersApi = createCrudApi('/api/v1/pms/customers')
+export const pmsContactsApi = createCrudApi('/api/v1/pms/customer-contacts')
+export const pmsProjectsApi = {
+  ...createCrudApi('/api/v1/pms/projects'),
+  /** 상태만 변경 — 단계전환·수행 종료·운영 전환 등 */
+  changeStatus: (id, body) => apiFetch(`/api/v1/pms/projects/${id}/status`, { method: 'POST', body }),
+  history: (id) => apiFetch(`/api/v1/pms/projects/${id}/history`),
+}
+export const pmsUserProfilesApi = {
+  list: () => apiFetch('/api/v1/pms/user-profiles'),
+  get: (userId) => apiFetch(`/api/v1/pms/user-profiles/${userId}`),
+  upsert: (userId, body) => apiFetch(`/api/v1/pms/user-profiles/${userId}`, { method: 'PUT', body }),
+}
 // --- 매핑(N:M) 하위 리소스 ---
 export const userGroupRolesApi = (userGroupId) => createMappingApi(`/api/v1/user-groups/${userGroupId}/roles`)
 export const userGroupUsersApi = (userGroupId) => createMappingApi(`/api/v1/user-groups/${userGroupId}/users`)

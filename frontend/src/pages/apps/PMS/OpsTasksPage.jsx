@@ -8,7 +8,7 @@ import { PRIORITIES, REPEATS, TASK_CATEGORIES, TASK_STATUSES, deleteTask, emptyT
 const PRI_CLASS = { 긴급: 'late', 높음: 'late', 보통: 'doing', 낮음: '' }
 const overdue = (t) => t.status !== '완료' && t.due && t.due < TODAY
 
-function TaskForm({ initial, onClose }) {
+function TaskForm({ initial, opsEnd, onClose, onSaved }) {
   const [t, setT] = useState(initial)
   const set = (patch) => setT((p) => ({ ...p, ...patch }))
   const err = !t.title.trim() ? '업무명을 입력하세요.' : !t.assignee ? '담당자를 선택하세요.' : !t.due ? '기한을 입력하세요.' : ''
@@ -42,14 +42,23 @@ function TaskForm({ initial, onClose }) {
         </div>
         {sel('상태', 'status', TASK_STATUSES)}
         {sel('반복', 'repeat', REPEATS)}
+        {t.repeat !== '없음' && (
+          <div className="field">
+            <label>반복 종료일 <span className="opt-mark">(옵션)</span></label>
+            <input type="date" value={t.repeatEnd ?? ''} onChange={(e) => set({ repeatEnd: e.target.value })} />
+            <div className="pms-field-hint">비우면 운영 종료일({opsEnd || '-'})까지 반복합니다.</div>
+          </div>
+        )}
       </div>
+      {t.repeat !== '없음' && <div className="pms-field-hint">"완료"로 바꾸면 다음 {t.repeat === '매주' ? '주' : t.repeat === '매월' ? '달' : '분기'} 업무가 자동으로 만들어집니다(상태 대기, 기한 +{t.repeat === '매주' ? '7일' : t.repeat === '매월' ? '1개월' : '3개월'}).</div>}
       <div className="field">
         <label>메모</label>
         <textarea rows={3} value={t.memo} onChange={(e) => set({ memo: e.target.value })} />
       </div>
       {t.incidentId && <p className="muted">연결된 운영 이슈: {t.incidentId}</p>}
+      {t.prevTaskId && <p className="muted">반복으로 만들어진 업무 — 이전 업무 {t.prevTaskId}</p>}
       {err && <p style={{ color: '#c0392b' }}>{err}</p>}
-      <button className="primary" disabled={!!err} onClick={() => { saveTask({ ...t, title: t.title.trim() }); onClose() }}>저장</button>
+      <button className="primary" disabled={!!err} onClick={() => { onSaved(saveTask({ ...t, title: t.title.trim() }, opsEnd)); onClose() }}>저장</button>
     </Modal>
   )
 }
@@ -60,6 +69,7 @@ export default function OpsTasksPage() {
   const all = useOpsTasks()
   const [f, setF] = useState({ status: '', category: '', assignee: '', keyword: '', mine: false })
   const [edit, setEdit] = useState(null)
+  const [notice, setNotice] = useState(null) // 반복 업무 자동 생성 결과 안내
   const set = (patch) => setF((p) => ({ ...p, ...patch }))
 
   const list = all.filter((t) => t.projectId === project?.id)
@@ -67,6 +77,7 @@ export default function OpsTasksPage() {
     .filter((t) => (!f.status || t.status === f.status) && (!f.category || t.category === f.category) && (!f.assignee || t.assignee === f.assignee) && (!f.mine || t.assignee === ME) && (!f.keyword || `${t.title} ${t.memo}`.includes(f.keyword)))
     .sort((a, b) => (a.status === '완료') - (b.status === '완료') || a.due.localeCompare(b.due))
   const open = list.filter((t) => t.status !== '완료')
+  const showSpawn = (spawn) => setNotice(spawn ?? null)
 
   return (
     <div>
@@ -78,7 +89,13 @@ export default function OpsTasksPage() {
         <button className="primary" disabled={!project} onClick={() => setEdit(emptyTask(project.id, ME))}>＋ 업무 등록</button>
       </div>
       {bar}
-      {edit && <TaskForm initial={edit} onClose={() => setEdit(null)} />}
+      {edit && <TaskForm initial={edit} opsEnd={project?.operation?.endDate} onClose={() => setEdit(null)} onSaved={showSpawn} />}
+      {notice && (
+        <div className="pms-blind" style={{ display: 'flex', justifyContent: 'space-between', gap: 8, background: notice.created ? '#f1faf3' : '#fff4d6' }}>
+          <span>{notice.created ? `🔁 반복 업무를 완료하여 다음 업무 ${notice.created.id}(${notice.created.title}, 기한 ${notice.created.due})를 자동 생성했습니다.` : `ℹ️ ${notice.skipped}`}</span>
+          <button className="link-btn" onClick={() => setNotice(null)}>닫기</button>
+        </div>
+      )}
       {project && (
         <>
           <div className="pms-summary">
@@ -131,14 +148,15 @@ export default function OpsTasksPage() {
                   <td className="name-cell">
                     <b>{t.title}</b>
                     {t.incidentId && <span className="pms-tag copy" style={{ marginLeft: 6 }}>이슈 {t.incidentId}</span>}
+                    {t.autoCreated && <span className="pms-tag done" style={{ marginLeft: 6 }} title={`반복으로 자동 생성 (이전 업무 ${t.prevTaskId})`}>자동 생성</span>}
                     {t.memo && <div className="muted">{t.memo}</div>}
                   </td>
                   <td><span className={`pms-tag ${PRI_CLASS[t.priority]}`}>{t.priority}</span></td>
                   <td>{t.assignee}</td>
                   <td>{t.due} {t.status !== '완료' && <span className={`pms-tag ${overdue(t) ? 'late' : ''}`}>{dday(t.due)}</span>}</td>
-                  <td>{t.repeat === '없음' ? <span className="muted">-</span> : <span className="pms-tag manual">{t.repeat}</span>}</td>
+                  <td>{t.repeat === '없음' ? <span className="muted">-</span> : <span className="pms-tag manual" title={t.repeatEnd ? `반복 종료일 ${t.repeatEnd}` : '운영 종료일까지'}>{t.repeat}</span>}</td>
                   <td>
-                    <select value={t.status} onChange={(e) => setTaskStatus(t.id, e.target.value)}>
+                    <select value={t.status} onChange={(e) => showSpawn(setTaskStatus(t.id, e.target.value, project?.operation?.endDate))}>
                       {TASK_STATUSES.map((s) => <option key={s}>{s}</option>)}
                     </select>
                   </td>
@@ -150,7 +168,7 @@ export default function OpsTasksPage() {
               ))}
             </tbody>
           </table>
-          <div className="pms-field-hint">반복 업무(매주·매월·분기)는 완료 처리 시 다음 업무를 자동 생성하는 기능을 후속으로 검토합니다. 현재는 표시만 합니다.</div>
+          <div className="pms-field-hint">반복 업무(매주·매월·분기)를 완료 처리하면 다음 주기 업무가 자동 생성됩니다(상태 대기, 기한 +7일/+1개월/+3개월, 담당자·우선순위 유지). 반복 종료일이나 운영 종료일을 넘으면 생성하지 않고, 같은 기한의 동일 업무가 있으면 중복 생성하지 않습니다.</div>
         </>
       )}
     </div>
