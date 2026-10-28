@@ -21,4 +21,10 @@ public final class PmsErrorCode {
     public static final String TRANSITION_INVALID = "ERR-PMS-0013";
     public static final String TEAM_CHANGE_NOT_FOUND = "ERR-PMS-0014";
     public static final String TEAM_CHANGE_INVALID = "ERR-PMS-0015";
+    public static final String TASK_NOT_FOUND = "ERR-PMS-0016";
+    public static final String TASK_INVALID = "ERR-PMS-0017";
+    public static final String ISSUE_NOT_FOUND = "ERR-PMS-0018";
+    public static final String ISSUE_INVALID = "ERR-PMS-0019";
+    public static final String PROPOSAL_NOT_FOUND = "ERR-PMS-0020";
+    public static final String PROPOSAL_INVALID = "ERR-PMS-0021";
 }

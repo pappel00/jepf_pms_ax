@@ -1,6 +1,6 @@
 /**
- * PMS 목업 전용 인메모리 스토어. 백엔드 API 연동 없이 화면 설계 검토(고객 gap 최소화)를
- * 위해 만든 더미 데이터와 계산 로직이다 — 새로고침하면 초기 상태로 돌아간다.
+ * WBS 업무 스토어 — 서버(`/api/v1/pms/wbs-tasks`)에서 읽어 메모리에 두고, 진척 입력·업무 복사는 서버에 저장한다.
+ * 트리 집계·계획 진척·기능 매트릭스 같은 계산 로직은 화면에서 한다. TODAY·ME·MEMBERS 는 아직 목업 상수다.
  *
  * WBS 구조는 실제 사업의 WBS 엑셀(상세일정계획(WBS)_v2.1)을 따른다:
  *   Level1 = 단계(사업관리/분석/설계/개발/테스트/이행/준공·안정화, 단계별 가중치)
@@ -13,7 +13,9 @@
  *          (같은 기능은 단계마다 하나씩 포함되고, 선행 단계가 끝나야 다음 단계를 진행한다)
  *  - 3.9.2 업무당 담당자 1인, 복수 담당이 필요하면 업무 복사(가중치 균등 분배)
  */
-import { useSyncExternalStore } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
+import { pmsWbsApi } from '../../../api/entities'
+import { ensurePmsUsersLoaded, userIdByName } from './pmsUsers'
 
 export const TODAY = '2026-10-13'
 export const ME = '관리자'
@@ -50,24 +52,6 @@ const PHASES = [
   { code: 'ST', name: '준공/안정화', weight: 5 },
 ]
 const PHASE_CODE = Object.fromEntries(PHASES.map((p) => [p.name, p.code]))
-
-/**
- * 기능(=요구사항) 목록. 원본 WBS의 그룹웨어/협업/ECM/SSO/포탈/통합검색 파트에서 대표 기능을 뽑았다.
- * dur: 단계별 소요 영업일(분석/설계/개발/테스트), owners: 단계별 담당자, size: 기능 규모(가중치),
- * slip: 해당 단계의 진척을 계획보다 늦춘 값(지연 상황 시연용).
- */
-const FEATURES = [
-  { id: 'REQ-001', name: '전자결재', category: '그룹웨어', start: '2026-09-01', size: 20, dur: [10, 15, 25, 10], owners: ['이설계', '이설계', '김개발', '정QA'] },
-  { id: 'REQ-002', name: '게시판', category: '그룹웨어', start: '2026-09-14', size: 10, dur: [10, 10, 20, 8], owners: [ME, '이설계', '박협력', '정QA'], slip: { 분석: 10 } },
-  { id: 'REQ-003', name: '일정관리', category: '그룹웨어', start: '2026-09-21', size: 10, dur: [8, 12, 20, 8], owners: ['이설계', ME, '김개발', '정QA'] },
-  { id: 'REQ-004', name: '조직도·주소록', category: '그룹웨어', start: '2026-09-08', size: 10, dur: [8, 10, 15, 6], owners: ['이설계', '이설계', '김개발', '정QA'] },
-  { id: 'REQ-005', name: '프로젝트·태스크 관리', category: '협업', start: '2026-09-07', size: 25, dur: [10, 15, 30, 10], owners: ['이설계', '이설계', '박협력', '정QA'] },
-  { id: 'REQ-006', name: '주간보고서', category: '협업', start: '2026-09-28', size: 10, dur: [6, 8, 15, 6], owners: ['이설계', '김개발', '박협력', '정QA'] },
-  { id: 'REQ-007', name: '문서 중앙화·권한', category: 'ECM', start: '2026-09-14', size: 20, dur: [10, 15, 25, 10], owners: ['이설계', '이설계', '박협력', '정QA'] },
-  { id: 'REQ-008', name: 'SSO 연계', category: 'SSO', start: '2026-09-01', size: 10, dur: [8, 10, 15, 8], owners: ['이설계', '김개발', '김개발', '정QA'] },
-  { id: 'REQ-009', name: '포틀릿·개인화', category: '포탈', start: '2026-09-21', size: 15, dur: [8, 10, 20, 8], owners: ['이설계', '이설계', '김개발', '정QA'] },
-  { id: 'REQ-010', name: '통합검색 색인', category: '통합검색', start: '2026-10-06', size: 10, dur: [6, 8, 15, 6], owners: [ME, '김개발', '박협력', '정QA'] },
-]
 
 // ---------- 날짜 유틸 (UTC 기준, 주말만 제외) ----------
 const parse = (s) => new Date(`${s}T00:00:00Z`)
@@ -106,114 +90,11 @@ export function plannedProgress(start, end) {
   return Math.round((elapsed / total) * 100)
 }
 
-const round5 = (n) => Math.round(n / 5) * 5
-
-// ---------- 초기 데이터 생성 ----------
-function buildInitialTasks() {
-  const list = []
-  const cats = new Set()
-
-  PHASES.forEach((p) =>
-    list.push({ id: `PH-${p.code}`, parentId: null, name: p.name, phase: p.name, weight: p.weight }),
-  )
-
-  const addLeaf = (phaseName, category, task) => {
-    const code = PHASE_CODE[phaseName]
-    const catId = `C-${code}-${category}`
-    if (!cats.has(catId)) {
-      cats.add(catId)
-      list.push({ id: catId, parentId: `PH-${code}`, name: category, phase: phaseName, category, weight: 0 })
-    }
-    list.push({ parentId: catId, phase: phaseName, category, ...task })
-  }
-
-  // 1) 기능(요구사항)별 분석 → 설계 → 개발 → 테스트 — 단계마다 한 건씩, 앞 단계가 끝난 다음날부터 시작.
-  FEATURES.forEach((f) => {
-    let start = nextWorkday(f.start)
-    let prev = null
-    CHAIN.forEach((ph, i) => {
-      const end = addWorkdays(start, f.dur[i])
-      const id = `${f.id}-${PHASE_CODE[ph]}`
-      let progress = Math.max(0, round5(plannedProgress(start, end)) - (f.slip?.[ph] ?? 0))
-      if (prev && prev.progress < 100) progress = 0 // 선행 단계가 끝나지 않았으면 착수 불가
-      addLeaf(ph, f.category, {
-        id,
-        name: `${f.name} ${ph}`,
-        reqId: f.id,
-        feature: f.name,
-        assignee: f.owners[i],
-        start,
-        end,
-        weight: f.size,
-        progress,
-        predId: prev?.id ?? null,
-      })
-      prev = { id, progress }
-      start = dayAfter(end)
-    })
-  })
-
-  // 2) 단계말 검토 — 그 단계의 마지막 기능 업무가 끝난 뒤 3영업일.
-  CHAIN.forEach((ph) => {
-    const ends = list.filter((t) => t.phase === ph && t.reqId).map((t) => t.end)
-    const start = dayAfter(ends.sort().slice(-1)[0])
-    const end = addWorkdays(start, 3)
-    addLeaf(ph, '단계말 검토', {
-      id: `RV-${PHASE_CODE[ph]}`,
-      name: `${ph} 단계말 검토`,
-      reqId: null,
-      assignee: ME,
-      start,
-      end,
-      weight: 10,
-      progress: round5(plannedProgress(start, end)),
-    })
-  })
-
-  // 3) 기능과 무관한 단계 업무(원본 WBS의 사업관리/이행/준공·안정화 항목).
-  const plain = (phase, category, id, name, assignee, start, end, progress) =>
-    addLeaf(phase, category, {
-      id,
-      name,
-      reqId: null,
-      assignee,
-      start,
-      end,
-      weight: 10,
-      progress: progress ?? round5(plannedProgress(start, end)),
-    })
-
-  plain('사업관리', '착수', 'PM-1', '사업수행계획서 및 WBS 작성', ME, '2026-09-01', '2026-09-04')
-  plain('사업관리', '보고관리', 'PM-2', '착수보고', ME, '2026-09-08', '2026-09-08')
-  plain('사업관리', '보고관리', 'PM-3', '주간보고 작성 (10월 2주차)', ME, '2026-10-13', '2026-10-13', 0)
-  plain('사업관리', '보고관리', 'PM-4', '월간보고 작성 (10월)', ME, '2026-10-26', '2026-10-30')
-  plain('사업관리', '보고관리', 'PM-5', '중간보고', ME, '2026-12-10', '2026-12-10')
-  plain('사업관리', '보고관리', 'PM-6', '완료보고', ME, '2027-03-24', '2027-03-24')
-
-  plain('이행', '교육', 'MG-1', '교육계획 수립', '이설계', '2027-01-04', '2027-01-15')
-  plain('이행', '교육', 'MG-2', '사용자 교육', '이설계', '2027-02-01', '2027-02-12')
-  plain('이행', '시스템 전환', 'MG-3', '시스템 이행계획 수립', ME, '2027-01-18', '2027-01-29')
-  plain('이행', '시스템 전환', 'MG-4', '운영 환경 전환', '김개발', '2027-02-15', '2027-02-19')
-
-  plain('준공/안정화', '시범 운영', 'ST-1', '시범운영 오픈', ME, '2027-02-22', '2027-02-22')
-  plain('준공/안정화', '전사 확대', 'ST-2', '그랜드 오픈', ME, '2027-03-05', '2027-03-05')
-  plain('준공/안정화', '안정화', 'ST-3', '안정화 지원', '김개발', '2027-03-08', '2027-03-31')
-
-  // 4) 분류 노드의 가중치 = 하위 리프 가중치 합(같은 단계 안에서 분류 간 비중이 되도록).
-  list
-    .filter((t) => t.id.startsWith('C-'))
-    .forEach((c) => {
-      c.weight = list.filter((t) => t.parentId === c.id).reduce((s, t) => s + (t.weight || 0), 0)
-    })
-
-  return list.map((t) => ({ projectId: WBS_DEFAULT_PROJECT_ID, ...t }))
-}
-
 /** 기본(목업 기준) WBS 프로젝트. 다른 프로젝트의 WBS는 단계전환으로 생성된다. */
 export const WBS_DEFAULT_PROJECT_ID = 'PRJ-2026-001'
 
-let tasks = buildInitialTasks()
-let nextCopyNo = 1
+let tasks = []
+let loaded = false
 const listeners = new Set()
 
 function emit(next) {
@@ -226,7 +107,49 @@ function subscribe(listener) {
   return () => listeners.delete(listener)
 }
 
+/** 서버 응답 → 화면 업무. id 는 서버 PK, projectId 는 프로젝트 코드(PRJ-…), 담당자는 이름. */
+const fromApi = (t) => ({
+  id: t.id,
+  projectId: t.projectCode,
+  parentId: t.parentId ?? null,
+  name: t.taskName,
+  phase: t.phaseCode,
+  category: t.categoryName ?? undefined,
+  weight: Number(t.weight) || 0,
+  reqId: t.reqCode ?? null,
+  feature: t.featureName ?? undefined,
+  assignee: t.assigneeName ?? '',
+  start: t.startDate ?? undefined,
+  end: t.endDate ?? undefined,
+  progress: t.nodeTypeCode === 'LEAF' ? Number(t.progressPct) || 0 : undefined,
+  predId: t.predTaskId ?? null,
+  ...(t.copiedFromId ? { copiedFromId: t.copiedFromId } : {}),
+})
+
+let loading = null
+export function loadTasks() {
+  if (loading) return loading
+  loading = ensurePmsUsersLoaded()
+    .then(() => pmsWbsApi.list())
+    .then((res) => {
+      loaded = true
+      emit((res.data || []).map(fromApi))
+    })
+    .catch((e) => {
+      console.error('[pmsStore] WBS 조회 실패:', e.message)
+      loaded = true
+      emit(tasks)
+    })
+    .finally(() => {
+      loading = null
+    })
+  return loading
+}
+
 export function useTasks() {
+  useEffect(() => {
+    if (!loaded) loadTasks()
+  }, [])
   return useSyncExternalStore(subscribe, () => tasks)
 }
 
@@ -349,32 +272,14 @@ export function featureMatrix(all) {
   })
 }
 
-/**
- * 진척률 입력. 선행 단계(분석 → 설계 → 개발 → 테스트)가 끝나지 않은 업무는 0%보다 큰 값을
- * 입력할 수 없다 — 막히면 선행 업무를 돌려주고 변경하지 않는다.
- */
-/** 현재 WBS 업무 목록(훅 없이 읽기) — 이슈 해결 시 일정 조정 제안 계산에 쓴다. */
+/** 현재 WBS 업무 목록(훅 없이 읽기). */
 export const getTasks = () => tasks
 
-/** date에서 n영업일 이동(음수면 앞당김). 주말은 건너뛴다. */
-export function shiftWorkdays(date, n) {
-  const d = parse(date)
-  const step = n >= 0 ? 1 : -1
-  let left = Math.abs(n)
-  while (left > 0) {
-    d.setUTCDate(d.getUTCDate() + step)
-    if (!isWeekend(d)) left--
-  }
-  while (isWeekend(d)) d.setUTCDate(d.getUTCDate() + step)
-  return iso(d)
-}
-
-/** 일정 조정 승인 반영 — [{ id, start, end }]. */
-export function applyTaskDates(changes) {
-  const map = new Map(changes.map((c) => [c.id, c]))
-  emit(tasks.map((t) => (map.has(t.id) ? { ...t, start: map.get(t.id).start, end: map.get(t.id).end } : t)))
-}
-
+/**
+ * 진척률 입력. 선행 단계(분석 → 설계 → 개발 → 테스트)가 끝나지 않은 업무는 0%보다 큰 값을
+ * 입력할 수 없다 — 막히면 선행 업무를 돌려주고 변경하지 않는다. 화면에는 바로 반영하고 서버에 저장한다
+ * (저장이 실패하면 서버 값으로 되돌린다).
+ */
 export function setProgress(id, value) {
   const task = tasks.find((t) => t.id === id)
   const v = Math.max(0, Math.min(100, Number(value) || 0))
@@ -383,6 +288,10 @@ export function setProgress(id, value) {
     if (pred) return { ok: false, pred }
   }
   emit(tasks.map((t) => (t.id === id ? { ...t, progress: v } : t)))
+  pmsWbsApi.updateProgress(id, v).catch((e) => {
+    window.alert(`진척률을 저장하지 못했습니다: ${e.message}`)
+    loadTasks()
+  })
   return { ok: true }
 }
 
@@ -469,41 +378,41 @@ export function buildProjectWbs({ projectId, startDate, phases, features, owners
   return list
 }
 
-/** 단계전환 실행 — 생성한 WBS를 스토어에 추가한다(이미 WBS가 있는 프로젝트면 무시). */
-export function addProjectTasks(newTasks) {
-  const pid = newTasks[0]?.projectId
-  if (!pid || tasks.some((t) => t.projectId === pid)) return false
-  emit([...tasks, ...newTasks])
-  return true
-}
-
-/** 단계전환 롤백 — 해당 프로젝트의 WBS 업무를 모두 지운다. */
-export function removeProjectTasks(projectId) {
-  emit(tasks.filter((t) => t.projectId !== projectId))
+/**
+ * 단계전환 승인 직후 — buildProjectWbs 로 만든 WBS 를 서버에 일괄 저장한다(이미 WBS 가 있는 프로젝트면 서버가 거부).
+ * project 는 projectStore 의 프로젝트(dbId 필요). 화면 업무의 임시 id 는 서버가 새 ID 로 바꿔 저장한다.
+ */
+export async function addProjectTasks(project, newTasks) {
+  const hasKids = new Set(newTasks.map((t) => t.parentId).filter(Boolean))
+  const nodes = newTasks.map((t) => ({
+    key: t.id,
+    parentKey: t.parentId,
+    predKey: t.predId ?? null,
+    nodeTypeCode: !t.parentId ? 'PHASE' : hasKids.has(t.id) ? 'CATEGORY' : 'LEAF',
+    phaseCode: t.phase,
+    categoryName: t.category ?? null,
+    taskName: t.name,
+    reqCode: t.reqId ?? null,
+    featureName: t.feature ?? null,
+    assigneeUserId: t.assignee ? userIdByName(t.assignee) ?? null : null,
+    startDate: t.start ?? null,
+    endDate: t.end ?? null,
+    weight: t.weight || 0,
+    progressPct: t.progress ?? null,
+  }))
+  await pmsWbsApi.createBulk(project.dbId, nodes)
+  await loadTasks()
 }
 
 /**
  * 업무 복사 — 담당자만 바꿔서 같은 업무를 한 명 더 만든다(진척률 0으로 초기화).
- * 가중치는 복사 그룹(원본 + 복사본들)의 합계를 균등 분배한다(요구사항 3.9.2).
+ * 가중치는 복사 그룹(원본 + 복사본들)의 합계를 균등 분배한다(요구사항 3.9.2). 계산과 저장은 서버가 한다.
  */
-export function copyTask(id, assignee) {
-  const src = tasks.find((t) => t.id === id)
-  if (!src) return
-  const rootId = src.copiedFromId ?? src.id
-  const group = tasks.filter((t) => t.id === rootId || t.copiedFromId === rootId)
-  const total = group.reduce((s, t) => s + (t.weight || 0), 0)
-  const each = Math.round((total / (group.length + 1)) * 10) / 10
-  const copy = {
-    ...src,
-    id: `${src.id}-C${nextCopyNo++}`,
-    assignee,
-    progress: 0,
-    copiedFromId: rootId,
-    weight: each,
+export async function copyTask(id, assignee) {
+  try {
+    await pmsWbsApi.copy(id, userIdByName(assignee) ?? null)
+  } catch (e) {
+    window.alert(`업무를 복사하지 못했습니다: ${e.message}`)
   }
-  const groupIds = new Set(group.map((t) => t.id))
-  const updated = tasks.map((t) => (groupIds.has(t.id) ? { ...t, weight: each } : t))
-  // 복사본은 원본(과 기존 복사본들) 바로 뒤에 놓아서 WBS에서 나란히 보이게 한다.
-  const lastIdx = Math.max(...group.map((t) => updated.findIndex((u) => u.id === t.id)))
-  emit([...updated.slice(0, lastIdx + 1), copy, ...updated.slice(lastIdx + 1)])
+  await loadTasks()
 }

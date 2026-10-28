@@ -83,7 +83,7 @@ export default function IssuesPage() {
       <div className="page-header">
         <div>
           <h2>
-            이슈 관리 <span className="pms-mock-badge">목업 · 더미 데이터</span>
+            이슈 관리
           </h2>
           <p className="page-description">
             프로젝트 수행 중 발생한 이슈를 등록·추적합니다. 이슈는 <b>WBS 업무와 연결</b>할 수 있고, 이슈에서 업무로, WBS 업무에서 이슈로 서로

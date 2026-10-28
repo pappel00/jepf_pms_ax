@@ -9,7 +9,7 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { pmsTransitionsApi } from '../../../api/entities'
 import { clearProjectDocs, initTailoring } from './docStore'
-import { addProjectTasks, removeProjectTasks } from './pmsStore'
+import { addProjectTasks, loadTasks } from './pmsStore'
 import { getProjects, loadProjects } from './projectStore'
 import { buildTransitionArtifacts } from './transitionBuild'
 
@@ -95,7 +95,7 @@ export async function approveTransition(id) {
   const project = getProjects().find((p) => p.id === req.projectId)
   if (project) {
     const { tasks, tailoring } = buildTransitionArtifacts(project, req.selection)
-    addProjectTasks(tasks)
+    await addProjectTasks(project, tasks)
     initTailoring(project.id, tailoring)
   }
   await loadTransitions()
@@ -129,7 +129,7 @@ export async function rollbackProjectTransition(project, { reason }) {
   const req = state.list.find((r) => r.projectId === project.id && r.status === '승인')
   if (!req) throw new Error('롤백할 승인된 단계전환 이력이 없습니다.')
   await pmsTransitionsApi.rollback(req.dbId, reason)
-  removeProjectTasks(project.id)
+  await loadTasks()
   clearProjectDocs(project.id)
   await loadProjects()
   await loadTransitions()

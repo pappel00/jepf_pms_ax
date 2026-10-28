@@ -3,18 +3,26 @@ package com.platform.sandbox;
 import com.platform.framework.security.tenant.TenantContext;
 import com.platform.module.pms.domain.Customer;
 import com.platform.module.pms.domain.CustomerContact;
+import com.platform.module.pms.domain.Issue;
+import com.platform.module.pms.domain.IssueHistory;
+import com.platform.module.pms.domain.IssueTask;
 import com.platform.module.pms.domain.Project;
 import com.platform.module.pms.domain.StatusHistory;
 import com.platform.module.pms.domain.UserProfile;
+import com.platform.module.pms.domain.WbsTask;
 import com.platform.module.pms.dto.TeamDto;
 import com.platform.module.pms.dto.TransitionDto;
 import com.platform.module.pms.event.PmsCodeBootstrapListener;
 import com.platform.module.pms.repository.CustomerContactRepository;
 import com.platform.module.pms.repository.CustomerRepository;
+import com.platform.module.pms.repository.IssueHistoryRepository;
+import com.platform.module.pms.repository.IssueRepository;
+import com.platform.module.pms.repository.IssueTaskRepository;
 import com.platform.module.pms.repository.ProjectRepository;
 import com.platform.module.pms.repository.StatusHistoryRepository;
 import com.platform.module.pms.repository.TransitionRepository;
 import com.platform.module.pms.repository.UserProfileRepository;
+import com.platform.module.pms.repository.WbsTaskRepository;
 import com.platform.module.pms.service.TransitionService;
 import com.platform.module.tenant.domain.Company;
 import com.platform.module.tenant.repository.CompanyRepository;
@@ -27,13 +35,17 @@ import com.platform.module.user.repository.UserRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -64,6 +76,10 @@ public class PmsDevDataSeeder implements CommandLineRunner {
     private final StatusHistoryRepository historyRepository;
     private final TransitionRepository transitionRepository;
     private final TransitionService transitionService;
+    private final WbsTaskRepository wbsTaskRepository;
+    private final IssueRepository issueRepository;
+    private final IssueTaskRepository issueTaskRepository;
+    private final IssueHistoryRepository issueHistoryRepository;
 
     public PmsDevDataSeeder(CompanyRepository companyRepository, UserRepository userRepository,
                             UserGroupRepository userGroupRepository, UserGroupUserRepository userGroupUserRepository,
@@ -71,7 +87,13 @@ public class PmsDevDataSeeder implements CommandLineRunner {
                             CustomerRepository customerRepository, CustomerContactRepository contactRepository,
                             ProjectRepository projectRepository, UserProfileRepository profileRepository,
                             StatusHistoryRepository historyRepository, TransitionRepository transitionRepository,
-                            TransitionService transitionService) {
+                            TransitionService transitionService, WbsTaskRepository wbsTaskRepository,
+                            IssueRepository issueRepository, IssueTaskRepository issueTaskRepository,
+                            IssueHistoryRepository issueHistoryRepository) {
+        this.wbsTaskRepository = wbsTaskRepository;
+        this.issueRepository = issueRepository;
+        this.issueTaskRepository = issueTaskRepository;
+        this.issueHistoryRepository = issueHistoryRepository;
         this.companyRepository = companyRepository;
         this.userRepository = userRepository;
         this.userGroupRepository = userGroupRepository;
@@ -102,6 +124,7 @@ public class PmsDevDataSeeder implements CommandLineRunner {
             Map<String, CustomerContact> contacts = seedContacts(customers);
             seedProjects(customers, contacts, users);
             seedExecutionTeams(users);
+            seedWbsAndIssues(users);
         } finally {
             TenantContext.clear();
         }
@@ -329,5 +352,96 @@ public class PmsDevDataSeeder implements CommandLineRunner {
             projectRepository.saveAndFlush(project.withExecStartDate(date));
         }
         log.info("[PmsDevDataSeeder] 샘플 수행 팀·단계전환 이력 {}건 생성", rows.length);
+    }
+
+    // ---------- WBS · 이슈 (pms-seed-wbs.json: 목업의 더미 WBS·이슈를 옮긴 것) ----------
+
+    private static String str(Map<String, Object> m, String key) {
+        Object v = m.get(key);
+        return v == null || v.toString().isBlank() ? null : v.toString();
+    }
+
+    private static LocalDate date(Map<String, Object> m, String key) {
+        String v = str(m, key);
+        return v == null ? null : LocalDate.parse(v);
+    }
+
+    private static BigDecimal num(Map<String, Object> m, String key) {
+        String v = str(m, key);
+        return v == null ? null : new BigDecimal(v);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void seedWbsAndIssues(Map<String, User> users) {
+        Project project = projectRepository.findByProjectCodeAndDeletedYn("PRJ-2026-001", "N").orElse(null);
+        if (project == null || wbsTaskRepository.existsByProjectIdAndDeletedYn(project.getId(), "N")) {
+            return;
+        }
+        Map<String, Object> root;
+        try (InputStream in = new ClassPathResource("pms-seed-wbs.json").getInputStream()) {
+            root = JsonMapper.builder().build().readValue(in, new TypeReference<Map<String, Object>>() {
+            });
+        } catch (Exception e) {
+            log.warn("[PmsDevDataSeeder] pms-seed-wbs.json 을 읽지 못해 WBS·이슈 샘플을 건너뜁니다: {}", e.getMessage());
+            return;
+        }
+        Map<String, WbsTask> byMockId = new HashMap<>();
+        List<WbsTask> tasks = new java.util.ArrayList<>();
+        int order = 0;
+        for (Map<String, Object> t : (List<Map<String, Object>>) root.get("tasks")) {
+            String mockId = str(t, "id");
+            String type = str(t, "parentId") == null ? "PHASE" : mockId.startsWith("C-") ? "CATEGORY" : "LEAF";
+            User assignee = str(t, "assignee") == null ? null : users.get(str(t, "assignee"));
+            WbsTask task = WbsTask.create().withProjectId(project.getId()).withNodeTypeCode(type).withPhaseCode(str(t, "phase"))
+                    .withCategoryName(str(t, "category")).withTaskName(str(t, "name")).withReqCode(str(t, "reqId"))
+                    .withFeatureName(str(t, "feature")).withAssigneeUserId(assignee == null ? null : assignee.getId())
+                    .withStartDate(date(t, "start")).withEndDate(date(t, "end")).withWeight(num(t, "weight"))
+                    .withProgressPct("LEAF".equals(type) ? (num(t, "progress") == null ? BigDecimal.ZERO : num(t, "progress")) : null)
+                    .withSortOrder(order++);
+            byMockId.put(mockId, task);
+            tasks.add(task);
+        }
+        for (Map<String, Object> t : (List<Map<String, Object>>) root.get("tasks")) {
+            WbsTask task = byMockId.get(str(t, "id"));
+            if (str(t, "parentId") != null) {
+                task.withParentId(byMockId.get(str(t, "parentId")).getId());
+            }
+            if (str(t, "predId") != null) {
+                task.withPredTaskId(byMockId.get(str(t, "predId")).getId());
+            }
+        }
+        wbsTaskRepository.saveAllAndFlush(tasks);
+
+        int issues = 0;
+        for (Map<String, Object> i : (List<Map<String, Object>>) root.get("issues")) {
+            Project p = projectRepository.findByProjectCodeAndDeletedYn(str(i, "projectId"), "N").orElse(null);
+            if (p == null) {
+                continue;
+            }
+            Issue issue = issueRepository.saveAndFlush(Issue.create().withIssueCode(str(i, "id")).withProjectId(p.getId())
+                    .withTitle(str(i, "title")).withTypeCode(str(i, "type")).withPriorityCode(str(i, "priority"))
+                    .withStatusCode(str(i, "status")).withReporterUserId(users.get(str(i, "reporter")).getId())
+                    .withAssigneeUserId(users.get(str(i, "assignee")).getId()).withRegisteredDate(date(i, "registeredDate"))
+                    .withDueDate(date(i, "dueDate")).withResolvedDate(date(i, "resolvedDate"))
+                    .withImpactDays(Integer.valueOf(str(i, "impactDays"))).withContent(str(i, "content"))
+                    .withResolution(str(i, "resolution")));
+            for (Object taskId : (List<Object>) i.get("taskIds")) {
+                WbsTask linked = byMockId.get(taskId.toString());
+                if (linked != null) {
+                    issueTaskRepository.save(IssueTask.create().withIssueId(issue.getId()).withTaskId(linked.getId())
+                            .withLinkedBy(issue.getReporterUserId()).withLinkedAt(issue.getRegisteredDate().atStartOfDay()));
+                }
+            }
+            int n = 0;
+            for (Map<String, Object> h : (List<Map<String, Object>>) i.get("history")) {
+                String text = str(h, "text");
+                String action = text.startsWith("이슈 등록") ? "등록" : text.startsWith("상태 변경") ? "상태 변경" : "메모";
+                issueHistoryRepository.save(IssueHistory.create().withIssueId(issue.getId()).withActionCode(action)
+                        .withActorUserId(users.get(str(h, "author")).getId())
+                        .withActedAt(date(h, "date").atStartOfDay().plusMinutes(n++)).withHistoryText(text));
+            }
+            issues++;
+        }
+        log.info("[PmsDevDataSeeder] 샘플 WBS 업무 {}건·이슈 {}건 생성", tasks.size(), issues);
     }
 }

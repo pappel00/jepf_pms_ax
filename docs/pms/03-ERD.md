@@ -687,7 +687,7 @@ SLA 판정(충족/정상/임박/위반)은 `pms_project_operation`의 목표 시
 |---|---|---|
 | 1단계 | 마스터·프로젝트: `pms_customer`, `pms_customer_contact`, `pms_project`, `pms_user_profile`, `pms_status_history`(프로젝트 상태 이력), 공통코드 시드(`PMS_*` 13개 그룹) | **완료(2026-10-27)** — API `/api/v1/pms/customers`, `/customer-contacts`, `/projects`(+`/status`, `/history`), `/user-profiles` |
 | 2단계 | 멤버·전환: `pms_project_member`(+`pms_member_phase`/`gap`/`month_plan`), `pms_transition`, `pms_team_change` | **완료(2026-10-27)** — API `/api/v1/pms/teams`, `/projects/{id}/team`, `/projects/{id}/transitions`, `/transitions/*`(approve/reject/cancel/rollback), `/projects/{id}/team-changes`, `/team-changes/*` |
-| 3단계 | WBS·이슈 | 예정 |
+| 3단계 | WBS·이슈: `pms_wbs_task`, `pms_task_progress_log`, `pms_issue`, `pms_issue_task`, `pms_issue_history`, `pms_schedule_proposal`(+`_item`) | **완료(2026-10-28)** — API `/api/v1/pms/wbs-tasks`(+`/progress`, `/copy`), `/projects/{id}/wbs-tasks/bulk`, `/issues`(+`/tasks/{taskId}`, `/notes`), `/projects/{id}/issues`, `/schedule-proposals`(approve/reject/ignore) |
 | 4~5단계 | RFP·제안서·보고서·산출물 / 인력·원가·운영·사업 기회 | 예정 |
 
 **1단계 구현 메모**
@@ -705,3 +705,12 @@ SLA 판정(충족/정상/임박/위반)은 `pms_project_operation`의 목표 시
 - 투입 변경의 변경 요약·과투입 예상은 화면이 계산해 보낸다(`summary_text`, `conflict_json`).
 - 금액 컬럼은 `BIGINT`(엔티티 Long) — 기존 DB는 `db/postgresql/05_alter_pms_money_bigint.sql` 로 변경.
 - 운영 단계 전환·운영 정보·수행 종료 상세는 5단계 전까지 메모리(목업).
+
+**3단계 구현 메모**
+- WBS 생성: RFP·평가가 4단계 전까지 목업이라 서버가 `selection_json`만으로 만들 수 없다. 그래서 **단계전환 승인 직후 화면이 만든 WBS를 `POST /projects/{id}/wbs-tasks/bulk` 로 일괄 저장**한다(임시 key/parentKey/predKey → 서버 ID로 변환, 이미 WBS가 있으면 거부). 4단계에서 서버 생성으로 옮긴다.
+- 진척: 리프만 입력, 선행 업무가 100%가 아니면 0% 초과 입력 거부(서버 검증), 입력마다 `pms_task_progress_log`(담당자가 아니면 `ADMIN_PROXY`). 상위 진척·계획 진척·기능 매트릭스는 화면이 계산.
+- 업무 복사: 가중치 균등 분배·정렬 번호 재배치를 서버가 처리.
+- 롤백: 서버가 진척 입력 업무·이슈 유무를 검사해 거부하고, 통과하면 WBS를 삭제한다.
+- 이슈: 코드(`ISS-###`)는 서버 채번. 등록/상태 변경/업무 연결·해제/메모가 `pms_issue_history`에 자동 기록. 해결·종결은 조치 내용 필수. 업무 연결은 같은 프로젝트의 업무만.
+- 일정 조정 제안: 열린 이슈가 「해결」로 바뀌고 일정 영향 > 0·연결 업무가 있으면 서버가 제안(`SCP-연도-###`)을 만든다(연결 업무 종료일 + 후행 업무 체인 이동, 진척 100% 제외). 승인하면 WBS 일정에 반영, 반려는 사유 필수.
+- 개발용 샘플: 목업의 WBS 99건·이슈 10건을 `app-sandbox/src/main/resources/pms-seed-wbs.json` 으로 옮겨 `PmsDevDataSeeder` 가 넣는다.

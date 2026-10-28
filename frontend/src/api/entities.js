@@ -52,6 +52,28 @@ export const pmsTeamChangesApi = {
   reject: (id, comment) => apiFetch(`/api/v1/pms/team-changes/${id}/reject`, { method: 'POST', body: { comment } }),
   cancel: (id) => apiFetch(`/api/v1/pms/team-changes/${id}/cancel`, { method: 'POST', body: {} }),
 }
+export const pmsWbsApi = {
+  list: (projectId = '') => apiFetch(`/api/v1/pms/wbs-tasks${projectId ? `?projectId=${projectId}` : ''}`),
+  createBulk: (projectId, tasks) => apiFetch(`/api/v1/pms/projects/${projectId}/wbs-tasks/bulk`, { method: 'POST', body: { tasks } }),
+  updateProgress: (id, progressPct, note) =>
+    apiFetch(`/api/v1/pms/wbs-tasks/${id}/progress`, { method: 'PUT', body: { progressPct, note: note || null } }),
+  copy: (id, assigneeUserId) => apiFetch(`/api/v1/pms/wbs-tasks/${id}/copy`, { method: 'POST', body: { assigneeUserId } }),
+}
+export const pmsIssuesApi = {
+  list: (projectId = '') => apiFetch(`/api/v1/pms/issues${projectId ? `?projectId=${projectId}` : ''}`),
+  create: (projectId, body) => apiFetch(`/api/v1/pms/projects/${projectId}/issues`, { method: 'POST', body }),
+  update: (id, body) => apiFetch(`/api/v1/pms/issues/${id}`, { method: 'PUT', body }),
+  remove: (id) => apiFetch(`/api/v1/pms/issues/${id}`, { method: 'DELETE' }),
+  link: (id, taskId) => apiFetch(`/api/v1/pms/issues/${id}/tasks/${taskId}`, { method: 'POST', body: {} }),
+  unlink: (id, taskId) => apiFetch(`/api/v1/pms/issues/${id}/tasks/${taskId}`, { method: 'DELETE' }),
+  addNote: (id, text) => apiFetch(`/api/v1/pms/issues/${id}/notes`, { method: 'POST', body: { text } }),
+}
+export const pmsScheduleProposalsApi = {
+  list: (projectId = '') => apiFetch(`/api/v1/pms/schedule-proposals${projectId ? `?projectId=${projectId}` : ''}`),
+  approve: (id) => apiFetch(`/api/v1/pms/schedule-proposals/${id}/approve`, { method: 'POST', body: {} }),
+  reject: (id, comment) => apiFetch(`/api/v1/pms/schedule-proposals/${id}/reject`, { method: 'POST', body: { comment } }),
+  ignore: (id, comment) => apiFetch(`/api/v1/pms/schedule-proposals/${id}/ignore`, { method: 'POST', body: { comment: comment || null } }),
+}
 // --- 매핑(N:M) 하위 리소스 ---
 export const userGroupRolesApi = (userGroupId) => createMappingApi(`/api/v1/user-groups/${userGroupId}/roles`)
 export const userGroupUsersApi = (userGroupId) => createMappingApi(`/api/v1/user-groups/${userGroupId}/users`)

@@ -203,7 +203,7 @@ function WbsView({ projectId, onProjectChange }) {
       <div className="page-header">
         <div>
           <h2>
-            WBS / 진척 관리 <span className="pms-mock-badge">목업 · 더미 데이터</span>
+            WBS / 진척 관리
           </h2>
           <p className="page-description">
             단계(사업관리 · 분석 · 설계 · 개발 · 테스트 · 이행 · 준공) → 분류 → 작업 구조입니다. 하나의 기능은 분석 · 설계

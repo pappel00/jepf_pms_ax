@@ -60,7 +60,7 @@ export default function IssueForm({ initial, isNew, lockTask, projects: projectO
   const linkedTasks = it.taskIds.map((id) => all.find((t) => t.id === id)).filter(Boolean)
   const needResolution = !isOpenStatus(it.status)
 
-  const submit = () => {
+  const submit = async () => {
     const e = {}
     if (!it.projectId) e.projectId = '프로젝트를 선택하세요.'
     if (!it.title.trim()) e.title = '제목을 입력하세요.'
@@ -69,7 +69,13 @@ export default function IssueForm({ initial, isNew, lockTask, projects: projectO
     if (needResolution && !it.resolution.trim()) e.resolution = '해결/종결 시 조치 내용을 기록하세요.'
     setErrors(e)
     if (Object.keys(e).length) return
-    const proposal = saveIssue({ ...it, title: it.title.trim() }, ME, TODAY)
+    let proposal
+    try {
+      proposal = await saveIssue({ ...it, title: it.title.trim() })
+    } catch (err) {
+      window.alert(`이슈를 저장하지 못했습니다: ${err.message}`)
+      return
+    }
     if (proposal) window.alert(`일정 조정 제안 ${proposal.id}을(를) 만들었습니다(대상 업무 ${proposal.items.length}건, +${proposal.shiftDays}영업일).\n이슈 관리 화면 상단 「일정 조정 제안」에서 검토·승인하세요.`)
     onSaved?.(it.id)
     onClose()
@@ -181,7 +187,7 @@ export default function IssueForm({ initial, isNew, lockTask, projects: projectO
               className="secondary small"
               onClick={() => {
                 if (!note.trim()) return
-                addHistory(it.id, note.trim(), ME, TODAY)
+                addHistory(it.id, note.trim())
                 setIt((p) => ({ ...p, history: [...p.history, { date: TODAY, author: ME, text: note.trim() }] }))
                 setNote('')
               }}

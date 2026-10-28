@@ -34,10 +34,13 @@ public class TransitionService {
     private final ProjectRepository projectRepository;
     private final ProjectService projectService;
     private final ProjectMemberService memberService;
+    private final WbsService wbsService;
     private final UserNameResolver names;
 
     public TransitionService(TransitionRepository transitionRepository, ProjectRepository projectRepository,
-                             ProjectService projectService, ProjectMemberService memberService, UserNameResolver names) {
+                             ProjectService projectService, ProjectMemberService memberService, WbsService wbsService,
+                             UserNameResolver names) {
+        this.wbsService = wbsService;
         this.transitionRepository = transitionRepository;
         this.projectRepository = projectRepository;
         this.projectService = projectService;
@@ -128,6 +131,7 @@ public class TransitionService {
         if (!"수행 중".equals(project.getStatusCode())) {
             throw new BusinessException(PmsErrorCode.TRANSITION_INVALID, "수행 중인 프로젝트만 롤백할 수 있습니다: " + project.getStatusCode());
         }
+        wbsService.deleteForRollback(t.getProjectId());
         memberService.deleteTeam(t.getProjectId(), KIND_EXEC);
         projectService.rollbackExecution(t.getProjectId(), reason);
         t.withStatusCode("롤백").withRolledBackBy(PmsSupport.currentUserId()).withRolledBackAt(LocalDateTime.now())

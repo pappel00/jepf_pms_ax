@@ -1,11 +1,15 @@
 /**
- * 이슈 관리 목업 스토어 — 더미 데이터, API 연동 없음(새로고침하면 초기화).
+ * 이슈 관리 스토어 — 서버(`/api/v1/pms/issues`)에서 읽고 저장한다.
  *
- * 요구사항 문서 3.9.3: 이슈는 Project 하위 공통 엔티티이고, WBS 업무(taskId)는 선택 연결(nullable)이다.
+ * 요구사항 문서 3.9.3: 이슈는 Project 하위 공통 엔티티이고, WBS 업무는 선택 연결이다(이슈 1건 : 업무 N건).
  * 양방향 관리 — 이슈 화면에서 연결 업무를 지정/이동하고, WBS 업무에서 연결된 이슈를 조회·등록·연결한다.
+ * 화면의 이슈 id 는 이슈 코드(ISS-###), dbId 가 서버 PK 이고, taskIds 는 WBS 업무 id(서버 PK)다.
  */
-import { useSyncExternalStore } from 'react'
-import { createProposalForIssue } from './scheduleStore'
+import { useEffect, useSyncExternalStore } from 'react'
+import { pmsIssuesApi } from '../../../api/entities'
+import { ensurePmsUsersLoaded, userIdByName } from './pmsUsers'
+import { getProjects } from './projectStore'
+import { getProposals, loadProposals } from './scheduleStore'
 
 export const ISSUE_TYPES = ['일정', '범위/요구사항', '품질', '인력/자원', '기술', '고객/협의', '기타']
 export const PRIORITIES = ['긴급', '높음', '보통', '낮음']
@@ -13,101 +17,59 @@ export const ISSUE_STATUSES = ['오픈', '진행 중', '해결', '종결']
 export const isOpenStatus = (s) => s === '오픈' || s === '진행 중'
 export const isHighPriority = (p) => p === '긴급' || p === '높음'
 
-const h = (date, author, text) => ({ date, author, text })
-
-const rawSeed = [
-  {
-    id: 'ISS-001', projectId: 'PRJ-2026-001', title: '게시판 분석 지연 — 발주사 요구사항 회신 지연', type: '고객/협의', priority: '높음', status: '진행 중',
-    reporter: '관리자', assignee: '관리자', registeredDate: '2026-09-24', dueDate: '2026-10-16', resolvedDate: '',
-    taskId: ['REQ-002-AN', 'REQ-002-DS', 'REQ-002-DV'], impactDays: 5,
-    content: '발주사 현업 회신이 예정보다 늦어 게시판 분석 업무 완료가 지연되고 있다. 후속 설계·개발·테스트 일정에 영향.',
-    resolution: '', history: [h('2026-09-24', '관리자', '이슈 등록'), h('2026-10-05', '관리자', '발주사 담당자에게 회신 독촉 — 10/16까지 회신 약속'), h('2026-10-08', '관리자', '상태 변경: 오픈 → 진행 중')],
-  },
-  {
-    id: 'ISS-002', projectId: 'PRJ-2026-001', title: '전자결재 연동 방식 결정 필요 (기존 결재 시스템 API 제약)', type: '기술', priority: '긴급', status: '오픈',
-    reporter: '김개발', assignee: '김개발', registeredDate: '2026-10-12', dueDate: '2026-10-15', resolvedDate: '',
-    taskId: ['REQ-001-DV', 'REQ-001-TS'], impactDays: 3,
-    content: '기존 결재 시스템이 실시간 API를 제공하지 않아 배치 연동으로 갈지 별도 어댑터를 둘지 결정이 필요하다.',
-    resolution: '', history: [h('2026-10-12', '김개발', '이슈 등록')],
-  },
-  {
-    id: 'ISS-003', projectId: 'PRJ-2026-001', title: 'SSO 연계 테스트 계정 미발급', type: '기술', priority: '높음', status: '진행 중',
-    reporter: '김개발', assignee: '김개발', registeredDate: '2026-10-08', dueDate: '2026-10-14', resolvedDate: '',
-    taskId: 'REQ-008-DV', impactDays: 2,
-    content: '발주사 SSO 서버의 연계 테스트 계정이 발급되지 않아 연계 개발 검증이 막혀 있다.',
-    resolution: '', history: [h('2026-10-08', '김개발', '이슈 등록'), h('2026-10-10', '관리자', '발주사 보안 담당에게 발급 요청 메일 발송')],
-  },
-  {
-    id: 'ISS-004', projectId: 'PRJ-2026-001', title: '협력사 투입 인력 일정 조율', type: '인력/자원', priority: '보통', status: '오픈',
-    reporter: '관리자', assignee: '관리자', registeredDate: '2026-10-09', dueDate: '2026-10-20', resolvedDate: '',
-    taskId: 'REQ-005-DV', impactDays: 0,
-    content: '협력사 개발 인력 1명이 10월 말까지 타 프로젝트와 병행 투입 예정 — 개발 일정 영향 검토 필요.',
-    resolution: '', history: [h('2026-10-09', '관리자', '이슈 등록')],
-  },
-  {
-    id: 'ISS-005', projectId: 'PRJ-2026-001', title: '문서 중앙화 권한 모델 변경 요청', type: '범위/요구사항', priority: '보통', status: '해결',
-    reporter: '이설계', assignee: '이설계', registeredDate: '2026-10-01', dueDate: '2026-10-12', resolvedDate: '2026-10-12',
-    taskId: 'REQ-007-DS', impactDays: 1,
-    content: '발주사가 조직·직급 외에 프로젝트 단위 권한을 추가로 요청했다.',
-    resolution: '권한 모델 v2에 프로젝트 단위 권한을 반영하기로 발주사와 합의(10/12 회의).',
-    history: [h('2026-10-01', '이설계', '이슈 등록'), h('2026-10-12', '이설계', '상태 변경: 진행 중 → 해결')],
-  },
-  {
-    id: 'ISS-009', projectId: 'PRJ-2026-001', title: '조직도 연동 데이터 불일치 오류', type: '품질', priority: '높음', status: '해결',
-    reporter: '김개발', assignee: '김개발', registeredDate: '2026-10-08', dueDate: '2026-10-14', resolvedDate: '2026-10-13',
-    taskId: 'REQ-004-DV', impactDays: 1,
-    content: '인사 시스템에서 내려받은 조직도와 그룹웨어 조직도의 부서 코드가 일부 달라 연동 시 누락이 발생했다.',
-    resolution: '부서 코드 매핑 테이블을 추가하고 연동 배치를 재실행해 정합성 확인 완료.',
-    history: [h('2026-10-08', '김개발', '이슈 등록'), h('2026-10-13', '김개발', '상태 변경: 진행 중 → 해결')],
-  },
-  {
-    id: 'ISS-006', projectId: 'PRJ-2026-001', title: '화면 설계서 검토 의견 반영 지연', type: '일정', priority: '낮음', status: '종결',
-    reporter: '관리자', assignee: '이설계', registeredDate: '2026-09-28', dueDate: '2026-10-05', resolvedDate: '2026-10-02',
-    taskId: 'RV-DS', impactDays: 0,
-    content: '설계 단계말 검토 전 화면 설계서 의견 반영이 지연되었다.',
-    resolution: '의견 반영 완료 후 재검토, 일정 영향 없음.', history: [h('2026-09-28', '관리자', '이슈 등록'), h('2026-10-02', '이설계', '상태 변경: 진행 중 → 해결'), h('2026-10-05', '관리자', '상태 변경: 해결 → 종결')],
-  },
-  {
-    id: 'ISS-007', projectId: 'PRJ-2026-001', title: '개발 서버 증설 지연', type: '기타', priority: '높음', status: '오픈',
-    reporter: '김개발', assignee: '김개발', registeredDate: '2026-10-05', dueDate: '2026-10-12', resolvedDate: '',
-    taskId: null, impactDays: 0,
-    content: '발주사 인프라 팀의 개발 서버 증설이 지연되어 병렬 개발 환경이 부족하다. (특정 업무에 한정되지 않는 이슈)',
-    resolution: '', history: [h('2026-10-05', '김개발', '이슈 등록')],
-  },
-  {
-    id: 'ISS-008', projectId: 'PRJ-2026-001', title: '발주사 담당자 변경에 따른 보고 체계 재정의', type: '고객/협의', priority: '보통', status: '진행 중',
-    reporter: '관리자', assignee: '관리자', registeredDate: '2026-10-07', dueDate: '2026-10-23', resolvedDate: '',
-    taskId: null, impactDays: 0,
-    content: '발주사 PM이 교체되어 주간·월간 보고 체계와 승인 절차를 다시 합의해야 한다.',
-    resolution: '', history: [h('2026-10-07', '관리자', '이슈 등록')],
-  },
-  {
-    id: 'ISS-010', projectId: 'PRJ-2026-009', title: '운영 서버 정기 패치 일정 협의', type: '일정', priority: '보통', status: '진행 중',
-    reporter: '김개발', assignee: '김개발', registeredDate: '2026-10-08', dueDate: '2026-10-21', resolvedDate: '',
-    taskId: null, impactDays: 0,
-    content: '발주사 정기 점검 일정과 패치 일정이 겹쳐 작업 시간대 조정이 필요하다.',
-    resolution: '', history: [h('2026-10-08', '김개발', '이슈 등록')],
-  },
-]
-
-/** 이슈 1건 : 업무 N건 — 시드의 taskId(단일/배열/null)를 taskIds 배열로 정규화한다. */
-const seed = rawSeed.map(({ taskId, ...rest }) => ({ ...rest, taskIds: Array.isArray(taskId) ? taskId : taskId ? [taskId] : [] }))
-
-let issues = seed
+let state = { list: [], loaded: false }
 const listeners = new Set()
-
-function emit(next) {
-  issues = next
+const emit = (next) => {
+  state = next
   listeners.forEach((l) => l())
 }
+const subscribe = (l) => {
+  listeners.add(l)
+  return () => listeners.delete(l)
+}
 
-function subscribe(listener) {
-  listeners.add(listener)
-  return () => listeners.delete(listener)
+const day = (s) => (s ?? '').slice(0, 10)
+const fromApi = (i) => ({
+  id: i.issueCode,
+  dbId: i.id,
+  projectId: i.projectCode,
+  title: i.title,
+  type: i.typeCode,
+  priority: i.priorityCode,
+  status: i.statusCode,
+  reporter: i.reporterName ?? '',
+  assignee: i.assigneeName ?? '',
+  registeredDate: i.registeredDate ?? '',
+  dueDate: i.dueDate ?? '',
+  resolvedDate: i.resolvedDate ?? '',
+  taskIds: i.taskIds ?? [],
+  impactDays: i.impactDays ?? 0,
+  content: i.content ?? '',
+  resolution: i.resolution ?? '',
+  history: (i.history ?? []).map((h) => ({ date: day(h.actedAt), author: h.actorName ?? '', text: h.text })),
+})
+
+let loading = null
+export function loadIssues() {
+  if (loading) return loading
+  loading = ensurePmsUsersLoaded()
+    .then(() => pmsIssuesApi.list())
+    .then((res) => emit({ list: (res.data || []).map(fromApi), loaded: true }))
+    .catch((e) => {
+      console.error('[issueStore] 이슈 조회 실패:', e.message)
+      emit({ ...state, loaded: true })
+    })
+    .finally(() => {
+      loading = null
+    })
+  return loading
 }
 
 export function useIssues() {
-  return useSyncExternalStore(subscribe, () => issues)
+  useEffect(() => {
+    if (!state.loaded) loadIssues()
+  }, [])
+  return useSyncExternalStore(subscribe, () => state).list
 }
 
 export function nextIssueId(all) {
@@ -125,51 +87,70 @@ export function issueStats(all, taskIds) {
   return { total: list.length, open: open.length, high: open.filter((i) => isHighPriority(i.priority)).length }
 }
 
-/** 저장 — 신규면 등록 이력을, 상태가 바뀌면 상태 변경 이력을 자동으로 남긴다. */
-export function saveIssue(issue, actor, today) {
-  const prev = issues.find((i) => i.id === issue.id)
-  let next = { ...issue }
-  const history = [...(next.history ?? [])]
-  if (!prev) {
-    history.push({ date: today, author: actor, text: '이슈 등록' })
-  } else if (prev.status !== next.status) {
-    history.push({ date: today, author: actor, text: `상태 변경: ${prev.status} → ${next.status}` })
+const toRequest = (it) => ({
+  title: it.title,
+  typeCode: it.type,
+  priorityCode: it.priority,
+  statusCode: it.status,
+  reporterUserId: userIdByName(it.reporter) ?? null,
+  assigneeUserId: userIdByName(it.assignee),
+  registeredDate: it.registeredDate || null,
+  dueDate: it.dueDate || null,
+  impactDays: Number(it.impactDays) || 0,
+  content: it.content,
+  resolution: it.resolution || null,
+  taskIds: it.taskIds ?? [],
+})
+
+const dbIdOf = (code) => state.list.find((i) => i.id === code)?.dbId
+
+/**
+ * 저장 — 신규면 등록, 아니면 수정한다. 등록/상태 변경 이력은 서버가 남긴다. 실패하면 예외를 던진다.
+ * 열린 이슈가 「해결」로 바뀌어 서버가 일정 조정 제안을 만들었으면 그 제안을 돌려준다.
+ */
+export async function saveIssue(issue) {
+  const prev = state.list.find((i) => i.id === issue.id)
+  let res
+  if (prev) {
+    res = await pmsIssuesApi.update(prev.dbId, toRequest(issue))
+  } else {
+    const project = getProjects().find((p) => p.id === issue.projectId)
+    if (!project) throw new Error('프로젝트를 찾을 수 없습니다.')
+    res = await pmsIssuesApi.create(project.dbId, toRequest(issue))
   }
-  if (!isOpenStatus(next.status) && !next.resolvedDate) next.resolvedDate = today
-  if (isOpenStatus(next.status)) next.resolvedDate = ''
-  next = { ...next, history }
-  emit(prev ? issues.map((i) => (i.id === next.id ? next : i)) : [...issues, next])
-  // 열린 이슈가 해결로 바뀌면(일정 영향 + 연결 업무가 있을 때) 일정 조정 제안을 만든다.
-  if (prev && isOpenStatus(prev.status) && next.status === '해결') return createProposalForIssue(next, today)
-  return null
+  await loadIssues()
+  const code = res.data?.newProposalCode
+  if (!code) return null
+  await loadProposals()
+  return getProposals().find((p) => p.id === code) ?? null
 }
 
-export function deleteIssue(id) {
-  emit(issues.filter((i) => i.id !== id))
+export async function deleteIssue(id) {
+  await pmsIssuesApi.remove(dbIdOf(id))
+  await loadIssues()
 }
 
-/** 업무 연결 추가 — 이슈 1건에 업무 N건을 연결할 수 있다(이미 연결된 업무는 무시). */
-export function linkIssue(id, taskId, actor, today, taskName) {
-  emit(
-    issues.map((i) =>
-      i.id === id && !i.taskIds.includes(taskId)
-        ? { ...i, taskIds: [...i.taskIds, taskId], history: [...i.history, { date: today, author: actor, text: `업무 연결: ${taskName}` }] }
-        : i,
-    ),
-  )
+/** 업무 연결 추가 — 이슈 1건에 업무 N건을 연결할 수 있다(이미 연결된 업무는 서버가 무시). */
+export async function linkIssue(id, taskId) {
+  try {
+    await pmsIssuesApi.link(dbIdOf(id), taskId)
+  } catch (e) {
+    window.alert(`업무를 연결하지 못했습니다: ${e.message}`)
+  }
+  await loadIssues()
 }
 
 /** 업무 연결 해제 — 해당 업무 하나만 끊는다. */
-export function unlinkIssue(id, taskId, actor, today, taskName) {
-  emit(
-    issues.map((i) =>
-      i.id === id
-        ? { ...i, taskIds: i.taskIds.filter((t) => t !== taskId), history: [...i.history, { date: today, author: actor, text: `업무 연결 해제: ${taskName}` }] }
-        : i,
-    ),
-  )
+export async function unlinkIssue(id, taskId) {
+  try {
+    await pmsIssuesApi.unlink(dbIdOf(id), taskId)
+  } catch (e) {
+    window.alert(`연결을 해제하지 못했습니다: ${e.message}`)
+  }
+  await loadIssues()
 }
 
-export function addHistory(id, text, author, date) {
-  emit(issues.map((i) => (i.id === id ? { ...i, history: [...i.history, { date, author, text }] } : i)))
+export async function addHistory(id, text) {
+  await pmsIssuesApi.addNote(dbIdOf(id), text)
+  await loadIssues()
 }
