@@ -97,6 +97,31 @@ export const pmsProposalsApi = {
   toggleCheck: (id, checkId) => apiFetch(`/api/v1/pms/proposals/${id}/checklist/${checkId}/toggle`, { method: 'POST', body: {} }),
   removeCheck: (id, checkId) => apiFetch(`/api/v1/pms/proposals/${id}/checklist/${checkId}`, { method: 'DELETE' }),
 }
+export const pmsReportsApi = {
+  list: () => apiFetch('/api/v1/pms/reports'),
+  saveDraft: (projectId, type, periodStart, memo) =>
+    apiFetch(`/api/v1/pms/projects/${projectId}/reports/${type}/${periodStart}/draft`, { method: 'PUT', body: { memo } }),
+  submit: (projectId, type, periodStart, body) =>
+    apiFetch(`/api/v1/pms/projects/${projectId}/reports/${type}/${periodStart}/submit`, { method: 'POST', body }),
+  reopen: (projectId, type, periodStart, reason) =>
+    apiFetch(`/api/v1/pms/projects/${projectId}/reports/${type}/${periodStart}/reopen`, { method: 'POST', body: { reason } }),
+  cancelEdit: (projectId, type, periodStart) =>
+    apiFetch(`/api/v1/pms/projects/${projectId}/reports/${type}/${periodStart}/cancel-edit`, { method: 'POST', body: {} }),
+  snapshots: () => apiFetch('/api/v1/pms/progress-snapshots'),
+  saveSnapshot: (projectId, body) => apiFetch(`/api/v1/pms/projects/${projectId}/progress-snapshots`, { method: 'PUT', body }),
+}
+export const pmsDocsApi = {
+  list: () => apiFetch('/api/v1/pms/doc-tailoring'),
+  init: (projectId, body) => apiFetch(`/api/v1/pms/projects/${projectId}/doc-tailoring/init`, { method: 'POST', body }),
+  reset: (projectId) => apiFetch(`/api/v1/pms/projects/${projectId}/doc-tailoring/reset`, { method: 'POST', body: {} }),
+  addCustom: (projectId, body) => apiFetch(`/api/v1/pms/projects/${projectId}/doc-tailoring`, { method: 'POST', body }),
+  patch: (id, body) => apiFetch(`/api/v1/pms/doc-tailoring/${id}`, { method: 'PATCH', body }),
+  remove: (id) => apiFetch(`/api/v1/pms/doc-tailoring/${id}`, { method: 'DELETE' }),
+  addVersion: (id, body) => apiFetch(`/api/v1/pms/doc-tailoring/${id}/versions`, { method: 'POST', body }),
+  updateLatest: (id, body) => apiFetch(`/api/v1/pms/doc-tailoring/${id}/versions/latest`, { method: 'PUT', body }),
+  deleteLatest: (id) => apiFetch(`/api/v1/pms/doc-tailoring/${id}/versions/latest`, { method: 'DELETE' }),
+  setReviewed: (id, reviewed) => apiFetch(`/api/v1/pms/doc-tailoring/${id}/reviewed`, { method: 'PUT', body: { reviewed } }),
+}
 export const pmsScheduleProposalsApi = {
   list: (projectId = '') => apiFetch(`/api/v1/pms/schedule-proposals${projectId ? `?projectId=${projectId}` : ''}`),
   approve: (id) => apiFetch(`/api/v1/pms/schedule-proposals/${id}/approve`, { method: 'POST', body: {} }),

@@ -582,7 +582,7 @@ export default function ReportPage({ mode }) {
       <div className="page-header">
         <div>
           <h2>
-            {title} <span className="pms-mock-badge">목업 · 더미 데이터</span>
+            {title}
           </h2>
           <p className="page-description">
             {ME} 님이 참여한 프로젝트별 보고서입니다. 업무·이슈 데이터를 자동으로 모아 보여주며, 좌측은 현재 진행 중인 업무와 진척률, 우측은{' '}

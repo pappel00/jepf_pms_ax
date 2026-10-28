@@ -96,7 +96,7 @@ export async function approveTransition(id) {
   if (project) {
     const { tasks, tailoring } = buildTransitionArtifacts(project, req.selection)
     await addProjectTasks(project, tasks)
-    initTailoring(project.id, tailoring)
+    await initTailoring(project, tailoring)
   }
   await loadTransitions()
 }
@@ -130,7 +130,7 @@ export async function rollbackProjectTransition(project, { reason }) {
   if (!req) throw new Error('롤백할 승인된 단계전환 이력이 없습니다.')
   await pmsTransitionsApi.rollback(req.dbId, reason)
   await loadTasks()
-  clearProjectDocs(project.id)
+  await clearProjectDocs()
   await loadProjects()
   await loadTransitions()
 }

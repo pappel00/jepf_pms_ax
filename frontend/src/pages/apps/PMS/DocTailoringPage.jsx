@@ -72,9 +72,10 @@ export default function DocTailoringPage() {
   const candidates = projects.filter((p) => ['수주', '수행 중', '수행 종료', '운영 중'].includes(p.status))
   const [params] = useSearchParams()
   const wanted = params.get('project') // 단계전환 직후 등에서 ?project=ID 로 들어오면 그 프로젝트를 먼저 연다
-  const [projectId, setProjectId] = useState(
-    candidates.find((p) => p.id === wanted)?.id ?? candidates.find((p) => p.id === DEFAULT_PROJECT_ID)?.id ?? candidates[0]?.id ?? '',
-  )
+  // 프로젝트 목록은 서버에서 늦게 도착하므로, 직접 고르기 전에는 도착한 목록에서 기본값을 고른다.
+  const [picked, setProjectId] = useState('')
+  const projectId =
+    picked || (candidates.find((p) => p.id === wanted)?.id ?? candidates.find((p) => p.id === DEFAULT_PROJECT_ID)?.id ?? candidates[0]?.id ?? '')
   const [phaseFilter, setPhaseFilter] = useState('')
   const [addForm, setAddForm] = useState(false)
 
@@ -102,7 +103,7 @@ export default function DocTailoringPage() {
       <div className="page-header">
         <div>
           <h2>
-            문서 테일러링 관리 <span className="pms-mock-badge">목업 · 더미 데이터</span>
+            문서 테일러링 관리
           </h2>
           <p className="page-description">
             단계별 표준 산출물(문서 종류) 중 이 프로젝트에 적용할 문서를 정합니다. <b>적용</b>된 문서가 WBS의 「단계말 검토」에서 등록·수정·다운로드되는

@@ -1,0 +1,885 @@
+{
+ "tailoring": {
+  "PRJ-2026-001": [
+   {
+    "id": "PRJ-2026-001-AN-01",
+    "phase": "분석",
+    "name": "요구사항 정의서",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-AN-02",
+    "phase": "분석",
+    "name": "요구사항 추적표",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-AN-03",
+    "phase": "분석",
+    "name": "현행 시스템 분석서",
+    "required": false,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-AN-04",
+    "phase": "분석",
+    "name": "인터페이스 현황 분석서",
+    "required": false,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-AN-05",
+    "phase": "분석",
+    "name": "데이터 이관 분석서",
+    "required": false,
+    "applied": "미적용",
+    "reason": "신규 구축 사업으로 이관 대상 데이터 없음",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-AN-06",
+    "phase": "분석",
+    "name": "업무 프로세스 정의서",
+    "required": false,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-DS-01",
+    "phase": "설계",
+    "name": "아키텍처 설계서",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-DS-02",
+    "phase": "설계",
+    "name": "화면 설계서",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-DS-03",
+    "phase": "설계",
+    "name": "인터페이스 정의서",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-DS-04",
+    "phase": "설계",
+    "name": "테이블 정의서(ERD)",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-DS-05",
+    "phase": "설계",
+    "name": "단위테스트 시나리오",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-DS-06",
+    "phase": "설계",
+    "name": "프로그램 설계서",
+    "required": false,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-DS-07",
+    "phase": "설계",
+    "name": "보안 설계서",
+    "required": false,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-DV-01",
+    "phase": "개발",
+    "name": "소스코드 목록",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "김개발",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-DV-02",
+    "phase": "개발",
+    "name": "단위테스트 결과서",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "김개발",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-DV-03",
+    "phase": "개발",
+    "name": "개발자 가이드",
+    "required": false,
+    "applied": "적용",
+    "reason": "",
+    "owner": "김개발",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-DV-04",
+    "phase": "개발",
+    "name": "코딩 표준 점검 결과서",
+    "required": false,
+    "applied": "미적용",
+    "reason": "정적 분석 도구 리포트(단위테스트 결과서에 첨부)로 대체",
+    "owner": "김개발",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-DV-05",
+    "phase": "개발",
+    "name": "빌드·배포 가이드",
+    "required": false,
+    "applied": "적용",
+    "reason": "",
+    "owner": "김개발",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-TS-01",
+    "phase": "테스트",
+    "name": "통합테스트 시나리오",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "정QA",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-TS-02",
+    "phase": "테스트",
+    "name": "통합테스트 결과서",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "정QA",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-TS-03",
+    "phase": "테스트",
+    "name": "결함 관리대장",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "정QA",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-TS-04",
+    "phase": "테스트",
+    "name": "성능테스트 결과서",
+    "required": false,
+    "applied": "적용",
+    "reason": "",
+    "owner": "정QA",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-TS-05",
+    "phase": "테스트",
+    "name": "보안 취약점 점검 결과서",
+    "required": false,
+    "applied": "적용",
+    "reason": "",
+    "owner": "정QA",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-TS-06",
+    "phase": "테스트",
+    "name": "사용자 인수 테스트 결과서",
+    "required": false,
+    "applied": "적용",
+    "reason": "",
+    "owner": "정QA",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-001-TS-90",
+    "phase": "테스트",
+    "name": "모바일 단말 호환성 시험서",
+    "required": false,
+    "applied": "적용",
+    "reason": "",
+    "owner": "정QA",
+    "custom": true,
+    "note": "발주사 요청으로 추가된 프로젝트 고유 산출물"
+   }
+  ],
+  "PRJ-2026-010": [
+   {
+    "id": "PRJ-2026-010-AN-01",
+    "phase": "분석",
+    "name": "요구사항 정의서",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-010-AN-02",
+    "phase": "분석",
+    "name": "요구사항 추적표",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-010-AN-03",
+    "phase": "분석",
+    "name": "현행 시스템 분석서",
+    "required": false,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-010-AN-04",
+    "phase": "분석",
+    "name": "인터페이스 현황 분석서",
+    "required": false,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-010-AN-05",
+    "phase": "분석",
+    "name": "데이터 이관 분석서",
+    "required": false,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-010-AN-06",
+    "phase": "분석",
+    "name": "업무 프로세스 정의서",
+    "required": false,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-010-DS-01",
+    "phase": "설계",
+    "name": "아키텍처 설계서",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-010-DS-02",
+    "phase": "설계",
+    "name": "화면 설계서",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-010-DS-03",
+    "phase": "설계",
+    "name": "인터페이스 정의서",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-010-DS-04",
+    "phase": "설계",
+    "name": "테이블 정의서(ERD)",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-010-DS-05",
+    "phase": "설계",
+    "name": "단위테스트 시나리오",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-010-DS-06",
+    "phase": "설계",
+    "name": "프로그램 설계서",
+    "required": false,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-010-DS-07",
+    "phase": "설계",
+    "name": "보안 설계서",
+    "required": false,
+    "applied": "적용",
+    "reason": "",
+    "owner": "이설계",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-010-DV-01",
+    "phase": "개발",
+    "name": "소스코드 목록",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "김개발",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-010-DV-02",
+    "phase": "개발",
+    "name": "단위테스트 결과서",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "김개발",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-010-DV-03",
+    "phase": "개발",
+    "name": "개발자 가이드",
+    "required": false,
+    "applied": "적용",
+    "reason": "",
+    "owner": "김개발",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-010-DV-04",
+    "phase": "개발",
+    "name": "코딩 표준 점검 결과서",
+    "required": false,
+    "applied": "적용",
+    "reason": "",
+    "owner": "김개발",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-010-DV-05",
+    "phase": "개발",
+    "name": "빌드·배포 가이드",
+    "required": false,
+    "applied": "적용",
+    "reason": "",
+    "owner": "김개발",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-010-TS-01",
+    "phase": "테스트",
+    "name": "통합테스트 시나리오",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "정QA",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-010-TS-02",
+    "phase": "테스트",
+    "name": "통합테스트 결과서",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "정QA",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-010-TS-03",
+    "phase": "테스트",
+    "name": "결함 관리대장",
+    "required": true,
+    "applied": "적용",
+    "reason": "",
+    "owner": "정QA",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-010-TS-04",
+    "phase": "테스트",
+    "name": "성능테스트 결과서",
+    "required": false,
+    "applied": "적용",
+    "reason": "",
+    "owner": "정QA",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-010-TS-05",
+    "phase": "테스트",
+    "name": "보안 취약점 점검 결과서",
+    "required": false,
+    "applied": "적용",
+    "reason": "",
+    "owner": "정QA",
+    "custom": false,
+    "note": ""
+   },
+   {
+    "id": "PRJ-2026-010-TS-06",
+    "phase": "테스트",
+    "name": "사용자 인수 테스트 결과서",
+    "required": false,
+    "applied": "적용",
+    "reason": "",
+    "owner": "정QA",
+    "custom": false,
+    "note": ""
+   }
+  ]
+ },
+ "docs": {
+  "PRJ-2026-001": {
+   "PRJ-2026-001-AN-01": {
+    "versions": [
+     {
+      "ver": "v1.0",
+      "date": "2026-10-06",
+      "author": "이설계",
+      "fileName": "요구사항 정의서_v1.0.docx",
+      "fileSize": "1.2MB",
+      "note": "분석 단계말 제출본"
+     }
+    ],
+    "approved": true
+   },
+   "PRJ-2026-001-AN-02": {
+    "versions": [
+     {
+      "ver": "v1.0",
+      "date": "2026-10-06",
+      "author": "이설계",
+      "fileName": "요구사항 추적표_v1.0.docx",
+      "fileSize": "1.5MB",
+      "note": "분석 단계말 제출본"
+     }
+    ],
+    "approved": true
+   },
+   "PRJ-2026-001-AN-03": {
+    "versions": [
+     {
+      "ver": "v1.0",
+      "date": "2026-10-06",
+      "author": "이설계",
+      "fileName": "현행 시스템 분석서_v1.0.docx",
+      "fileSize": "1.8MB",
+      "note": "분석 단계말 제출본"
+     }
+    ],
+    "approved": true
+   },
+   "PRJ-2026-001-AN-04": {
+    "versions": [
+     {
+      "ver": "v1.0",
+      "date": "2026-10-06",
+      "author": "이설계",
+      "fileName": "인터페이스 현황 분석서_v1.0.docx",
+      "fileSize": "2.1MB",
+      "note": "분석 단계말 제출본"
+     }
+    ],
+    "approved": false
+   },
+   "PRJ-2026-001-AN-06": {
+    "versions": [
+     {
+      "ver": "v1.0",
+      "date": "2026-10-06",
+      "author": "이설계",
+      "fileName": "업무 프로세스 정의서_v1.0.docx",
+      "fileSize": "2.4MB",
+      "note": "분석 단계말 제출본"
+     }
+    ],
+    "approved": false
+   },
+   "PRJ-2026-001-DS-01": {
+    "versions": [
+     {
+      "ver": "v1.0",
+      "date": "2026-10-08",
+      "author": "이설계",
+      "fileName": "아키텍처 설계서_v1.0.pptx",
+      "fileSize": "4.6MB",
+      "note": "초안"
+     }
+    ],
+    "approved": false
+   },
+   "PRJ-2026-001-DS-02": {
+    "versions": [
+     {
+      "ver": "v1.0",
+      "date": "2026-10-05",
+      "author": "이설계",
+      "fileName": "화면 설계서_v1.0.pptx",
+      "fileSize": "8.2MB",
+      "note": "1차"
+     },
+     {
+      "ver": "v1.1",
+      "date": "2026-10-12",
+      "author": "이설계",
+      "fileName": "화면 설계서_v1.1.pptx",
+      "fileSize": "8.9MB",
+      "note": "전자결재·게시판 화면 보완"
+     }
+    ],
+    "approved": false
+   },
+   "PRJ-2026-001-DS-03": {
+    "versions": [
+     {
+      "ver": "v0.2",
+      "date": "2026-10-09",
+      "author": "김개발",
+      "fileName": "인터페이스 정의서_v0.2.xlsx",
+      "fileSize": "0.8MB",
+      "note": "SSO·ECM 연계 항목 작성 중"
+     }
+    ],
+    "approved": false
+   }
+  },
+  "PRJ-2026-010": {
+   "PRJ-2026-010-AN-01": {
+    "versions": [
+     {
+      "ver": "v1.0",
+      "date": "2026-08-10",
+      "author": "이설계",
+      "fileName": "요구사항 정의서_v1.0.docx",
+      "fileSize": "1.1MB",
+      "note": "최종본"
+     }
+    ],
+    "approved": true
+   },
+   "PRJ-2026-010-AN-02": {
+    "versions": [
+     {
+      "ver": "v1.0",
+      "date": "2026-08-11",
+      "author": "이설계",
+      "fileName": "요구사항 추적표_v1.0.docx",
+      "fileSize": "1.1MB",
+      "note": "최종본"
+     }
+    ],
+    "approved": true
+   },
+   "PRJ-2026-010-DS-01": {
+    "versions": [
+     {
+      "ver": "v1.0",
+      "date": "2026-08-12",
+      "author": "이설계",
+      "fileName": "아키텍처 설계서_v1.0.docx",
+      "fileSize": "1.1MB",
+      "note": "최종본"
+     }
+    ],
+    "approved": true
+   },
+   "PRJ-2026-010-DS-02": {
+    "versions": [
+     {
+      "ver": "v1.0",
+      "date": "2026-08-13",
+      "author": "이설계",
+      "fileName": "화면 설계서_v1.0.docx",
+      "fileSize": "1.1MB",
+      "note": "최종본"
+     }
+    ],
+    "approved": true
+   },
+   "PRJ-2026-010-DS-03": {
+    "versions": [
+     {
+      "ver": "v1.0",
+      "date": "2026-08-14",
+      "author": "이설계",
+      "fileName": "인터페이스 정의서_v1.0.docx",
+      "fileSize": "1.1MB",
+      "note": "최종본"
+     }
+    ],
+    "approved": true
+   },
+   "PRJ-2026-010-DS-04": {
+    "versions": [
+     {
+      "ver": "v1.0",
+      "date": "2026-08-15",
+      "author": "이설계",
+      "fileName": "테이블 정의서(ERD)_v1.0.docx",
+      "fileSize": "1.1MB",
+      "note": "최종본"
+     }
+    ],
+    "approved": true
+   },
+   "PRJ-2026-010-DS-05": {
+    "versions": [
+     {
+      "ver": "v1.0",
+      "date": "2026-08-16",
+      "author": "이설계",
+      "fileName": "단위테스트 시나리오_v1.0.docx",
+      "fileSize": "1.1MB",
+      "note": "최종본"
+     }
+    ],
+    "approved": true
+   },
+   "PRJ-2026-010-DV-01": {
+    "versions": [
+     {
+      "ver": "v1.0",
+      "date": "2026-08-17",
+      "author": "김개발",
+      "fileName": "소스코드 목록_v1.0.docx",
+      "fileSize": "1.1MB",
+      "note": "최종본"
+     }
+    ],
+    "approved": true
+   },
+   "PRJ-2026-010-DV-02": {
+    "versions": [
+     {
+      "ver": "v1.0",
+      "date": "2026-08-18",
+      "author": "김개발",
+      "fileName": "단위테스트 결과서_v1.0.docx",
+      "fileSize": "1.1MB",
+      "note": "최종본"
+     }
+    ],
+    "approved": true
+   },
+   "PRJ-2026-010-TS-01": {
+    "versions": [
+     {
+      "ver": "v1.0",
+      "date": "2026-08-19",
+      "author": "정QA",
+      "fileName": "통합테스트 시나리오_v1.0.docx",
+      "fileSize": "1.1MB",
+      "note": "최종본"
+     }
+    ],
+    "approved": true
+   },
+   "PRJ-2026-010-TS-02": {
+    "versions": [
+     {
+      "ver": "v1.0",
+      "date": "2026-08-20",
+      "author": "정QA",
+      "fileName": "통합테스트 결과서_v1.0.docx",
+      "fileSize": "1.1MB",
+      "note": "최종본"
+     }
+    ],
+    "approved": true
+   },
+   "PRJ-2026-010-TS-03": {
+    "versions": [
+     {
+      "ver": "v1.0",
+      "date": "2026-08-21",
+      "author": "정QA",
+      "fileName": "결함 관리대장_v1.0.docx",
+      "fileSize": "1.1MB",
+      "note": "최종본"
+     }
+    ],
+    "approved": true
+   }
+  }
+ },
+ "reports": {
+  "PRJ-2026-001|week|2026-10-05": {
+   "status": "제출 완료",
+   "memo": "• 설계 단계말 검토 완료, 개발 착수 준비 중.",
+   "version": 1,
+   "submitted": {
+    "date": "2026-10-09",
+    "author": "관리자",
+    "overall": 13,
+    "target": 17,
+    "memo": "• 설계 단계말 검토 완료, 개발 착수 준비 중."
+   },
+   "history": [
+    {
+     "date": "2026-10-07",
+     "author": "관리자",
+     "action": "작성",
+     "text": "보고서 작성 시작"
+    },
+    {
+     "date": "2026-10-09",
+     "author": "관리자",
+     "action": "제출",
+     "text": "제출 (v1)"
+    }
+   ]
+  }
+ },
+ "snapshots": {
+  "PRJ-2026-001": [
+   {
+    "date": "2026-09-07",
+    "overall": 0,
+    "target": 1
+   },
+   {
+    "date": "2026-09-14",
+    "overall": 2,
+    "target": 4
+   },
+   {
+    "date": "2026-09-21",
+    "overall": 5,
+    "target": 8
+   },
+   {
+    "date": "2026-09-28",
+    "overall": 9,
+    "target": 12
+   },
+   {
+    "date": "2026-10-05",
+    "overall": 13,
+    "target": 17
+   }
+  ],
+  "PRJ-2026-007": [
+   {
+    "date": "2026-10-05",
+    "overall": 20,
+    "target": 25
+   }
+  ]
+ }
+}

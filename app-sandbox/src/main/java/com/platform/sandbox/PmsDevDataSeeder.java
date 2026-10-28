@@ -7,6 +7,12 @@ import com.platform.module.pms.domain.Issue;
 import com.platform.module.pms.domain.IssueHistory;
 import com.platform.module.pms.domain.IssueTask;
 import com.platform.module.pms.domain.Project;
+import com.platform.module.pms.domain.DocTailoring;
+import com.platform.module.pms.domain.DocVersion;
+import com.platform.module.pms.domain.ProgressSnapshot;
+import com.platform.module.pms.domain.Report;
+import com.platform.module.pms.domain.ReportHistory;
+import com.platform.module.pms.domain.ReportVersion;
 import com.platform.module.pms.domain.Proposal;
 import com.platform.module.pms.domain.ProposalChecklist;
 import com.platform.module.pms.domain.ProposalMapping;
@@ -28,6 +34,13 @@ import com.platform.module.pms.repository.IssueHistoryRepository;
 import com.platform.module.pms.repository.IssueRepository;
 import com.platform.module.pms.repository.IssueTaskRepository;
 import com.platform.module.pms.repository.ProjectRepository;
+import com.platform.module.pms.repository.DocTailoringRepository;
+import com.platform.module.pms.repository.DocVersionRepository;
+import com.platform.module.pms.repository.ProgressSnapshotRepository;
+import com.platform.module.pms.repository.ReportRepository;
+import com.platform.module.pms.repository.ReportHistoryRepository;
+import com.platform.module.pms.repository.ReportVersionRepository;
+import com.platform.module.pms.repository.StdDocRepository;
 import com.platform.module.pms.repository.ProposalChecklistRepository;
 import com.platform.module.pms.repository.ProposalMappingRepository;
 import com.platform.module.pms.repository.ProposalRepository;
@@ -106,6 +119,13 @@ public class PmsDevDataSeeder implements CommandLineRunner {
     private final ProposalVersionRepository proposalVersionRepository;
     private final ProposalMappingRepository proposalMappingRepository;
     private final ProposalChecklistRepository proposalChecklistRepository;
+    private final DocTailoringRepository docTailoringRepository;
+    private final DocVersionRepository docVersionRepository;
+    private final StdDocRepository stdDocRepository;
+    private final ReportRepository reportRepository;
+    private final ReportVersionRepository reportVersionRepository;
+    private final ReportHistoryRepository reportHistoryRepository;
+    private final ProgressSnapshotRepository progressSnapshotRepository;
 
     public PmsDevDataSeeder(CompanyRepository companyRepository, UserRepository userRepository,
                             UserGroupRepository userGroupRepository, UserGroupUserRepository userGroupUserRepository,
@@ -117,7 +137,15 @@ public class PmsDevDataSeeder implements CommandLineRunner {
                             TransitionService transitionService, WbsTaskRepository wbsTaskRepository,
                             IssueRepository issueRepository, IssueTaskRepository issueTaskRepository,
                             IssueHistoryRepository issueHistoryRepository,
-                            RfpRepository rfpRepository, RfpItemRepository rfpItemRepository, RfpEvaluatorRepository rfpEvaluatorRepository, RfpEvalRepository rfpEvalRepository, ProposalRepository proposalRepository, ProposalVersionRepository proposalVersionRepository, ProposalMappingRepository proposalMappingRepository, ProposalChecklistRepository proposalChecklistRepository) {
+                            RfpRepository rfpRepository, RfpItemRepository rfpItemRepository, RfpEvaluatorRepository rfpEvaluatorRepository, RfpEvalRepository rfpEvalRepository, ProposalRepository proposalRepository, ProposalVersionRepository proposalVersionRepository, ProposalMappingRepository proposalMappingRepository, ProposalChecklistRepository proposalChecklistRepository,
+                            DocTailoringRepository docTailoringRepository, DocVersionRepository docVersionRepository, StdDocRepository stdDocRepository, ReportRepository reportRepository, ReportVersionRepository reportVersionRepository, ReportHistoryRepository reportHistoryRepository, ProgressSnapshotRepository progressSnapshotRepository) {
+        this.docTailoringRepository = docTailoringRepository;
+        this.docVersionRepository = docVersionRepository;
+        this.stdDocRepository = stdDocRepository;
+        this.reportRepository = reportRepository;
+        this.reportVersionRepository = reportVersionRepository;
+        this.reportHistoryRepository = reportHistoryRepository;
+        this.progressSnapshotRepository = progressSnapshotRepository;
         this.rfpRepository = rfpRepository;
         this.rfpItemRepository = rfpItemRepository;
         this.rfpEvaluatorRepository = rfpEvaluatorRepository;
@@ -164,6 +192,7 @@ public class PmsDevDataSeeder implements CommandLineRunner {
             seedExecutionTeams(users);
             seedWbsAndIssues(users);
             seedRfpsAndProposals(users);
+            seedReportsAndDocs(users);
         } finally {
             TenantContext.clear();
         }
@@ -593,5 +622,100 @@ public class PmsDevDataSeeder implements CommandLineRunner {
             proposals++;
         }
         log.info("[PmsDevDataSeeder] 샘플 RFP {}건(항목 {}건)·평가 {}건·제안서 {}건 생성", rfpByMockId.size(), itemCount, evals.size(), proposals);
+    }
+
+    // ---------- 보고서 · 스냅샷 · 문서 테일러링/산출물 (pms-seed-report-docs.json: 목업의 더미 데이터를 옮긴 것) ----------
+
+    @SuppressWarnings("unchecked")
+    private void seedReportsAndDocs(Map<String, User> users) {
+        if (!docTailoringRepository.findAllByDeletedYnOrderByProjectIdAscCreatedDateAsc("N").isEmpty()) {
+            return;
+        }
+        Map<String, Object> root;
+        try (InputStream in = new ClassPathResource("pms-seed-report-docs.json").getInputStream()) {
+            root = JsonMapper.builder().build().readValue(in, new TypeReference<Map<String, Object>>() {
+            });
+        } catch (Exception e) {
+            log.warn("[PmsDevDataSeeder] pms-seed-report-docs.json 을 읽지 못해 보고서·산출물 샘플을 건너뜁니다: {}", e.getMessage());
+            return;
+        }
+        Map<String, String> stdIds = new HashMap<>();
+        stdDocRepository.findAll().forEach(s -> stdIds.put(s.getPhaseCode() + "|" + s.getDocName(), s.getId()));
+
+        int tailoringCount = 0;
+        Map<String, Object> docs = (Map<String, Object>) root.get("docs");
+        for (Map.Entry<String, Object> e : ((Map<String, Object>) root.get("tailoring")).entrySet()) {
+            Project project = projectRepository.findByProjectCodeAndDeletedYn(e.getKey(), "N").orElse(null);
+            if (project == null) {
+                continue;
+            }
+            Map<String, Object> projectDocs = (Map<String, Object>) docs.getOrDefault(e.getKey(), Map.of());
+            for (Map<String, Object> t : (List<Map<String, Object>>) e.getValue()) {
+                User owner = str(t, "owner") == null ? null : users.get(str(t, "owner"));
+                boolean custom = Boolean.TRUE.equals(t.get("custom"));
+                Map<String, Object> doc = (Map<String, Object>) projectDocs.get(str(t, "id"));
+                DocTailoring item = docTailoringRepository.save(DocTailoring.create().withProjectId(project.getId())
+                        .withStdDocId(custom ? null : stdIds.get(str(t, "phase") + "|" + str(t, "name"))).withPhaseCode(str(t, "phase"))
+                        .withDocName(str(t, "name")).withRequiredYn(Boolean.TRUE.equals(t.get("required")) ? "Y" : "N")
+                        .withAppliedCode(str(t, "applied")).withNotAppliedReason(str(t, "reason")).withOwnerUserId(owner == null ? null : owner.getId())
+                        .withCustomYn(custom ? "Y" : "N").withNote(str(t, "note"))
+                        .withReviewedYn(doc != null && Boolean.TRUE.equals(doc.get("approved")) ? "Y" : "N"));
+                tailoringCount++;
+                if (doc == null) {
+                    continue;
+                }
+                for (Map<String, Object> v : (List<Map<String, Object>>) doc.get("versions")) {
+                    User author = users.get(str(v, "author"));
+                    docVersionRepository.save(DocVersion.create().withTailoringId(item.getId()).withVer(str(v, "ver"))
+                            .withVersionDate(date(v, "date")).withAuthorUserId(author == null ? null : author.getId())
+                            .withFileName(str(v, "fileName")).withFileSize(str(v, "fileSize")).withNote(str(v, "note")));
+                }
+            }
+        }
+
+        int reportCount = 0;
+        for (Map.Entry<String, Object> e : ((Map<String, Object>) root.get("reports")).entrySet()) {
+            String[] k = e.getKey().split("[|]");
+            Project project = projectRepository.findByProjectCodeAndDeletedYn(k[0], "N").orElse(null);
+            if (project == null) {
+                continue;
+            }
+            Map<String, Object> r = (Map<String, Object>) e.getValue();
+            LocalDate start = LocalDate.parse(k[2]);
+            boolean week = "week".equals(k[1]);
+            List<Map<String, Object>> history = (List<Map<String, Object>>) r.get("history");
+            User author = users.get(str(history.get(0), "author"));
+            Report report = reportRepository.saveAndFlush(Report.create().withProjectId(project.getId()).withReportTypeCode(week ? "WEEK" : "MONTH")
+                    .withPeriodStart(start).withPeriodEnd(week ? start.plusDays(6) : java.time.YearMonth.from(start).atEndOfMonth())
+                    .withStatusCode(str(r, "status")).withMemo(str(r, "memo")).withSubmitVersion(Integer.valueOf(str(r, "version")))
+                    .withAuthorUserId(author.getId()));
+            Map<String, Object> submitted = (Map<String, Object>) r.get("submitted");
+            if (submitted != null) {
+                reportVersionRepository.save(ReportVersion.create().withReportId(report.getId()).withVersionNo(Integer.valueOf(str(r, "version")))
+                        .withSubmittedBy(users.get(str(submitted, "author")).getId()).withSubmittedAt(date(submitted, "date").atStartOfDay())
+                        .withOverallPct(num(submitted, "overall")).withTargetPct(num(submitted, "target")).withMemo(str(submitted, "memo")));
+            }
+            int n = 0;
+            for (Map<String, Object> h : history) {
+                reportHistoryRepository.save(ReportHistory.create().withReportId(report.getId()).withActionCode(str(h, "action"))
+                        .withActorUserId(users.get(str(h, "author")).getId()).withActedAt(date(h, "date").atStartOfDay().plusMinutes(n++))
+                        .withHistoryText(str(h, "text")));
+            }
+            reportCount++;
+        }
+
+        int snapshotCount = 0;
+        for (Map.Entry<String, Object> e : ((Map<String, Object>) root.get("snapshots")).entrySet()) {
+            Project project = projectRepository.findByProjectCodeAndDeletedYn(e.getKey(), "N").orElse(null);
+            if (project == null) {
+                continue;
+            }
+            for (Map<String, Object> s : (List<Map<String, Object>>) e.getValue()) {
+                progressSnapshotRepository.save(ProgressSnapshot.create().withProjectId(project.getId()).withSnapshotDate(date(s, "date"))
+                        .withOverallPct(num(s, "overall")).withTargetPct(num(s, "target")));
+                snapshotCount++;
+            }
+        }
+        log.info("[PmsDevDataSeeder] 샘플 문서 테일러링 {}건·보고서 {}건·진척 스냅샷 {}건 생성", tailoringCount, reportCount, snapshotCount);
     }
 }

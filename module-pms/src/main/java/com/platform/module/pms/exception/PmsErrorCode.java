@@ -31,4 +31,7 @@ public final class PmsErrorCode {
     public static final String RFP_INVALID = "ERR-PMS-0023";
     public static final String PROPOSAL_DOC_NOT_FOUND = "ERR-PMS-0024";
     public static final String PROPOSAL_DOC_INVALID = "ERR-PMS-0025";
+    public static final String REPORT_INVALID = "ERR-PMS-0026";
+    public static final String DOC_NOT_FOUND = "ERR-PMS-0027";
+    public static final String DOC_INVALID = "ERR-PMS-0028";
 }

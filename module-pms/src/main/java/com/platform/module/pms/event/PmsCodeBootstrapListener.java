@@ -5,6 +5,8 @@ import com.platform.module.code.domain.CodeDetail;
 import com.platform.module.code.domain.CodeGroup;
 import com.platform.module.code.repository.CodeDetailRepository;
 import com.platform.module.code.repository.CodeGroupRepository;
+import com.platform.module.pms.domain.StdDoc;
+import com.platform.module.pms.repository.StdDocRepository;
 import com.platform.module.tenant.event.TenantCreatedEvent;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -53,10 +55,13 @@ public class PmsCodeBootstrapListener {
         GROUPS.put("PMS_RFP_ROUND", new Group("PMS RFP 차수", List.of("1차", "2차", "재공고", "변경 공고")));
     }
 
+    private final StdDocRepository stdDocRepository;
     private final CodeGroupRepository codeGroupRepository;
     private final CodeDetailRepository codeDetailRepository;
 
-    public PmsCodeBootstrapListener(CodeGroupRepository codeGroupRepository, CodeDetailRepository codeDetailRepository) {
+    public PmsCodeBootstrapListener(CodeGroupRepository codeGroupRepository, CodeDetailRepository codeDetailRepository,
+                                    StdDocRepository stdDocRepository) {
+        this.stdDocRepository = stdDocRepository;
         this.codeGroupRepository = codeGroupRepository;
         this.codeDetailRepository = codeDetailRepository;
     }
@@ -75,6 +80,32 @@ public class PmsCodeBootstrapListener {
     /** 현재 TenantContext 의 테넌트에 PMS 공통코드를 채운다 (멱등). */
     public void seedDefaults() {
         GROUPS.forEach((groupCode, group) -> seedGroup(groupCode, group));
+        seedStdDocs();
+    }
+
+    /** 표준 산출물 마스터: 단계, 문서 종류, 표준 필수 여부, 권장 문서를 자동 적용하는 RFP 요구사항 분류(없으면 빈 값). */
+    private static final String[][] STD_DOCS = {
+            {"분석", "요구사항 정의서", "Y", ""}, {"분석", "요구사항 추적표", "Y", ""}, {"분석", "현행 시스템 분석서", "N", ""},
+            {"분석", "인터페이스 현황 분석서", "N", ""}, {"분석", "데이터 이관 분석서", "N", "DAR"}, {"분석", "업무 프로세스 정의서", "N", ""},
+            {"설계", "아키텍처 설계서", "Y", ""}, {"설계", "화면 설계서", "Y", ""}, {"설계", "인터페이스 정의서", "Y", ""},
+            {"설계", "테이블 정의서(ERD)", "Y", ""}, {"설계", "단위테스트 시나리오", "Y", ""}, {"설계", "프로그램 설계서", "N", "SFR"},
+            {"설계", "보안 설계서", "N", "SER"},
+            {"개발", "소스코드 목록", "Y", ""}, {"개발", "단위테스트 결과서", "Y", ""}, {"개발", "개발자 가이드", "N", ""},
+            {"개발", "코딩 표준 점검 결과서", "N", "QUR"}, {"개발", "빌드·배포 가이드", "N", ""},
+            {"테스트", "통합테스트 시나리오", "Y", ""}, {"테스트", "통합테스트 결과서", "Y", ""}, {"테스트", "결함 관리대장", "Y", ""},
+            {"테스트", "성능테스트 결과서", "N", "PER"}, {"테스트", "보안 취약점 점검 결과서", "N", "SER"},
+            {"테스트", "사용자 인수 테스트 결과서", "N", "QUR"},
+    };
+
+    private void seedStdDocs() {
+        int order = 0;
+        for (String[] d : STD_DOCS) {
+            if (!stdDocRepository.existsByPhaseCodeAndDocName(d[0], d[1])) {
+                stdDocRepository.saveAndFlush(StdDoc.create().withPhaseCode(d[0]).withDocName(d[1]).withRequiredYn(d[2])
+                        .withRfpCategoryCode(d[3].isEmpty() ? null : d[3]).withSortOrder(order).withUseYn("Y"));
+            }
+            order++;
+        }
     }
 
     private void seedGroup(String groupCode, Group group) {

@@ -689,7 +689,7 @@ SLA 판정(충족/정상/임박/위반)은 `pms_project_operation`의 목표 시
 | 2단계 | 멤버·전환: `pms_project_member`(+`pms_member_phase`/`gap`/`month_plan`), `pms_transition`, `pms_team_change` | **완료(2026-10-27)** — API `/api/v1/pms/teams`, `/projects/{id}/team`, `/projects/{id}/transitions`, `/transitions/*`(approve/reject/cancel/rollback), `/projects/{id}/team-changes`, `/team-changes/*` |
 | 3단계 | WBS·이슈: `pms_wbs_task`, `pms_task_progress_log`, `pms_issue`, `pms_issue_task`, `pms_issue_history`, `pms_schedule_proposal`(+`_item`) | **완료(2026-10-28)** — API `/api/v1/pms/wbs-tasks`(+`/progress`, `/copy`), `/projects/{id}/wbs-tasks/bulk`, `/issues`(+`/tasks/{taskId}`, `/notes`), `/projects/{id}/issues`, `/schedule-proposals`(approve/reject/ignore) |
 | 4단계 | RFP·제안서: `pms_rfp`, `pms_rfp_item`, `pms_rfp_evaluator`, `pms_rfp_eval`, `pms_proposal`, `pms_proposal_version`, `pms_proposal_mapping`, `pms_proposal_checklist` | **완료(2026-10-28)** — API `/api/v1/pms/rfps`(+`/evaluators`, `/items`, `/evals/submit`, `/confirm-all`), `/rfp-items/{id}`(+`/evals/me`, `/confirm`), `/rfp-evals`, `/projects/{id}/rfps`, `/proposals`(+`/versions`, `/mappings/{rfpItemId}`, `/checklist`) |
-| 5단계 | 보고서·진척 스냅샷·산출물: `pms_report*`, `pms_progress_snapshot`, `pms_std_doc`, `pms_doc_*`, 진척 스냅샷 스케줄러 | 예정 |
+| 5단계 | 보고서·진척 스냅샷·산출물: `pms_report`, `pms_report_version`, `pms_report_history`, `pms_progress_snapshot`, `pms_std_doc`, `pms_doc_tailoring`, `pms_doc_version` | **완료(2026-10-28)** — API `/api/v1/pms/reports`(+`/projects/{id}/reports/{WEEK|MONTH}/{시작일}/draft·submit·reopen·cancel-edit`), `/progress-snapshots`, `/doc-tailoring`(+`/projects/{id}/doc-tailoring/init·reset`, `/versions`, `/reviewed`). 진척 스냅샷 자동 저장 스케줄러는 후속 |
 | 6~7단계 | 인력·원가(`pms_actual_mm`, `pms_rate`, `pms_setting`) / 운영·사업 기회(`pms_project_operation`, `pms_ops_*`, `pms_next_opportunity`) | 예정 |
 
 **1단계 구현 메모**
@@ -707,6 +707,14 @@ SLA 판정(충족/정상/임박/위반)은 `pms_project_operation`의 목표 시
 - 투입 변경의 변경 요약·과투입 예상은 화면이 계산해 보낸다(`summary_text`, `conflict_json`).
 - 금액 컬럼은 `BIGINT`(엔티티 Long) — 기존 DB는 `db/postgresql/05_alter_pms_money_bigint.sql` 로 변경.
 - 운영 단계 전환·운영 정보·수행 종료 상세는 5단계 전까지 메모리(목업).
+
+**5단계 구현 메모**
+- 보고서: (프로젝트, 주간/월간, 기간 시작일) 1건, 기간 종료일은 서버가 계산(주간 +6일, 월간 월말). 작성 중/수정 중에만 특이사항 저장, 제출마다 제출 시점 요약(전체 진척·목표·특이사항)을 `pms_report_version` 에 남기고 모든 상태 변경은 `pms_report_history` 에 기록. 수정 시작은 사유 필수, 수정 취소는 마지막 제출본 특이사항으로 복귀. 전체 진척·목표는 화면이 WBS로 계산해 제출 시 보낸다.
+- 스냅샷: 날짜가 속한 주의 월요일로 맞춰 저장, 같은 주는 덮어쓴다. 자동 저장 스케줄러는 WBS 계산 기준일이 아직 목업 기준일(TODAY)이라 후속 과제로 남겼다.
+- 표준 산출물 마스터(`pms_std_doc` 23종, 트리거 RFP 분류 포함)를 `PmsCodeBootstrapListener` 가 시딩한다. **단계전환 승인 직후 화면이 `POST /projects/{id}/doc-tailoring/init` 을 호출하면 서버가 마스터를 복사해 테일러링을 만든다**(필수는 적용, 권장은 RFP 선택 항목 분류가 트리거일 때만 적용, 이미 있으면 거부). 화면의 단계전환 미리보기는 같은 규칙을 화면에서 계산한다.
+- 산출물 버전은 v1.0, v1.1 … 서버 채번, 삭제는 최신 버전만, 새 버전·수정·삭제는 「검토 완료」를 해제한다. 롤백은 서버가 WBS와 함께 테일러링·버전을 지운다. 파일 자체는 아직 저장하지 않는다(module-file 연동 시 지원).
+- 산출물 관리는 PM만(인력은 조회) — 서버의 프로젝트 멤버 판정은 B-2(참여 프로젝트 권한) 때 적용한다.
+- 개발용 샘플: 문서 테일러링 49(프로젝트 2)·산출물 버전 21·보고서 1·스냅샷 6을 `pms-seed-report-docs.json` 으로 옮겨 시딩.
 
 **4단계 구현 메모**
 - RFP 상태(접수→항목 정리 중→평가 중→평가 완료)는 저장하지 않고 화면이 계산한다. RFP 코드(`RFP-연도-###`)·제안서 코드(`PROP-연도-###`)·항목 코드(`분류-###`)는 서버가 채번.
