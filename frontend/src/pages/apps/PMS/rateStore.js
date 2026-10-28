@@ -1,66 +1,89 @@
 /**
- * 직무·등급별 M/M 단가 + 인건비 환산 목업 스토어 — 더미 데이터, API 연동 없음(새로고침하면 초기화).
+ * 직무·등급별 M/M 단가 + 인건비 환산 스토어 — 단가표와 인력 등급은 서버에서 읽고 저장한다(단가표는 원가 열람 권한 필요).
  *
  * 단가표(직무 × 등급, 적용 기간) 와 인력별 등급을 관리하고, 투입 계획(월별 계획 M/M)에 단가를 곱해
  * 프로젝트 예상 인건비(= 예상 원가의 인건비 부분)를 계산한다. 요구사항 3.21 참고.
  */
-import { useSyncExternalStore } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
+import { pmsCostApi, pmsUserProfilesApi } from '../../../api/entities'
 import { daysInMonth, monthlyPlan } from './assignmentStore'
+import { ensurePmsUsersLoaded, getUsers, loadPmsUsers } from './pmsUsers'
 
 export const GRADES = ['특급', '고급', '중급', '초급']
 export const RATE_JOBS = ['PM', 'PL', 'PMO', '분석', '설계', '분석/설계', '개발', 'DBA', 'UI/UX', 'QA', 'TA', '운영', '장애대응', '기술지원', '기타']
 export const DIFFICULTIES = ['하', '중', '상']
 
-// 등급 기본 단가(원/M/M) 와 직무별 배수 — 시드 단가표 생성용
-const GRADE_BASE = { 특급: 9000000, 고급: 7500000, 중급: 6000000, 초급: 4500000 }
-const JOB_FACTOR = { PM: 1.15, PL: 1.1, PMO: 1.1, TA: 1.05, DBA: 1.05 }
-
-let seq = 0
-const newId = () => `RT-${String(++seq).padStart(3, '0')}`
-
-function buildSeed() {
-  const rows = []
-  RATE_JOBS.forEach((job) => {
-    GRADES.forEach((grade) => {
-      const unit = Math.round((GRADE_BASE[grade] * (JOB_FACTOR[job] ?? 1)) / 10000) * 10000
-      rows.push({ id: newId(), job, grade, unit, from: '2026-01-01', to: '' })
-    })
-  })
-  // 적용 기간 예시: 작년 단가(종료됨)
-  GRADES.forEach((grade) => rows.push({ id: newId(), job: '개발', grade, unit: Math.round((GRADE_BASE[grade] * 0.95) / 10000) * 10000, from: '2025-01-01', to: '2025-12-31' }))
-  return rows
-}
-
 let state = {
-  rates: buildSeed(),
-  // 인력별 등급(인력 마스터 확장 항목) — 미지정이면 단가를 적용할 수 없다
-  grades: { 관리자: '특급', 이설계: '특급', 김개발: '고급', 박협력: '중급', 정QA: '중급' },
-  // 난이도 가중치: 켜면 RFP 평가 확정 M/D 기반 산정(미연동)에 난이도별 배수를 곱한다. 적용 여부는 협의 사항.
+  rates: [],
+  // 인력별 등급(인력 프로필 pms_user_profile.job_grade_code) — 미지정이면 단가를 적용할 수 없다
+  grades: {},
+  // 난이도 가중치: 켜면 RFP 평가 확정 M/D 기반 산정(미연동)에 난이도별 배수를 곱한다. 적용 여부는 협의 사항(저장하지 않음).
   difficulty: { enabled: false, 하: 0.8, 중: 1, 상: 1.3 },
 }
+let loaded = false
 const listeners = new Set()
 const emit = () => listeners.forEach((l) => l())
 const subscribe = (l) => {
   listeners.add(l)
   return () => listeners.delete(l)
 }
-export const useRateState = () => useSyncExternalStore(subscribe, () => state)
 
-export function saveRate(rate) {
-  const rates = rate.id ? state.rates.map((r) => (r.id === rate.id ? { ...r, ...rate } : r)) : [...state.rates, { ...rate, id: newId() }]
-  state = { ...state, rates }
-  emit()
+const gradesFromUsers = () => Object.fromEntries(getUsers().filter((u) => u.jobGradeCode).map((u) => [u.userName, u.jobGradeCode]))
+
+/** 단가표(원가 열람 권한 필요)와 인력 등급을 서버에서 읽는다. 권한이 없으면 단가표는 비어 있다. */
+export function loadRates() {
+  return ensurePmsUsersLoaded()
+    .then(() => pmsCostApi.rates().catch(() => ({ data: [] })))
+    .then((res) => {
+      state = {
+        ...state,
+        rates: (res.data || []).map((r) => ({ id: r.id, job: r.jobCode, grade: r.gradeCode, unit: Number(r.unitPrice), from: r.fromDate, to: r.toDate ?? '' })),
+        grades: gradesFromUsers(),
+      }
+      loaded = true
+      emit()
+    })
 }
-export function deleteRate(id) {
-  state = { ...state, rates: state.rates.filter((r) => r.id !== id) }
-  emit()
+
+export function useRateState() {
+  useEffect(() => {
+    if (!loaded) loadRates()
+  }, [])
+  return useSyncExternalStore(subscribe, () => state)
 }
-export function setMemberGrade(name, grade) {
-  const grades = { ...state.grades }
-  if (grade) grades[name] = grade
-  else delete grades[name]
-  state = { ...state, grades }
-  emit()
+
+const fail = (message) => (e) => {
+  window.alert(`${message}: ${e.message}`)
+  return false
+}
+
+/** 저장(신규/수정) — 성공하면 true. 같은 직무·등급의 적용 기간 겹침 등은 서버가 거부한다. */
+export async function saveRate(rate) {
+  const body = { jobCode: rate.job, gradeCode: rate.grade, unitPrice: Number(rate.unit), fromDate: rate.from, toDate: rate.to || null }
+  const ok = await (rate.id ? pmsCostApi.updateRate(rate.id, body) : pmsCostApi.createRate(body)).then(() => true, fail('단가를 저장하지 못했습니다'))
+  await loadRates()
+  return ok
+}
+export async function deleteRate(id) {
+  await pmsCostApi.deleteRate(id).catch(fail('삭제하지 못했습니다'))
+  await loadRates()
+}
+/** 인력 등급 변경 — 인력 프로필(job_grade_code)에 저장한다. */
+export async function setMemberGrade(name, grade) {
+  const u = getUsers().find((x) => x.userName === name)
+  if (!u) return
+  await pmsUserProfilesApi
+    .upsert(u.userId, {
+      orgTypeCode: u.orgTypeCode,
+      partnerCompany: u.partnerCompany ?? null,
+      notifyChannelCode: u.notifyChannelCode ?? null,
+      telegramChatId: u.telegramChatId ?? null,
+      mattermostUserId: u.mattermostUserId ?? null,
+      jobGradeCode: grade || null,
+    })
+    .catch(fail('등급을 저장하지 못했습니다'))
+  await loadPmsUsers()
+  await loadRates()
 }
 export function setDifficulty(patch) {
   state = { ...state, difficulty: { ...state.difficulty, ...patch } }

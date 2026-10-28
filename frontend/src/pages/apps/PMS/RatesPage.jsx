@@ -64,9 +64,8 @@ function RateForm({ initial, rates, onClose }) {
       <button
         className="primary"
         disabled={!!error}
-        onClick={() => {
-          saveRate({ ...form, unit: Number(form.unit) })
-          onClose()
+        onClick={async () => {
+          if (await saveRate({ ...form, unit: Number(form.unit) })) onClose()
         }}
       >
         저장
@@ -317,7 +316,7 @@ export default function RatesPage() {
     <div>
       <div className="page-header">
         <div>
-          <h2>단가 관리 <span className="pms-mock-badge">목업 · 더미 데이터</span></h2>
+          <h2>단가 관리</h2>
           <p className="page-description">
             직무·등급별 M/M 단가를 적용 기간과 함께 관리하고, 투입 인력의 계획 M/M에 단가를 곱해 프로젝트 예상 인건비(예상 원가)를 환산합니다.
           </p>

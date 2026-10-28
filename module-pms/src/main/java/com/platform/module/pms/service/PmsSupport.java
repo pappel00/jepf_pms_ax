@@ -39,6 +39,31 @@ final class PmsSupport {
         return prefix + String.format("%0" + width + "d", max + 1);
     }
 
+    private static boolean hasAnyAuthority(String... roles) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            return false;
+        }
+        for (var a : auth.getAuthorities()) {
+            for (String r : roles) {
+                if (r.equals(a.getAuthority())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** 예상 원가·인건비·단가·이익률을 볼 수 있는 권한(PMS_COST_VIEW, ADMIN, SYSTEM_ADMIN) — docs/pms/04-권한-매트릭스.md. */
+    static boolean canViewCost() {
+        return hasAnyAuthority("ROLE_PMS_COST_VIEW", "ROLE_ADMIN", "ROLE_SYSTEM_ADMIN");
+    }
+
+    /** 승인·확정 권한(PMS_APPROVE, ADMIN, SYSTEM_ADMIN). */
+    static boolean canApprove() {
+        return hasAnyAuthority("ROLE_PMS_APPROVE", "ROLE_ADMIN", "ROLE_SYSTEM_ADMIN");
+    }
+
     static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
     }

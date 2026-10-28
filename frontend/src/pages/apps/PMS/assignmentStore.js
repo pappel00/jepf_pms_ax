@@ -1,11 +1,14 @@
 /**
- * 투입 관리(인력관리) 계산/실적 스토어 — 더미 데이터, API 연동 없음(새로고침하면 초기화).
+ * 투입 관리(인력관리) 계산/실적 스토어 — 설정(과투입 기준)과 월별 실적 M/M 은 서버에 저장한다.
  *
  * 투입 계획의 원천은 프로젝트의 수행 관리 정보(단계전환에서 지정한 투입 인력 = 프로젝트 멤버)이다.
- * 여기서는 그 계획을 월별로 펼쳐 인력별 투입률·과투입을 계산하고, 월별 **실적 M/M**만 입력받는다.
+ * 여기서는 그 계획을 월별로 펼쳐 인력별 투입률·과투입을 계산하고, 월별 **실적 M/M**만 입력받는다(프로젝트 관리자만 — 서버도 검사).
  */
-import { useSyncExternalStore } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
+import { pmsCostApi } from '../../../api/entities'
 import { MEMBERS } from './pmsStore'
+import { getProjects } from './projectStore'
+import { ensurePmsUsersLoaded, userIdByName } from './pmsUsers'
 
 const parse = (s) => new Date(`${s}T00:00:00Z`)
 const iso = (d) => d.toISOString().slice(0, 10)
@@ -13,7 +16,20 @@ const iso = (d) => d.toISOString().slice(0, 10)
 // ---------- 설정(변경 가능) ----------
 // overLimit: 월 투입률이 이 값(%)을 넘으면 과투입으로 본다. idleLimit: 이 값(%) 미만이면 여유 인력으로 본다.
 let settings = { overLimit: 105, idleLimit: 50 }
+let settingsLoaded = false
 const settingListeners = new Set()
+
+export function loadStaffingSettings() {
+  return pmsCostApi
+    .settings()
+    .then((res) => {
+      const v = res.data || {}
+      settings = { overLimit: Number(v['staffing.over_limit_pct'] ?? settings.overLimit), idleLimit: Number(v['staffing.idle_limit_pct'] ?? settings.idleLimit) }
+      settingsLoaded = true
+      settingListeners.forEach((l) => l())
+    })
+    .catch((e) => console.error('[assignmentStore] 설정 조회 실패:', e.message))
+}
 
 function subscribeSettings(listener) {
   settingListeners.add(listener)
@@ -21,12 +37,26 @@ function subscribeSettings(listener) {
 }
 
 export function useStaffingSettings() {
+  useEffect(() => {
+    if (!settingsLoaded) loadStaffingSettings()
+  }, [])
   return useSyncExternalStore(subscribeSettings, () => settings)
 }
 
+let settingsTimer = null
+/** 입력 중에는 화면에 바로 반영하고, 잠깐 멈추면 서버에 저장한다(승인 권한이 없으면 저장이 거부되어 서버 값으로 되돌린다). */
 export function setStaffingSettings(patch) {
   settings = { ...settings, ...patch }
   settingListeners.forEach((l) => l())
+  clearTimeout(settingsTimer)
+  settingsTimer = setTimeout(() => {
+    pmsCostApi
+      .saveSettings({ 'staffing.over_limit_pct': String(settings.overLimit), 'staffing.idle_limit_pct': String(settings.idleLimit) })
+      .catch((e) => {
+        window.alert(`설정을 저장하지 못했습니다: ${e.message}`)
+        loadStaffingSettings()
+      })
+  }, 600)
 }
 
 /** 과투입 기준 투입률(1.0 = 100%)과 여유 인력 기준. */
@@ -146,16 +176,20 @@ export const orgOfMember = (name) => MEMBERS.find((m) => m.name === name)?.org ?
 
 // ---------- 실적 M/M ----------
 const actKey = (projectId, name, month) => `${projectId}|${name}|${month}`
-let actuals = {
-  [actKey('PRJ-2026-001', '이설계', '2026-09')]: 1,
-  [actKey('PRJ-2026-001', '이설계', '2026-10')]: 0.9,
-  [actKey('PRJ-2026-001', '김개발', '2026-10')]: 0.8,
-  [actKey('PRJ-2026-001', '박협력', '2026-10')]: 0.6,
-  [actKey('PRJ-2026-009', '김개발', '2026-09')]: 0.5,
-  [actKey('PRJ-2026-009', '김개발', '2026-10')]: 0.5,
-  [actKey('PRJ-2026-009', '정QA', '2026-10')]: 0.4,
-}
+let actuals = {}
+let actualsLoaded = false
 const listeners = new Set()
+
+export function loadActuals() {
+  return ensurePmsUsersLoaded()
+    .then(() => pmsCostApi.actuals())
+    .then((res) => {
+      actuals = Object.fromEntries((res.data || []).map((a) => [actKey(a.projectCode, a.userName, a.month), Number(a.actualMm)]))
+      actualsLoaded = true
+      listeners.forEach((l) => l())
+    })
+    .catch((e) => console.error('[assignmentStore] 실적 M/M 조회 실패:', e.message))
+}
 
 function subscribe(listener) {
   listeners.add(listener)
@@ -163,18 +197,37 @@ function subscribe(listener) {
 }
 
 export function useActuals() {
+  useEffect(() => {
+    if (!actualsLoaded) loadActuals()
+  }, [])
   return useSyncExternalStore(subscribe, () => actuals)
 }
 
 export const actualOf = (all, projectId, name, month) => all[actKey(projectId, name, month)]
 
+const actualTimers = new Map()
+/** 입력 중에는 화면에 바로 반영하고, 잠깐 멈추면 서버에 저장한다(프로젝트 관리자만 — 아니면 거부되어 서버 값으로 되돌린다). */
 export function setActual(projectId, name, month, value) {
   const k = actKey(projectId, name, month)
   const next = { ...actuals }
-  if (value === '' || value === null || Number.isNaN(Number(value))) delete next[k]
+  const clear = value === '' || value === null || Number.isNaN(Number(value))
+  if (clear) delete next[k]
   else next[k] = Math.max(0, Number(value))
   actuals = next
   listeners.forEach((l) => l())
+  clearTimeout(actualTimers.get(k))
+  actualTimers.set(
+    k,
+    setTimeout(() => {
+      const project = getProjects().find((p) => p.id === projectId)
+      const userId = userIdByName(name)
+      if (!project || !userId) return
+      pmsCostApi.saveActual(project.dbId, { userId, month, actualMm: clear ? null : Math.max(0, Number(value)) }).catch((e) => {
+        window.alert(`실적을 저장하지 못했습니다: ${e.message}`)
+        loadActuals()
+      })
+    }, 600),
+  )
 }
 
 export const sumActual = (all, projectId, name) =>

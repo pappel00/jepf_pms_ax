@@ -34,4 +34,8 @@ public final class PmsErrorCode {
     public static final String REPORT_INVALID = "ERR-PMS-0026";
     public static final String DOC_NOT_FOUND = "ERR-PMS-0027";
     public static final String DOC_INVALID = "ERR-PMS-0028";
+    public static final String RATE_NOT_FOUND = "ERR-PMS-0029";
+    public static final String RATE_INVALID = "ERR-PMS-0030";
+    public static final String ACTUAL_FORBIDDEN = "ERR-PMS-0031";
+    public static final String SETTING_INVALID = "ERR-PMS-0032";
 }

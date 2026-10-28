@@ -180,7 +180,8 @@ public class ProposalService {
 
     private Proposal apply(Proposal p, ProposalDto.Request r) {
         return p.withTitle(r.title().trim()).withStatusCode(r.statusCode()).withOwnerUserId(r.ownerUserId()).withDueDate(r.dueDate())
-                .withSubmittedDate(r.submittedDate()).withPrice(r.price()).withCostEstimate(r.costEstimate());
+                .withSubmittedDate(r.submittedDate()).withPrice(r.price())
+                .withCostEstimate(PmsSupport.canViewCost() ? r.costEstimate() : p.getCostEstimate());
     }
 
     private Proposal find(String id) {
@@ -236,7 +237,7 @@ public class ProposalService {
         return list.stream().map(p -> new ProposalDto.Response(p.getId(), p.getProposalCode(), p.getProjectId(),
                 projectCodes.get(p.getProjectId()), p.getRfpId(), rfpCodes.get(p.getRfpId()), p.getTitle(), p.getStatusCode(),
                 p.getOwnerUserId(), userNames.get(p.getOwnerUserId()), p.getDueDate(), p.getSubmittedDate(), p.getPrice(),
-                p.getCostEstimate(),
+                PmsSupport.canViewCost() ? p.getCostEstimate() : null,
                 versions.getOrDefault(p.getId(), List.of()).stream().map(v -> new ProposalDto.VersionResponse(v.getId(), v.getVer(),
                         v.getVersionDate(), v.getAuthorUserId(), userNames.get(v.getAuthorUserId()), v.getSummary(), v.getFileName(),
                         v.getFileSize(), "Y".equals(v.getSubmittedYn()))).toList(),

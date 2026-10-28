@@ -648,7 +648,7 @@ export default function StaffingPage() {
       <div className="page-header">
         <div>
           <h2>
-            투입 관리 <span className="pms-mock-badge">목업 · 더미 데이터</span>
+            투입 관리
           </h2>
           <p className="page-description">
             수행·운영 중인 프로젝트의 투입 계획(역할 · 투입 단계 · M/M · 기간)을 인력 기준으로 모아 보고, 월별 투입률과 과투입, 투입 가능 인력을 확인하며 실적 M/M을

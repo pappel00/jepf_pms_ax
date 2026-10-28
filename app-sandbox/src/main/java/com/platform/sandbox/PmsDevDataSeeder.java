@@ -6,7 +6,10 @@ import com.platform.module.pms.domain.CustomerContact;
 import com.platform.module.pms.domain.Issue;
 import com.platform.module.pms.domain.IssueHistory;
 import com.platform.module.pms.domain.IssueTask;
+import com.platform.module.pms.domain.ActualMm;
 import com.platform.module.pms.domain.Project;
+import com.platform.module.pms.domain.Rate;
+import com.platform.module.pms.domain.Setting;
 import com.platform.module.pms.domain.DocTailoring;
 import com.platform.module.pms.domain.DocVersion;
 import com.platform.module.pms.domain.ProgressSnapshot;
@@ -33,7 +36,10 @@ import com.platform.module.pms.repository.CustomerRepository;
 import com.platform.module.pms.repository.IssueHistoryRepository;
 import com.platform.module.pms.repository.IssueRepository;
 import com.platform.module.pms.repository.IssueTaskRepository;
+import com.platform.module.pms.repository.ActualMmRepository;
 import com.platform.module.pms.repository.ProjectRepository;
+import com.platform.module.pms.repository.RateRepository;
+import com.platform.module.pms.repository.SettingRepository;
 import com.platform.module.pms.repository.DocTailoringRepository;
 import com.platform.module.pms.repository.DocVersionRepository;
 import com.platform.module.pms.repository.ProgressSnapshotRepository;
@@ -120,6 +126,9 @@ public class PmsDevDataSeeder implements CommandLineRunner {
     private final ProposalMappingRepository proposalMappingRepository;
     private final ProposalChecklistRepository proposalChecklistRepository;
     private final DocTailoringRepository docTailoringRepository;
+    private final RateRepository rateRepository;
+    private final ActualMmRepository actualMmRepository;
+    private final SettingRepository settingRepository;
     private final DocVersionRepository docVersionRepository;
     private final StdDocRepository stdDocRepository;
     private final ReportRepository reportRepository;
@@ -138,8 +147,12 @@ public class PmsDevDataSeeder implements CommandLineRunner {
                             IssueRepository issueRepository, IssueTaskRepository issueTaskRepository,
                             IssueHistoryRepository issueHistoryRepository,
                             RfpRepository rfpRepository, RfpItemRepository rfpItemRepository, RfpEvaluatorRepository rfpEvaluatorRepository, RfpEvalRepository rfpEvalRepository, ProposalRepository proposalRepository, ProposalVersionRepository proposalVersionRepository, ProposalMappingRepository proposalMappingRepository, ProposalChecklistRepository proposalChecklistRepository,
+                            RateRepository rateRepository, ActualMmRepository actualMmRepository, SettingRepository settingRepository,
                             DocTailoringRepository docTailoringRepository, DocVersionRepository docVersionRepository, StdDocRepository stdDocRepository, ReportRepository reportRepository, ReportVersionRepository reportVersionRepository, ReportHistoryRepository reportHistoryRepository, ProgressSnapshotRepository progressSnapshotRepository) {
         this.docTailoringRepository = docTailoringRepository;
+        this.rateRepository = rateRepository;
+        this.actualMmRepository = actualMmRepository;
+        this.settingRepository = settingRepository;
         this.docVersionRepository = docVersionRepository;
         this.stdDocRepository = stdDocRepository;
         this.reportRepository = reportRepository;
@@ -193,6 +206,7 @@ public class PmsDevDataSeeder implements CommandLineRunner {
             seedWbsAndIssues(users);
             seedRfpsAndProposals(users);
             seedReportsAndDocs(users);
+            seedCost(users);
         } finally {
             TenantContext.clear();
         }
@@ -717,5 +731,51 @@ public class PmsDevDataSeeder implements CommandLineRunner {
             }
         }
         log.info("[PmsDevDataSeeder] 샘플 문서 테일러링 {}건·보고서 {}건·진척 스냅샷 {}건 생성", tailoringCount, reportCount, snapshotCount);
+    }
+
+    // ---------- 단가 · 실적 M/M · 설정 (목업의 더미 데이터와 같은 값) ----------
+
+    private void seedCost(Map<String, User> users) {
+        if (rateRepository.findAllByDeletedYnOrderByJobCodeAscGradeCodeAscFromDateAsc("N").isEmpty()) {
+            String[] jobs = {"PM", "PL", "PMO", "분석", "설계", "분석/설계", "개발", "DBA", "UI/UX", "QA", "TA", "운영", "장애대응", "기술지원", "기타"};
+            String[] grades = {"특급", "고급", "중급", "초급"};
+            long[] base = {9000000, 7500000, 6000000, 4500000};
+            Map<String, Double> factor = Map.of("PM", 1.15, "PL", 1.1, "PMO", 1.1, "TA", 1.05, "DBA", 1.05);
+            for (String job : jobs) {
+                for (int g = 0; g < grades.length; g++) {
+                    long unit = Math.round(base[g] * factor.getOrDefault(job, 1.0) / 10000) * 10000;
+                    rateRepository.save(Rate.create().withJobCode(job).withGradeCode(grades[g]).withUnitPrice(unit)
+                            .withFromDate(LocalDate.of(2026, 1, 1)));
+                }
+            }
+            // 적용 기간 예시: 작년 개발 단가(종료됨)
+            for (int g = 0; g < grades.length; g++) {
+                rateRepository.save(Rate.create().withJobCode("개발").withGradeCode(grades[g])
+                        .withUnitPrice(Math.round(base[g] * 0.95 / 10000) * 10000).withFromDate(LocalDate.of(2025, 1, 1))
+                        .withToDate(LocalDate.of(2025, 12, 31)));
+            }
+        }
+        if (settingRepository.findAllByDeletedYn("N").isEmpty()) {
+            settingRepository.save(Setting.create().withSettingKey("staffing.over_limit_pct").withSettingValue("105"));
+            settingRepository.save(Setting.create().withSettingKey("staffing.idle_limit_pct").withSettingValue("50"));
+        }
+        if (actualMmRepository.findAllByDeletedYnOrderByActualMonthAsc("N").isEmpty()) {
+            Object[][] rows = {
+                    {"PRJ-2026-001", "이설계", "2026-09", "1"}, {"PRJ-2026-001", "이설계", "2026-10", "0.9"},
+                    {"PRJ-2026-001", "김개발", "2026-10", "0.8"}, {"PRJ-2026-001", "박협력", "2026-10", "0.6"},
+                    {"PRJ-2026-009", "김개발", "2026-09", "0.5"}, {"PRJ-2026-009", "김개발", "2026-10", "0.5"},
+                    {"PRJ-2026-009", "정QA", "2026-10", "0.4"},
+            };
+            for (Object[] r : rows) {
+                Project project = projectRepository.findByProjectCodeAndDeletedYn((String) r[0], "N").orElse(null);
+                User user = users.get((String) r[1]);
+                if (project == null || user == null) {
+                    continue;
+                }
+                actualMmRepository.save(ActualMm.create().withProjectId(project.getId()).withKindCode("EXEC").withUserId(user.getId())
+                        .withActualMonth((String) r[2]).withActualMm(new BigDecimal((String) r[3])).withInputBy(user.getId()));
+            }
+        }
+        log.info("[PmsDevDataSeeder] 샘플 단가·설정·실적 M/M 생성");
     }
 }

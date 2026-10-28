@@ -97,6 +97,16 @@ export const pmsProposalsApi = {
   toggleCheck: (id, checkId) => apiFetch(`/api/v1/pms/proposals/${id}/checklist/${checkId}/toggle`, { method: 'POST', body: {} }),
   removeCheck: (id, checkId) => apiFetch(`/api/v1/pms/proposals/${id}/checklist/${checkId}`, { method: 'DELETE' }),
 }
+export const pmsCostApi = {
+  rates: () => apiFetch('/api/v1/pms/rates'),
+  createRate: (body) => apiFetch('/api/v1/pms/rates', { method: 'POST', body }),
+  updateRate: (id, body) => apiFetch(`/api/v1/pms/rates/${id}`, { method: 'PUT', body }),
+  deleteRate: (id) => apiFetch(`/api/v1/pms/rates/${id}`, { method: 'DELETE' }),
+  actuals: () => apiFetch('/api/v1/pms/actual-mm'),
+  saveActual: (projectId, body) => apiFetch(`/api/v1/pms/projects/${projectId}/actual-mm`, { method: 'PUT', body }),
+  settings: () => apiFetch('/api/v1/pms/settings'),
+  saveSettings: (values) => apiFetch('/api/v1/pms/settings', { method: 'PUT', body: { values } }),
+}
 export const pmsReportsApi = {
   list: () => apiFetch('/api/v1/pms/reports'),
   saveDraft: (projectId, type, periodStart, memo) =>

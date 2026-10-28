@@ -41,6 +41,7 @@ export function usePmsUsers() {
   return useSyncExternalStore(subscribe, () => state).users
 }
 
+export const getUsers = () => state.users
 export const userIdByName = (name) => state.users.find((u) => u.userName === name)?.userId
 export const userNameById = (id) => state.users.find((u) => u.userId === id)?.userName ?? ''
 

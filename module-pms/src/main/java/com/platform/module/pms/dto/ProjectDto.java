@@ -96,14 +96,16 @@ public final class ProjectDto {
             String viewRestrictedYn,
             String memo
     ) {
-        public static Response from(Project p, Map<String, String> userNames) {
+        /** showCost 가 false 면 예상 원가 관련 값을 가린다(PMS_COST_VIEW 권한이 없는 사용자). */
+        public static Response from(Project p, Map<String, String> userNames, boolean showCost) {
             return new Response(p.getId(), p.getProjectCode(), p.getProjectName(), p.getStatusCode(), p.getProbabilityPct(),
                     p.getCustomerId(), p.getClientName(), p.getContactId(), p.getContactName(), p.getContactTitle(),
                     p.getContactPhone(), p.getContactEmail(), p.getStartDate(), p.getEndDate(), p.getAmount(),
                     p.getVatIncludedYn(), p.getSalesUserId(), userNames.get(p.getSalesUserId()), p.getPmUserId(),
                     p.getPmUserId() == null ? null : userNames.get(p.getPmUserId()), p.getBusinessTypeCode(),
                     p.getBidTypeCode(), p.getNoticeNo(), p.getDueDate(), p.getPresentDate(), p.getCompetitors(),
-                    p.getCostEstimate(), p.getCostSourceType(), p.getCostSourceNote(), p.getFailReasonCode(),
+                    showCost ? p.getCostEstimate() : null, showCost ? p.getCostSourceType() : null, showCost ? p.getCostSourceNote() : null,
+                    p.getFailReasonCode(),
                     p.getFailReasonDetail(), p.getExecStartDate(), p.getExecEndDate(), p.getExecEndMemo(),
                     p.getViewRestrictedYn(), p.getMemo());
         }

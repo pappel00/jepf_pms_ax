@@ -84,7 +84,7 @@ public class ProjectService {
         Page<Project> page = projectRepository.search(nz(status), nz(customerId), nz(salesUserId),
                 nz(keyword).toLowerCase(), pageable);
         Map<String, String> names = userNames(page.getContent());
-        return new PagedResult<>(page.map(p -> ProjectDto.Response.from(p, names)).getContent(), PageInfo.of(page));
+        return new PagedResult<>(page.map(p -> ProjectDto.Response.from(p, names, PmsSupport.canViewCost())).getContent(), PageInfo.of(page));
     }
 
     @Transactional
@@ -250,9 +250,10 @@ public class ProjectService {
                 .withDueDate(r.dueDate())
                 .withPresentDate(r.presentDate())
                 .withCompetitors(PmsSupport.blankToNull(r.competitors()))
-                .withCostEstimate(r.costEstimate())
-                .withCostSourceType(PmsSupport.blankToNull(r.costSourceType()))
-                .withCostSourceNote(PmsSupport.blankToNull(r.costSourceNote()))
+                // 원가 열람 권한이 없는 사용자의 수정은 원가 값을 건드리지 않는다(가려진 값으로 덮어쓰기 방지).
+                .withCostEstimate(PmsSupport.canViewCost() ? r.costEstimate() : p.getCostEstimate())
+                .withCostSourceType(PmsSupport.canViewCost() ? PmsSupport.blankToNull(r.costSourceType()) : p.getCostSourceType())
+                .withCostSourceNote(PmsSupport.canViewCost() ? PmsSupport.blankToNull(r.costSourceNote()) : p.getCostSourceNote())
                 .withFailReasonCode(PmsSupport.blankToNull(r.failReasonCode()))
                 .withFailReasonDetail(PmsSupport.blankToNull(r.failReasonDetail()))
                 .withViewRestrictedYn("Y".equals(r.viewRestrictedYn()) ? "Y" : "N")
@@ -271,7 +272,7 @@ public class ProjectService {
     }
 
     private ProjectDto.Response toResponse(Project p) {
-        return ProjectDto.Response.from(p, userNames(List.of(p)));
+        return ProjectDto.Response.from(p, userNames(List.of(p)), PmsSupport.canViewCost());
     }
 
     private Map<String, String> userNames(List<Project> projects) {
