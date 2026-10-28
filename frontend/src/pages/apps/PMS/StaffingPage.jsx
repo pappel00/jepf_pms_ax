@@ -19,7 +19,7 @@ import {
 } from './assignmentStore'
 import { useAuth } from '../../../context/AuthContext'
 import { CHANGE_STATUSES, computeConflicts, decideChange, useChanges } from './changeStore'
-import { canSeeAllProjects } from './participation'
+import { canApprove as hasApproveRole } from './participation'
 import { usePmsUsers } from './pmsUsers'
 import { ME, MEMBERS, TODAY } from './pmsStore'
 import { useProjects } from './projectStore'
@@ -480,7 +480,7 @@ function ChangesTab({ projects }) {
   const { auth } = useAuth()
   const users = usePmsUsers()
   const me = users.find((x) => x.userId === auth?.userId)?.userName ?? ''
-  const canApprove = canSeeAllProjects(auth) // 센터장·admin (서버도 같은 권한을 검사, 요청자 본인은 불가)
+  const canApprove = hasApproveRole(auth) // 승인 권한(PMS_APPROVE·admin) — 서버도 같은 권한을 검사, 요청자 본인은 불가
   const list = changes.filter((c) => !status || c.status === status)
 
   const decide = (c, result) => {

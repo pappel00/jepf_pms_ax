@@ -20,6 +20,7 @@ import com.platform.module.pms.domain.UserProfile;
 import com.platform.module.pms.domain.WbsTask;
 import com.platform.module.pms.dto.TeamDto;
 import com.platform.module.pms.dto.TransitionDto;
+import com.platform.module.pms.event.PmsAccessBootstrapListener;
 import com.platform.module.pms.event.PmsCodeBootstrapListener;
 import com.platform.module.pms.repository.CustomerContactRepository;
 import com.platform.module.pms.repository.CustomerRepository;
@@ -85,6 +86,7 @@ public class PmsDevDataSeeder implements CommandLineRunner {
     private final UserGroupUserRepository userGroupUserRepository;
     private final PasswordEncoder passwordEncoder;
     private final PmsCodeBootstrapListener pmsCodeBootstrapListener;
+    private final PmsAccessBootstrapListener pmsAccessBootstrapListener;
     private final CustomerRepository customerRepository;
     private final CustomerContactRepository contactRepository;
     private final ProjectRepository projectRepository;
@@ -108,6 +110,7 @@ public class PmsDevDataSeeder implements CommandLineRunner {
     public PmsDevDataSeeder(CompanyRepository companyRepository, UserRepository userRepository,
                             UserGroupRepository userGroupRepository, UserGroupUserRepository userGroupUserRepository,
                             PasswordEncoder passwordEncoder, PmsCodeBootstrapListener pmsCodeBootstrapListener,
+                            PmsAccessBootstrapListener pmsAccessBootstrapListener,
                             CustomerRepository customerRepository, CustomerContactRepository contactRepository,
                             ProjectRepository projectRepository, UserProfileRepository profileRepository,
                             StatusHistoryRepository historyRepository, TransitionRepository transitionRepository,
@@ -133,6 +136,7 @@ public class PmsDevDataSeeder implements CommandLineRunner {
         this.userGroupUserRepository = userGroupUserRepository;
         this.passwordEncoder = passwordEncoder;
         this.pmsCodeBootstrapListener = pmsCodeBootstrapListener;
+        this.pmsAccessBootstrapListener = pmsAccessBootstrapListener;
         this.customerRepository = customerRepository;
         this.contactRepository = contactRepository;
         this.projectRepository = projectRepository;
@@ -151,6 +155,7 @@ public class PmsDevDataSeeder implements CommandLineRunner {
         TenantContext.setTenantId(company.getId());
         try {
             pmsCodeBootstrapListener.seedDefaults();
+            pmsAccessBootstrapListener.seedDefaults();
             Map<String, User> users = seedUsers();
             seedProfiles(users);
             Map<String, Customer> customers = seedCustomers();
@@ -172,18 +177,17 @@ public class PmsDevDataSeeder implements CommandLineRunner {
         UserGroup defaultGroup = userGroupRepository.findByGroupCodeAndDeletedYn("DEFAULT_USER", "N").orElse(null);
         String[][] samples = {
                 {"kimsales", "김영업"}, {"choisales", "최영업"}, {"leedesign", "이설계"},
-                {"kimdev", "김개발"}, {"parkpartner", "박협력"}, {"jungqa", "정QA"},
+                {"kimdev", "김개발"}, {"parkpartner", "박협력"}, {"jungqa", "정QA"}, {"songops", "송운영"},
         };
-        // 센터장: 단계전환·투입 변경 승인 시연용(ADMIN_GROUP → ROLE_ADMIN). 요청자 본인은 승인할 수 없으므로 별도 승인자가 필요하다.
+        // 센터장: 단계전환·투입 변경 승인 시연용(PMS_MANAGER 그룹 → ROLE_PMS_APPROVE). 요청자 본인은 승인할 수 없으므로 별도 승인자가 필요하다.
         userRepository.findByLoginIdAndDeletedYn("centerhead", "N").orElseGet(() -> userRepository.saveAndFlush(
                 User.create("centerhead", passwordEncoder.encode("pms1234"), "centerhead@example.com", "센터장")));
         User head = userRepository.findByLoginIdAndDeletedYn("centerhead", "N").orElseThrow();
-        userGroupRepository.findByGroupCodeAndDeletedYn("ADMIN_GROUP", "N").ifPresent(g -> {
-            if (!userGroupUserRepository.existsByUserGroupIdAndUserId(g.getId(), head.getId())) {
-                userGroupUserRepository.saveAndFlush(UserGroupUser.create(g.getId(), head.getId()));
-            }
-        });
+        // 예전 시드는 센터장을 ADMIN_GROUP 에 넣었다 — 이제는 PMS 그룹 권한만 쓰므로 빼 둔다.
+        userGroupRepository.findByGroupCodeAndDeletedYn("ADMIN_GROUP", "N").ifPresent(g ->
+                userGroupUserRepository.findByUserGroupIdAndUserId(g.getId(), head.getId()).ifPresent(userGroupUserRepository::delete));
         byName.put(head.getUserName(), head);
+        seedGroupMember("PMS_MANAGER", head);
         for (String[] s : samples) {
             User user = userRepository.findByLoginIdAndDeletedYn(s[0], "N").orElseGet(() -> {
                 User created = userRepository.saveAndFlush(
@@ -195,8 +199,25 @@ public class PmsDevDataSeeder implements CommandLineRunner {
                 userGroupUserRepository.saveAndFlush(UserGroupUser.create(defaultGroup.getId(), user.getId()));
             }
             byName.put(user.getUserName(), user);
+            seedGroupMember(PMS_GROUP_BY_LOGIN.get(s[0]), user);
         }
         return byName;
+    }
+
+    /** 샘플 사용자의 PMS 사용자그룹(docs/pms/04-권한-매트릭스.md). admin 은 ADMIN_GROUP 으로 모든 메뉴·승인이 가능하다. */
+    private static final Map<String, String> PMS_GROUP_BY_LOGIN = Map.of(
+            "kimsales", "PMS_SALES", "choisales", "PMS_SALES", "leedesign", "PMS_PM", "kimdev", "PMS_MEMBER",
+            "jungqa", "PMS_MEMBER", "parkpartner", "PMS_PARTNER", "songops", "PMS_OPS");
+
+    private void seedGroupMember(String groupCode, User user) {
+        if (groupCode == null) {
+            return;
+        }
+        userGroupRepository.findByGroupCodeAndDeletedYn(groupCode, "N").ifPresent(g -> {
+            if (!userGroupUserRepository.existsByUserGroupIdAndUserId(g.getId(), user.getId())) {
+                userGroupUserRepository.saveAndFlush(UserGroupUser.create(g.getId(), user.getId()));
+            }
+        });
     }
 
     private void seedProfiles(Map<String, User> users) {

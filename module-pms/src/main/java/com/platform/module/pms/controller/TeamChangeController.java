@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "PmsTeamChange", description = "PMS 투입 계획 변경 요청·승인 (테넌트 자동 격리)")
 public class TeamChangeController {
 
-    private static final String APPROVER = "hasAnyRole('CENTER_HEAD','ADMIN','SYSTEM_ADMIN')";
+    private static final String APPROVER = "hasAnyRole('PMS_APPROVE','ADMIN','SYSTEM_ADMIN')";
 
     private final TeamChangeService changeService;
 

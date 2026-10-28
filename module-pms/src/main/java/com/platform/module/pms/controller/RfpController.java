@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "PmsRfp", description = "PMS RFP·평가 (테넌트 자동 격리)")
 public class RfpController {
 
-    private static final String EVAL_ADMIN = "hasAnyRole('CENTER_HEAD','ADMIN','SYSTEM_ADMIN')";
+    private static final String EVAL_ADMIN = "hasAnyRole('PMS_APPROVE','ADMIN','SYSTEM_ADMIN')";
 
     private final RfpService rfpService;
 

@@ -645,7 +645,7 @@ SLA 판정(충족/정상/임박/위반)은 `pms_project_operation`의 목표 시
 
 ## 12. 권한·조회 범위 (ERD 영향 요약)
 
-- **프로젝트 조회 범위**: 일반 사용자는 `pms_project_member`에 있거나 영업 담당·수행 PM인 프로젝트, 센터장·admin(`ROLE_CENTER_HEAD`/`ROLE_ADMIN`/`ROLE_SYSTEM_ADMIN`)은 수행 중 전체. `view_restricted_yn=Y`이면 멤버 외 열람 제한(센터장·admin 예외).
+- **프로젝트 조회 범위**: 일반 사용자는 `pms_project_member`에 있거나 영업 담당·수행 PM인 프로젝트, 센터장·admin(`ROLE_PMS_APPROVE`(승인)·`ROLE_PMS_MANAGER`(전체 조회)/`ROLE_ADMIN`/`ROLE_SYSTEM_ADMIN` — 권한 정의는 04-권한-매트릭스.md)은 수행 중 전체. `view_restricted_yn=Y`이면 멤버 외 열람 제한(센터장·admin 예외).
 - **접근 권한**: 멤버별 `access_level_code`(편집/열람), 관리자는 `manager_yn`. 승인(단계전환·투입 변경)은 별도 역할(센터장·admin / 인력 관리자) — 권한 테이블이 아니라 기존 `usr_role` 기반.
 - 고객사 담당자에게 PMS 비노출(확정) — `pms_customer_contact`는 로그인 계정과 연결하지 않는다.
 
@@ -702,7 +702,7 @@ SLA 판정(충족/정상/임박/위반)은 `pms_project_operation`의 목표 시
 **2단계 구현 메모**
 - 팀은 직접 수정 API가 없다 — 단계전환 승인(최초 지정)과 투입 계획 변경 승인으로만 `replaceTeam`(물리 삭제 후 재생성)으로 바뀐다. 이력은 `pms_team_change`의 before/after 스냅샷(JSONB)에 남는다.
 - 관리자가 투입 인력에 없으면 `role_code=MANAGER_ONLY` 행으로 둔다(팀 조회에서는 제외).
-- 승인·반려·롤백은 `ROLE_CENTER_HEAD`/`ROLE_ADMIN`/`ROLE_SYSTEM_ADMIN`. 투입 변경은 **요청자 본인 승인/반려 불가**(서버 검증), 단계전환은 본인 요청도 승인 가능.
+- 승인·반려·롤백은 `ROLE_PMS_APPROVE`(승인)·`ROLE_PMS_MANAGER`(전체 조회)/`ROLE_ADMIN`/`ROLE_SYSTEM_ADMIN` — 권한 정의는 04-권한-매트릭스.md. 투입 변경은 **요청자 본인 승인/반려 불가**(서버 검증), 단계전환은 본인 요청도 승인 가능.
 - 단계전환 승인 시 서버는 팀 확정·프로젝트 「수행 중」(전환일·수행 PM·열람 제한)까지 처리하고, WBS·문서 테일러링 기초데이터는 3단계 전까지 화면이 요청의 `selection`으로 승인 직후 메모리에 생성한다. 롤백의 진척·이슈 확인도 같은 이유로 화면이 먼저 확인한다.
 - 투입 변경의 변경 요약·과투입 예상은 화면이 계산해 보낸다(`summary_text`, `conflict_json`).
 - 금액 컬럼은 `BIGINT`(엔티티 Long) — 기존 DB는 `db/postgresql/05_alter_pms_money_bigint.sql` 로 변경.

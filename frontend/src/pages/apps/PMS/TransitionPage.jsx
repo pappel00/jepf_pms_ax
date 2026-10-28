@@ -6,7 +6,7 @@ import { ProcessButton } from './ProcessModal'
 import { transitionProcess } from './processModels'
 import { buildTailoringFor } from './docStore'
 import { useIssues } from './issueStore'
-import { canSeeAllProjects } from './participation'
+import { canApprove as hasApproveRole } from './participation'
 import { approveTransition, cancelTransition, pendingTransitionOf, rejectTransition, requestTransition, rollbackBlocker, rollbackProjectTransition, useRollbackLog, useTransitionRequests } from './transitionStore'
 import { teamToSpec } from './teamCodec'
 import { usePmsUsers } from './pmsUsers'
@@ -47,7 +47,7 @@ export default function TransitionPage() {
   const requests = useTransitionRequests()
   const rollbackLog = useRollbackLog()
   usePmsUsers() // 사용자 디렉터리 로드(이름 ↔ 사용자 ID 변환)
-  const canApprove = canSeeAllProjects(auth) // 센터장·admin만 승인·반려·롤백 (서버도 같은 권한을 검사)
+  const canApprove = hasApproveRole(auth) // 승인 권한(PMS_APPROVE·admin)만 승인·반려·롤백 (서버도 같은 권한을 검사)
 
   const candidates = projects.filter((p) => p.status === '수주' && !tasks.some((t) => t.projectId === p.id) && !pendingTransitionOf(requests, p.id))
   const history = projects.filter((p) => p.transitioned)

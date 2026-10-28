@@ -7,15 +7,18 @@ import com.platform.module.portal.domain.ApplicationRole;
 import com.platform.module.portal.domain.Menu;
 import com.platform.module.portal.domain.MenuPage;
 import com.platform.module.portal.domain.Page;
+import com.platform.module.portal.domain.PageRole;
 import com.platform.module.portal.domain.Portal;
 import com.platform.module.portal.repository.ApplicationRepository;
 import com.platform.module.portal.repository.ApplicationRoleRepository;
 import com.platform.module.portal.repository.MenuPageRepository;
 import com.platform.module.portal.repository.MenuRepository;
 import com.platform.module.portal.repository.PageRepository;
+import com.platform.module.portal.repository.PageRoleRepository;
 import com.platform.module.portal.repository.PortalRepository;
 import com.platform.module.tenant.event.TenantCreatedEvent;
 import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -174,6 +177,46 @@ public class PortalBootstrapListener {
                             new PageSeed("PMS_PAGE_RATES", "단가 관리", "/workspace/PMS/rates")))))
     );
 
+    // PMS 메뉴 접근 Role(docs/pms/04-권한-매트릭스.md). Role 자체는 module-pms 의 PmsAccessBootstrapListener 가 만든다.
+    private static final String PMS_SALES = "ROLE_PMS_SALES";
+    private static final String PMS_PM = "ROLE_PMS_PM";
+    private static final String PMS_MEMBER = "ROLE_PMS_MEMBER";
+    private static final String PMS_PARTNER = "ROLE_PMS_PARTNER";
+    private static final String PMS_OPS = "ROLE_PMS_OPS";
+    private static final String PMS_MANAGER = "ROLE_PMS_MANAGER";
+
+    /**
+     * 페이지 코드 → 접근 가능한 Role. 여기 없는 페이지는 매핑을 만들지 않는다(= 로그인 사용자 누구나).
+     * 매핑이 있는 페이지에는 ROLE_ADMIN / ROLE_SYSTEM_ADMIN 도 함께 매핑한다. 이미 있는 매핑은 건드리지 않으므로
+     * 이후 페이지 관리 화면에서 바꾼 값은 유지된다(빠진 기본 매핑만 채운다).
+     */
+    private static final Map<String, List<String>> PAGE_ROLES = Map.ofEntries(
+            Map.entry("PMS_PAGE_CUSTOMERS", List.of(PMS_SALES, PMS_PM, PMS_MEMBER, PMS_OPS, PMS_MANAGER)),
+            Map.entry("PMS_PAGE_CUSTOMER_CONTACTS", List.of(PMS_SALES, PMS_PM, PMS_OPS, PMS_MANAGER)),
+            Map.entry("PMS_PAGE_SALES_NOTES", List.of(PMS_SALES, PMS_PM, PMS_OPS, PMS_MANAGER)),
+            Map.entry("PMS_PAGE_PROJECTS", List.of(PMS_SALES, PMS_PM, PMS_MEMBER, PMS_OPS, PMS_MANAGER)),
+            Map.entry("PMS_PAGE_RFP", List.of(PMS_SALES, PMS_PM, PMS_MANAGER)),
+            Map.entry("PMS_PAGE_RFP_EVAL", List.of(PMS_PM, PMS_MEMBER)),
+            Map.entry("PMS_PAGE_RFP_EVAL_ADMIN", List.of(PMS_MANAGER)),
+            Map.entry("PMS_PAGE_PROPOSALS", List.of(PMS_SALES, PMS_PM, PMS_MEMBER, PMS_MANAGER)),
+            Map.entry("PMS_PAGE_PHASE_TRANSITION", List.of(PMS_SALES, PMS_PM, PMS_MANAGER)),
+            Map.entry("PMS_PAGE_OPS_TRANSITION", List.of(PMS_PM, PMS_OPS, PMS_MANAGER)),
+            Map.entry("PMS_PAGE_EXEC_PROJECT", List.of(PMS_PM, PMS_MEMBER, PMS_PARTNER, PMS_MANAGER)),
+            Map.entry("PMS_PAGE_DOC_TAILORING", List.of(PMS_PM, PMS_MEMBER, PMS_PARTNER, PMS_MANAGER)),
+            Map.entry("PMS_PAGE_WBS", List.of(PMS_PM, PMS_MEMBER, PMS_PARTNER, PMS_MANAGER)),
+            Map.entry("PMS_PAGE_ISSUES", List.of(PMS_PM, PMS_MEMBER, PMS_PARTNER, PMS_MANAGER)),
+            Map.entry("PMS_PAGE_NEXT_OPPS", List.of(PMS_SALES, PMS_PM, PMS_MEMBER, PMS_OPS, PMS_MANAGER)),
+            Map.entry("PMS_PAGE_REPORT_WEEKLY", List.of(PMS_SALES, PMS_PM, PMS_MEMBER, PMS_MANAGER)),
+            Map.entry("PMS_PAGE_REPORT_MONTHLY", List.of(PMS_SALES, PMS_PM, PMS_MEMBER, PMS_MANAGER)),
+            Map.entry("PMS_PAGE_DASHBOARD", List.of(PMS_PM, PMS_MEMBER, PMS_PARTNER, PMS_OPS)),
+            Map.entry("PMS_PAGE_OPS_PROJECT", List.of(PMS_PM, PMS_OPS, PMS_MANAGER)),
+            Map.entry("PMS_PAGE_OPS_TASKS", List.of(PMS_PM, PMS_OPS, PMS_MANAGER)),
+            Map.entry("PMS_PAGE_OPS_ISSUES", List.of(PMS_PM, PMS_OPS, PMS_MANAGER)),
+            Map.entry("PMS_PAGE_OPS_SALES", List.of(PMS_SALES, PMS_OPS, PMS_MANAGER)),
+            Map.entry("PMS_PAGE_STAFFING", List.of(PMS_PM, PMS_MEMBER, PMS_MANAGER)),
+            Map.entry("PMS_PAGE_RATES", List.of(PMS_MANAGER)));
+
+    private final PageRoleRepository pageRoleRepository;
     private final PortalRepository portalRepository;
     private final ApplicationRepository applicationRepository;
     private final ApplicationRoleRepository applicationRoleRepository;
@@ -186,7 +229,9 @@ public class PortalBootstrapListener {
                                     ApplicationRoleRepository applicationRoleRepository,
                                     MenuRepository menuRepository,
                                     PageRepository pageRepository,
-                                    MenuPageRepository menuPageRepository) {
+                                    MenuPageRepository menuPageRepository,
+                                    PageRoleRepository pageRoleRepository) {
+        this.pageRoleRepository = pageRoleRepository;
         this.portalRepository = portalRepository;
         this.applicationRepository = applicationRepository;
         this.applicationRoleRepository = applicationRoleRepository;
@@ -256,12 +301,32 @@ public class PortalBootstrapListener {
                                 Page.create(pageSeed.pageCode(), pageSeed.pageName(), PAGE_TYPE_GENERAL,
                                         PAGE_DEVICE_TYPE_PC, pageSeed.route(), null)));
 
+                seedPageRoles(page);
+
                 if (!menuPageRepository.existsByMenuIdAndPageId(folder.getId(), page.getId())) {
                     menuPageRepository.saveAndFlush(MenuPage.create(folder.getId(), page.getId(), pageSortOrder));
                 }
                 pageSortOrder++;
             }
             folderSortOrder++;
+        }
+    }
+
+    private void seedPageRoles(Page page) {
+        List<String> roles = PAGE_ROLES.get(page.getPageCode());
+        if (roles == null) {
+            return;
+        }
+        for (String role : roles) {
+            addPageRole(page, role);
+        }
+        addPageRole(page, SystemRoles.ADMIN);
+        addPageRole(page, SystemRoles.SYSTEM_ADMIN);
+    }
+
+    private void addPageRole(Page page, String roleCode) {
+        if (!pageRoleRepository.existsByPageIdAndRoleCode(page.getId(), roleCode)) {
+            pageRoleRepository.saveAndFlush(PageRole.create(page.getId(), roleCode));
         }
     }
 }

@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "PmsTransition", description = "PMS 단계전환 요청·승인·롤백 (테넌트 자동 격리)")
 public class TransitionController {
 
-    private static final String APPROVER = "hasAnyRole('CENTER_HEAD','ADMIN','SYSTEM_ADMIN')";
+    private static final String APPROVER = "hasAnyRole('PMS_APPROVE','ADMIN','SYSTEM_ADMIN')";
 
     private final TransitionService transitionService;
 
