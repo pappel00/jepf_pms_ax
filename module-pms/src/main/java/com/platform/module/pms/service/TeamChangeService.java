@@ -29,14 +29,16 @@ public class TeamChangeService {
     static final String KIND = ProjectMemberService.KIND_EXEC;
     static final String PENDING = "승인 대기";
 
+    private final ProjectAccess access;
     private final TeamChangeRepository changeRepository;
     private final ProjectRepository projectRepository;
     private final ProjectService projectService;
     private final ProjectMemberService memberService;
     private final UserNameResolver names;
 
-    public TeamChangeService(TeamChangeRepository changeRepository, ProjectRepository projectRepository,
+    public TeamChangeService(ProjectAccess access, TeamChangeRepository changeRepository, ProjectRepository projectRepository,
                              ProjectService projectService, ProjectMemberService memberService, UserNameResolver names) {
+        this.access = access;
         this.changeRepository = changeRepository;
         this.projectRepository = projectRepository;
         this.projectService = projectService;
@@ -69,7 +71,7 @@ public class TeamChangeService {
     }
 
     public List<TeamChangeDto.Response> getList(String projectId, String status) {
-        List<TeamChange> list = changeRepository.search(nz(projectId), nz(status));
+        List<TeamChange> list = access.filter(changeRepository.search(nz(projectId), nz(status)), TeamChange::getProjectId);
         Set<String> userIds = new HashSet<>();
         Set<String> projectIds = new HashSet<>();
         for (TeamChange c : list) {

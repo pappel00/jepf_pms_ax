@@ -38,6 +38,7 @@ public class CostService {
             "staffing.over_limit_pct", new int[]{100, 200},
             "staffing.idle_limit_pct", new int[]{0, 100});
 
+    private final ProjectAccess access;
     private final RateRepository rateRepository;
     private final ActualMmRepository actualRepository;
     private final SettingRepository settingRepository;
@@ -46,9 +47,10 @@ public class CostService {
     private final ProjectService projectService;
     private final UserNameResolver names;
 
-    public CostService(RateRepository rateRepository, ActualMmRepository actualRepository, SettingRepository settingRepository,
+    public CostService(ProjectAccess access, RateRepository rateRepository, ActualMmRepository actualRepository, SettingRepository settingRepository,
                        ProjectRepository projectRepository, ProjectMemberRepository memberRepository,
                        ProjectService projectService, UserNameResolver names) {
+        this.access = access;
         this.rateRepository = rateRepository;
         this.actualRepository = actualRepository;
         this.settingRepository = settingRepository;
@@ -129,7 +131,7 @@ public class CostService {
         Map<String, String> userNames = names.resolve(userIds);
         Map<String, String> codes = new HashMap<>();
         projectRepository.findAllById(projectIds).forEach(p -> codes.put(p.getId(), p.getProjectCode()));
-        return list.stream().map(a -> new CostDto.ActualResponse(a.getProjectId(), codes.get(a.getProjectId()), a.getKindCode(), a.getUserId(),
+        return access.filterMine(list, ActualMm::getProjectId).stream().map(a -> new CostDto.ActualResponse(a.getProjectId(), codes.get(a.getProjectId()), a.getKindCode(), a.getUserId(),
                 userNames.get(a.getUserId()), a.getActualMonth(), a.getActualMm())).toList();
     }
 

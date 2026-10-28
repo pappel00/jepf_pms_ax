@@ -36,6 +36,7 @@ public class OperationService {
 
     static final String KIND_OPS = "OPS";
 
+    private final ProjectAccess access;
     private final ProjectOperationRepository operationRepository;
     private final ProjectFeatureRepository featureRepository;
     private final HandoverItemRepository handoverRepository;
@@ -46,10 +47,11 @@ public class OperationService {
     private final TransitionService transitionService;
     private final OpsService opsService;
 
-    public OperationService(ProjectOperationRepository operationRepository, ProjectFeatureRepository featureRepository,
+    public OperationService(ProjectAccess access, ProjectOperationRepository operationRepository, ProjectFeatureRepository featureRepository,
                             HandoverItemRepository handoverRepository, TransitionRepository transitionRepository,
                             ProjectRepository projectRepository, ProjectService projectService, ProjectMemberService memberService,
                             TransitionService transitionService, OpsService opsService) {
+        this.access = access;
         this.operationRepository = operationRepository;
         this.featureRepository = featureRepository;
         this.handoverRepository = handoverRepository;
@@ -62,7 +64,7 @@ public class OperationService {
     }
 
     public List<OperationDto.Response> getOperations() {
-        List<ProjectOperation> list = operationRepository.findAllByDeletedYn("N");
+        List<ProjectOperation> list = access.filter(operationRepository.findAllByDeletedYn("N"), ProjectOperation::getProjectId);
         Map<String, String> codes = new HashMap<>();
         projectRepository.findAllById(list.stream().map(ProjectOperation::getProjectId).toList()).forEach(p -> codes.put(p.getId(), p.getProjectCode()));
         Map<String, List<OperationDto.HandoverResponse>> handover = new HashMap<>();
@@ -76,7 +78,7 @@ public class OperationService {
     }
 
     public List<OperationDto.FeatureResponse> getFeatures() {
-        List<ProjectFeature> list = featureRepository.findAllByDeletedYnOrderByCreatedDateAsc("N");
+        List<ProjectFeature> list = access.filter(featureRepository.findAllByDeletedYnOrderByCreatedDateAsc("N"), ProjectFeature::getProjectId);
         Map<String, String> codes = new HashMap<>();
         projectRepository.findAllById(list.stream().map(ProjectFeature::getProjectId).distinct().toList()).forEach(p -> codes.put(p.getId(), p.getProjectCode()));
         return list.stream().map(f -> new OperationDto.FeatureResponse(f.getProjectId(), codes.get(f.getProjectId()), f.getFeatureName(),

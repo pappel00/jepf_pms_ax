@@ -39,7 +39,13 @@ final class PmsSupport {
         return prefix + String.format("%0" + width + "d", max + 1);
     }
 
-    private static boolean hasAnyAuthority(String... roles) {
+    /** 인증 정보가 없는 호출(개발용 시더·스케줄러 등) — 접근 제한을 적용하지 않는다. */
+    static boolean isSystemCall() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal());
+    }
+
+    static boolean hasAnyAuthority(String... roles) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated()) {
             return false;

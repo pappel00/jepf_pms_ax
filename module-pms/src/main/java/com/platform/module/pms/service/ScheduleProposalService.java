@@ -38,6 +38,7 @@ public class ScheduleProposalService {
 
     static final String PROPOSED = "제안";
 
+    private final ProjectAccess access;
     private final ScheduleProposalRepository proposalRepository;
     private final ScheduleProposalItemRepository itemRepository;
     private final WbsTaskRepository taskRepository;
@@ -46,10 +47,11 @@ public class ScheduleProposalService {
     private final ProjectRepository projectRepository;
     private final UserNameResolver names;
 
-    public ScheduleProposalService(ScheduleProposalRepository proposalRepository, ScheduleProposalItemRepository itemRepository,
+    public ScheduleProposalService(ProjectAccess access, ScheduleProposalRepository proposalRepository, ScheduleProposalItemRepository itemRepository,
                                    WbsTaskRepository taskRepository, IssueRepository issueRepository,
                                    IssueTaskRepository issueTaskRepository, ProjectRepository projectRepository,
                                    UserNameResolver names) {
+        this.access = access;
         this.proposalRepository = proposalRepository;
         this.itemRepository = itemRepository;
         this.taskRepository = taskRepository;
@@ -60,7 +62,7 @@ public class ScheduleProposalService {
     }
 
     public List<ScheduleProposalDto.Response> getList(String projectId) {
-        return toResponses(proposalRepository.search(projectId == null ? "" : projectId.trim()));
+        return access.filterMine(toResponses(proposalRepository.search(projectId == null ? "" : projectId.trim())), ScheduleProposalDto.Response::projectId);
     }
 
     /** 이슈를 해결로 바꿀 때 호출 — 제안을 만들었으면 그 코드를, 아니면 null 을 돌려준다. */
@@ -118,6 +120,7 @@ public class ScheduleProposalService {
     public ScheduleProposalDto.Response decide(String id, String status, String comment) {
         ScheduleProposal p = proposalRepository.findByIdAndDeletedYn(id, "N")
                 .orElseThrow(() -> new TenantException(PmsErrorCode.PROPOSAL_NOT_FOUND, "존재하지 않는 일정 조정 제안입니다: " + id));
+        access.requireManager(p.getProjectId(), "일정 조정 제안 처리");
         if (!PROPOSED.equals(p.getStatusCode())) {
             throw new BusinessException(PmsErrorCode.PROPOSAL_INVALID, "제안 상태가 아닙니다: " + p.getStatusCode());
         }

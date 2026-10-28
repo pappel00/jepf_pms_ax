@@ -16,6 +16,8 @@ export function setStoredAuth(auth) {
   } else {
     localStorage.removeItem(STORAGE_KEY)
   }
+  // 로그인·로그아웃·토큰 갱신을 화면 쪽 스토어(예: PMS의 현재 사용자)가 알 수 있게 알린다.
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('jepf-auth-changed'))
 }
 
 let unauthorizedHandler = () => {}

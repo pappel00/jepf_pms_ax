@@ -48,15 +48,17 @@ public class ProjectService {
     /** 삭제 가능한 상태: 영업 진행 중이거나 종료(실패/보류)된 프로젝트. 수주 이후 프로젝트는 삭제할 수 없다. */
     private static final Set<String> DELETABLE = Set.of("공고 전", "공고 중", "제안 중", "평가 중", "협상 중", "실패", "보류/취소");
 
+    private final ProjectAccess access;
     private final ProjectRepository projectRepository;
     private final CustomerRepository customerRepository;
     private final CustomerContactRepository contactRepository;
     private final StatusHistoryRepository historyRepository;
     private final UserRepository userRepository;
 
-    public ProjectService(ProjectRepository projectRepository, CustomerRepository customerRepository,
+    public ProjectService(ProjectAccess access, ProjectRepository projectRepository, CustomerRepository customerRepository,
                           CustomerContactRepository contactRepository, StatusHistoryRepository historyRepository,
                           UserRepository userRepository) {
+        this.access = access;
         this.projectRepository = projectRepository;
         this.customerRepository = customerRepository;
         this.contactRepository = contactRepository;
@@ -76,6 +78,7 @@ public class ProjectService {
     }
 
     public ProjectDto.Response getById(String id) {
+        access.requireAccess(id);
         return toResponse(findActiveOrThrow(id));
     }
 
@@ -84,7 +87,9 @@ public class ProjectService {
         Page<Project> page = projectRepository.search(nz(status), nz(customerId), nz(salesUserId),
                 nz(keyword).toLowerCase(), pageable);
         Map<String, String> names = userNames(page.getContent());
-        return new PagedResult<>(page.map(p -> ProjectDto.Response.from(p, names, PmsSupport.canViewCost())).getContent(), PageInfo.of(page));
+        List<ProjectDto.Response> content = page.map(p -> ProjectDto.Response.from(p, names, PmsSupport.canViewCost())).getContent();
+        // 참여 중인 프로젝트만(전체 열람 권한이 아니면). 페이지 합계는 걸러내기 전 값이다.
+        return new PagedResult<>(access.filter(content, ProjectDto.Response::id), PageInfo.of(page));
     }
 
     @Transactional
@@ -154,6 +159,7 @@ public class ProjectService {
 
     /** 프로젝트 존재/상태 확인용(전환·변경 요청 서비스가 사용). */
     public Project requireProject(String projectId) {
+        access.requireAccess(projectId);
         return findActiveOrThrow(projectId);
     }
 

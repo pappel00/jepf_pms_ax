@@ -41,4 +41,5 @@ public final class PmsErrorCode {
     public static final String NOTE_NOT_FOUND = "ERR-PMS-0033";
     public static final String OPS_NOT_FOUND = "ERR-PMS-0034";
     public static final String OPS_INVALID = "ERR-PMS-0035";
+    public static final String PROJECT_FORBIDDEN = "ERR-PMS-0036";
 }

@@ -42,6 +42,7 @@ public class OpsService {
             "인프라·증설", "증설·확장", "운영·유지보수 전환", "재계약·갱신", "컨설팅·교육", "교육·컨설팅", "기타", "신규 제안");
     private static final Map<String, Integer> STAGE_PROB = Map.of("발굴", 10, "검토 중", 20, "제안 준비", 30, "제안 완료", 50);
 
+    private final ProjectAccess access;
     private final NextOpportunityRepository nextRepository;
     private final OpsTaskRepository taskRepository;
     private final OpsIncidentRepository incidentRepository;
@@ -51,9 +52,10 @@ public class OpsService {
     private final ProjectService projectService;
     private final UserNameResolver names;
 
-    public OpsService(NextOpportunityRepository nextRepository, OpsTaskRepository taskRepository, OpsIncidentRepository incidentRepository,
+    public OpsService(ProjectAccess access, NextOpportunityRepository nextRepository, OpsTaskRepository taskRepository, OpsIncidentRepository incidentRepository,
                       OpsOpportunityRepository oppRepository, ProjectOperationRepository operationRepository,
                       ProjectRepository projectRepository, ProjectService projectService, UserNameResolver names) {
+        this.access = access;
         this.nextRepository = nextRepository;
         this.taskRepository = taskRepository;
         this.incidentRepository = incidentRepository;
@@ -67,7 +69,7 @@ public class OpsService {
     // ========== 차기 사업 기회 ==========
 
     public List<OpsDto.NextResponse> getNexts() {
-        return nextResponses(nextRepository.findAllByDeletedYnOrderByOppCodeAsc("N"));
+        return access.filter(nextResponses(nextRepository.findAllByDeletedYnOrderByOppCodeAsc("N")), OpsDto.NextResponse::projectId);
     }
 
     @Transactional
@@ -148,7 +150,7 @@ public class OpsService {
     // ========== 운영 업무 ==========
 
     public List<OpsDto.TaskResponse> getTasks() {
-        return taskResponses(taskRepository.findAllByDeletedYnOrderByDueDateAsc("N"), null, null);
+        return access.filterMine(taskResponses(taskRepository.findAllByDeletedYnOrderByDueDateAsc("N"), null, null), OpsDto.TaskResponse::projectId);
     }
 
     @Transactional
@@ -249,7 +251,7 @@ public class OpsService {
     // ========== 운영 이슈 ==========
 
     public List<OpsDto.IncidentResponse> getIncidents() {
-        return incidentResponses(incidentRepository.findAllByDeletedYnOrderByReceivedAtDesc("N"));
+        return access.filterMine(incidentResponses(incidentRepository.findAllByDeletedYnOrderByReceivedAtDesc("N")), OpsDto.IncidentResponse::projectId);
     }
 
     @Transactional
@@ -305,7 +307,7 @@ public class OpsService {
     // ========== 운영 영업 ==========
 
     public List<OpsDto.OppResponse> getOpps() {
-        return oppResponses(oppRepository.findAllByDeletedYnOrderByOppCodeAsc("N"));
+        return access.filter(oppResponses(oppRepository.findAllByDeletedYnOrderByOppCodeAsc("N")), OpsDto.OppResponse::projectId);
     }
 
     @Transactional

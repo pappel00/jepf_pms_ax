@@ -30,6 +30,7 @@ public class TransitionService {
     static final String KIND_EXEC = ProjectMemberService.KIND_EXEC;
     static final String PENDING = "승인 대기";
 
+    private final ProjectAccess access;
     private final TransitionRepository transitionRepository;
     private final ProjectRepository projectRepository;
     private final ProjectService projectService;
@@ -38,9 +39,10 @@ public class TransitionService {
     private final DocTailoringService docService;
     private final UserNameResolver names;
 
-    public TransitionService(TransitionRepository transitionRepository, ProjectRepository projectRepository,
+    public TransitionService(ProjectAccess access, TransitionRepository transitionRepository, ProjectRepository projectRepository,
                              ProjectService projectService, ProjectMemberService memberService, WbsService wbsService,
                              DocTailoringService docService, UserNameResolver names) {
+        this.access = access;
         this.wbsService = wbsService;
         this.docService = docService;
         this.transitionRepository = transitionRepository;
@@ -71,7 +73,7 @@ public class TransitionService {
     }
 
     public List<TransitionDto.Response> getList(String projectId, String status, String kind) {
-        List<Transition> list = transitionRepository.search(nz(projectId), nz(status), nz(kind));
+        List<Transition> list = access.filter(transitionRepository.search(nz(projectId), nz(status), nz(kind)), Transition::getProjectId);
         return toResponses(list);
     }
 

@@ -23,7 +23,7 @@ export function loadPmsUsers() {
   loading = pmsUserProfilesApi
     .list()
     .then((res) => emit({ users: res.data || [], loaded: true }))
-    .catch(() => emit({ ...state, loaded: true }))
+    .catch(() => emit({ ...state, loaded: false })) // 로그인 전이면 다음에 다시 읽는다
     .finally(() => {
       loading = null
     })

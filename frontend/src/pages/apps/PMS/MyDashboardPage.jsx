@@ -89,7 +89,7 @@ export default function MyDashboardPage() {
       <div className="page-header">
         <div>
           <h2>
-            내 업무 대시보드 <span className="pms-mock-badge">목업 · 더미 데이터</span>
+            내 업무 대시보드
           </h2>
           <p className="page-description">
             {ME} 님에게 할당된 업무입니다. 기준일 {TODAY}. 진척률 버튼을 눌러 보세요 — 메신저 알림에서

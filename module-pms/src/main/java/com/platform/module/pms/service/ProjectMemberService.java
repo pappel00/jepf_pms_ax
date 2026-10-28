@@ -46,6 +46,7 @@ public class ProjectMemberService {
     public static final String KIND_EXEC = "EXEC";
     static final String MANAGER_ONLY = "MANAGER_ONLY";
 
+    private final ProjectAccess access;
     private final ProjectMemberRepository memberRepository;
     private final MemberPhaseRepository phaseRepository;
     private final MemberGapRepository gapRepository;
@@ -54,10 +55,11 @@ public class ProjectMemberService {
     private final UserRepository userRepository;
     private final UserProfileRepository profileRepository;
 
-    public ProjectMemberService(ProjectMemberRepository memberRepository, MemberPhaseRepository phaseRepository,
+    public ProjectMemberService(ProjectAccess access, ProjectMemberRepository memberRepository, MemberPhaseRepository phaseRepository,
                                 MemberGapRepository gapRepository, MemberMonthPlanRepository monthPlanRepository,
                                 ProjectRepository projectRepository, UserRepository userRepository,
                                 UserProfileRepository profileRepository) {
+        this.access = access;
         this.memberRepository = memberRepository;
         this.phaseRepository = phaseRepository;
         this.gapRepository = gapRepository;
@@ -73,6 +75,7 @@ public class ProjectMemberService {
         Project project = projectRepository.findByIdAndDeletedYn(projectId, "N")
                 .orElseThrow(() -> new TenantException(PmsErrorCode.PROJECT_NOT_FOUND, "존재하지 않는 프로젝트입니다: " + projectId));
         List<ProjectMember> rows = memberRepository.findAllByProjectIdAndKindCodeOrderByCreatedDateAsc(projectId, kind);
+        access.requireAccess(projectId);
         return buildTeams(List.of(project), rows).getOrDefault(projectId, emptyTeam(project));
     }
 
@@ -82,7 +85,7 @@ public class ProjectMemberService {
         Set<String> projectIds = new HashSet<>();
         rows.forEach(r -> projectIds.add(r.getProjectId()));
         List<Project> projects = projectRepository.findAllById(projectIds).stream().filter(p -> "N".equals(p.getDeletedYn())).toList();
-        return new ArrayList<>(buildTeams(projects, rows).values());
+        return access.filter(new ArrayList<>(buildTeams(projects, rows).values()), TeamDto.TeamResponse::projectId);
     }
 
     /** 현재 팀을 요청 형태(Spec)로 — 투입 계획 변경 요청의 before 스냅샷용. */

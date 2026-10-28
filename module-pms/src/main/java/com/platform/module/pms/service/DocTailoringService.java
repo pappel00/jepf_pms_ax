@@ -37,6 +37,7 @@ public class DocTailoringService {
     static final String APPLIED = "적용";
     static final String NOT_APPLIED = "미적용";
 
+    private final ProjectAccess access;
     private final DocTailoringRepository tailoringRepository;
     private final DocVersionRepository versionRepository;
     private final StdDocRepository stdDocRepository;
@@ -44,9 +45,10 @@ public class DocTailoringService {
     private final ProjectService projectService;
     private final UserNameResolver names;
 
-    public DocTailoringService(DocTailoringRepository tailoringRepository, DocVersionRepository versionRepository,
+    public DocTailoringService(ProjectAccess access, DocTailoringRepository tailoringRepository, DocVersionRepository versionRepository,
                                StdDocRepository stdDocRepository, ProjectRepository projectRepository,
                                ProjectService projectService, UserNameResolver names) {
+        this.access = access;
         this.tailoringRepository = tailoringRepository;
         this.versionRepository = versionRepository;
         this.stdDocRepository = stdDocRepository;
@@ -56,7 +58,7 @@ public class DocTailoringService {
     }
 
     public List<DocDto.Response> getList() {
-        return toResponses(tailoringRepository.findAllByDeletedYnOrderByProjectIdAscCreatedDateAsc("N"));
+        return access.filterMine(toResponses(tailoringRepository.findAllByDeletedYnOrderByProjectIdAscCreatedDateAsc("N")), DocDto.Response::projectId);
     }
 
     /** 단계전환 승인 직후 — 선택한 단계의 표준 산출물로 테일러링을 만든다(이미 있으면 거부). */
@@ -90,6 +92,7 @@ public class DocTailoringService {
     @Transactional
     public List<DocDto.Response> reset(String projectId) {
         projectService.requireProject(projectId);
+        access.requireManager(projectId, "문서 테일러링 초기화");
         List<DocTailoring> old = tailoringRepository.findAllByProjectIdAndDeletedYnOrderByCreatedDateAsc(projectId, "N");
         Map<String, String> ownerByPhase = new HashMap<>();
         old.forEach(t -> {
@@ -108,6 +111,7 @@ public class DocTailoringService {
     @Transactional
     public DocDto.Response addCustom(String projectId, DocDto.CustomRequest r) {
         projectService.requireProject(projectId);
+        access.requireManager(projectId, "문서 종류 추가");
         if (!PHASES.contains(r.phaseCode())) {
             throw new BusinessException(PmsErrorCode.DOC_INVALID, "알 수 없는 단계입니다: " + r.phaseCode());
         }
@@ -223,9 +227,12 @@ public class DocTailoringService {
         t.markDeleted();
     }
 
+    /** 산출물·테일러링 변경은 프로젝트 관리자만 한다(수행 인력은 조회만). */
     private DocTailoring find(String id) {
-        return tailoringRepository.findByIdAndDeletedYn(id, "N")
+        DocTailoring t = tailoringRepository.findByIdAndDeletedYn(id, "N")
                 .orElseThrow(() -> new TenantException(PmsErrorCode.DOC_NOT_FOUND, "존재하지 않는 산출물 항목입니다: " + id));
+        access.requireManager(t.getProjectId(), "산출물 관리");
+        return t;
     }
 
     private List<DocDto.Response> toResponses(List<DocTailoring> list) {

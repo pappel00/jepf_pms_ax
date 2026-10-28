@@ -15,10 +15,23 @@
  */
 import { useEffect, useSyncExternalStore } from 'react'
 import { pmsWbsApi } from '../../../api/entities'
-import { ensurePmsUsersLoaded, userIdByName } from './pmsUsers'
+import { getStoredAuth } from '../../../api/http'
+import { currentUserName, ensurePmsUsersLoaded, userIdByName } from './pmsUsers'
 
 export const TODAY = '2026-10-13'
-export const ME = '관리자'
+/**
+ * 현재 로그인한 사용자의 이름 — 화면의 작성자·담당자·필터 기본값으로 쓴다. 사용자 디렉터리를 읽거나 로그인 상태가 바뀌면 갱신된다
+ * (ES 모듈의 live binding 이라 가져다 쓰는 쪽은 다시 그릴 때 바뀐 값을 읽는다). 아직 알 수 없으면 '관리자'.
+ */
+export let ME = '관리자'
+export function refreshMe() {
+  const name = currentUserName()
+  if (name) ME = name
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('jepf-auth-changed', () => getStoredAuth() && ensurePmsUsersLoaded().then(refreshMe))
+  if (getStoredAuth()) ensurePmsUsersLoaded().then(refreshMe)
+}
 
 export const PROJECT = {
   id: 'PRJ-001',

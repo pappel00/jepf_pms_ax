@@ -36,6 +36,7 @@ public class IssueService {
 
     private static final Set<String> STATUSES = Set.of("오픈", "진행 중", "해결", "종결");
 
+    private final ProjectAccess access;
     private final IssueRepository issueRepository;
     private final IssueTaskRepository linkRepository;
     private final IssueHistoryRepository historyRepository;
@@ -45,9 +46,10 @@ public class IssueService {
     private final ScheduleProposalService proposalService;
     private final UserNameResolver names;
 
-    public IssueService(IssueRepository issueRepository, IssueTaskRepository linkRepository, IssueHistoryRepository historyRepository,
+    public IssueService(ProjectAccess access, IssueRepository issueRepository, IssueTaskRepository linkRepository, IssueHistoryRepository historyRepository,
                         WbsTaskRepository taskRepository, ProjectRepository projectRepository, ProjectService projectService,
                         ScheduleProposalService proposalService, UserNameResolver names) {
+        this.access = access;
         this.issueRepository = issueRepository;
         this.linkRepository = linkRepository;
         this.historyRepository = historyRepository;
@@ -59,12 +61,13 @@ public class IssueService {
     }
 
     public List<IssueDto.Response> getList(String projectId) {
-        return toResponses(issueRepository.search(projectId == null ? "" : projectId.trim()), null);
+        return access.filterMine(toResponses(issueRepository.search(projectId == null ? "" : projectId.trim()), null), IssueDto.Response::projectId);
     }
 
     @Transactional
     public IssueDto.Response create(String projectId, IssueDto.Request r) {
         Project project = projectService.requireProject(projectId);
+        access.requireManager(projectId, "이슈 등록");
         String status = r.statusCode() == null || r.statusCode().isBlank() ? "오픈" : r.statusCode();
         validate(status, r);
         String code = PmsSupport.nextCode("ISS-", issueRepository.findAll().stream().map(Issue::getIssueCode).toList(), 3);
@@ -208,9 +211,12 @@ public class IssueService {
                 .withActedAt(LocalDateTime.now()).withHistoryText(text));
     }
 
+    /** 이슈 수정·삭제·업무 연결·메모는 프로젝트 관리자만 한다(수행 인력은 조회만). */
     private Issue findOrThrow(String id) {
-        return issueRepository.findByIdAndDeletedYn(id, "N")
+        Issue issue = issueRepository.findByIdAndDeletedYn(id, "N")
                 .orElseThrow(() -> new TenantException(PmsErrorCode.ISSUE_NOT_FOUND, "존재하지 않는 이슈입니다: " + id));
+        access.requireManager(issue.getProjectId(), "이슈 수정");
+        return issue;
     }
 
     private List<IssueDto.Response> toResponses(List<Issue> list, String newProposalCode) {

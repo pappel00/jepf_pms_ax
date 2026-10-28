@@ -19,18 +19,26 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class SalesNoteService {
 
+    private final ProjectAccess access;
     private final SalesNoteRepository noteRepository;
     private final ProjectRepository projectRepository;
     private final UserNameResolver names;
 
-    public SalesNoteService(SalesNoteRepository noteRepository, ProjectRepository projectRepository, UserNameResolver names) {
+    public SalesNoteService(ProjectAccess access, SalesNoteRepository noteRepository, ProjectRepository projectRepository, UserNameResolver names) {
+        this.access = access;
         this.noteRepository = noteRepository;
         this.projectRepository = projectRepository;
         this.names = names;
     }
 
     public List<OpsDto.NoteResponse> getList() {
-        return toResponses(noteRepository.findAllByDeletedYnOrderByNoteDateDescCreatedDateDesc("N"));
+        List<SalesNote> all = noteRepository.findAllByDeletedYnOrderByNoteDateDescCreatedDateDesc("N");
+        // 프로젝트가 있는 노트는 참여 프로젝트 기준, 프로젝트가 없는 노트는 작성자·영업·전체 열람자만.
+        java.util.Set<String> ids = access.accessibleIds();
+        boolean sales = ids == null || PmsSupport.hasAnyAuthority("ROLE_PMS_SALES");
+        String me = PmsSupport.currentUserId();
+        return toResponses(ids == null ? all : all.stream().filter(n -> n.getProjectId() == null
+                ? (sales || me.equals(n.getAuthorUserId())) : ids.contains(n.getProjectId())).toList());
     }
 
     @Transactional

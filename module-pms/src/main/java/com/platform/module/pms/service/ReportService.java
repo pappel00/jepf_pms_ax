@@ -43,6 +43,7 @@ public class ReportService {
     static final String SUBMITTED = "제출 완료";
     static final String EDITING = "수정 중";
 
+    private final ProjectAccess access;
     private final ReportRepository reportRepository;
     private final ReportVersionRepository versionRepository;
     private final ReportHistoryRepository historyRepository;
@@ -51,9 +52,10 @@ public class ReportService {
     private final ProjectService projectService;
     private final UserNameResolver names;
 
-    public ReportService(ReportRepository reportRepository, ReportVersionRepository versionRepository,
+    public ReportService(ProjectAccess access, ReportRepository reportRepository, ReportVersionRepository versionRepository,
                          ReportHistoryRepository historyRepository, ProgressSnapshotRepository snapshotRepository,
                          ProjectRepository projectRepository, ProjectService projectService, UserNameResolver names) {
+        this.access = access;
         this.reportRepository = reportRepository;
         this.versionRepository = versionRepository;
         this.historyRepository = historyRepository;
@@ -66,7 +68,7 @@ public class ReportService {
     // ---------- 보고서 ----------
 
     public List<ReportDto.Response> getList() {
-        return toResponses(reportRepository.findAllByDeletedYnOrderByPeriodStartAsc("N"));
+        return access.filterMine(toResponses(reportRepository.findAllByDeletedYnOrderByPeriodStartAsc("N")), ReportDto.Response::projectId);
     }
 
     /** 특이사항 저장 — 작성 중/수정 중에만 가능. 첫 저장이면 「작성」 이력을 남긴다. */
@@ -132,7 +134,7 @@ public class ReportService {
     public List<ReportDto.SnapshotResponse> getSnapshots() {
         List<ProgressSnapshot> list = snapshotRepository.findAllByDeletedYnOrderBySnapshotDateAsc("N");
         Map<String, String> codes = projectCodes(list.stream().map(ProgressSnapshot::getProjectId).collect(java.util.stream.Collectors.toSet()));
-        return list.stream().map(s -> toSnapshot(s, codes.get(s.getProjectId()))).toList();
+        return access.filterMine(list, ProgressSnapshot::getProjectId).stream().map(s -> toSnapshot(s, codes.get(s.getProjectId()))).toList();
     }
 
     /** 스냅샷 저장 — 날짜가 속한 주의 월요일로 맞추고, 같은 주 스냅샷이 있으면 덮어쓴다. */
@@ -151,6 +153,7 @@ public class ReportService {
 
     private Report findOrCreate(String projectId, String type, LocalDate periodStart) {
         projectService.requireProject(projectId);
+        access.requireManager(projectId, "보고서 작성·제출");
         String t = normalizeType(type);
         return reportRepository.findByProjectIdAndReportTypeCodeAndPeriodStartAndDeletedYn(projectId, t, periodStart, "N")
                 .orElseGet(() -> {
@@ -164,6 +167,7 @@ public class ReportService {
     }
 
     private Report require(String projectId, String type, LocalDate periodStart) {
+        access.requireManager(projectId, "보고서 수정");
         return reportRepository.findByProjectIdAndReportTypeCodeAndPeriodStartAndDeletedYn(projectId, normalizeType(type), periodStart, "N")
                 .orElseThrow(() -> new BusinessException(PmsErrorCode.REPORT_INVALID, "아직 작성된 보고서가 없습니다."));
     }

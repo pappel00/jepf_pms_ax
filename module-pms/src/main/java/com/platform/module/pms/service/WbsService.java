@@ -31,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class WbsService {
 
+    private final ProjectAccess access;
     private final WbsTaskRepository taskRepository;
     private final TaskProgressLogRepository logRepository;
     private final IssueRepository issueRepository;
@@ -38,8 +39,9 @@ public class WbsService {
     private final ProjectService projectService;
     private final UserNameResolver names;
 
-    public WbsService(WbsTaskRepository taskRepository, TaskProgressLogRepository logRepository, IssueRepository issueRepository,
+    public WbsService(ProjectAccess access, WbsTaskRepository taskRepository, TaskProgressLogRepository logRepository, IssueRepository issueRepository,
                       ProjectRepository projectRepository, ProjectService projectService, UserNameResolver names) {
+        this.access = access;
         this.taskRepository = taskRepository;
         this.logRepository = logRepository;
         this.issueRepository = issueRepository;
@@ -49,7 +51,7 @@ public class WbsService {
     }
 
     public List<WbsDto.Response> getList(String projectId) {
-        return toResponses(taskRepository.search(projectId == null ? "" : projectId.trim()));
+        return access.filterMine(toResponses(taskRepository.search(projectId == null ? "" : projectId.trim())), WbsDto.Response::projectId);
     }
 
     /** 단계전환 승인 직후 화면이 만든 WBS 를 저장한다. 이미 WBS 가 있는 프로젝트는 거부한다. */
@@ -96,6 +98,10 @@ public class WbsService {
         if (!"LEAF".equals(t.getNodeTypeCode())) {
             throw new BusinessException(PmsErrorCode.TASK_INVALID, "진척률은 하위 업무(리프)에만 입력할 수 있습니다.");
         }
+        // 진척은 담당자 본인(또는 프로젝트 관리자)만 입력한다.
+        if (!PmsSupport.currentUserId().equals(t.getAssigneeUserId())) {
+            access.requireManager(t.getProjectId(), "다른 사람 업무의 진척 입력");
+        }
         BigDecimal value = request.progressPct().setScale(1, RoundingMode.HALF_UP);
         if (value.signum() > 0 && t.getPredTaskId() != null) {
             WbsTask pred = taskRepository.findByIdAndDeletedYn(t.getPredTaskId(), "N").orElse(null);
@@ -118,6 +124,7 @@ public class WbsService {
         if (!"LEAF".equals(src.getNodeTypeCode())) {
             throw new BusinessException(PmsErrorCode.TASK_INVALID, "하위 업무(리프)만 복사할 수 있습니다.");
         }
+        access.requireManager(src.getProjectId(), "업무 복사");
         String rootId = src.getCopiedFromId() != null ? src.getCopiedFromId() : src.getId();
         List<WbsTask> all = taskRepository.findAllByProjectIdAndDeletedYnOrderBySortOrderAscCreatedDateAsc(src.getProjectId(), "N");
         List<WbsTask> group = all.stream().filter(t -> t.getId().equals(rootId) || rootId.equals(t.getCopiedFromId())).toList();

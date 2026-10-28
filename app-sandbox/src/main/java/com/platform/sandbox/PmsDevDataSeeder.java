@@ -890,7 +890,8 @@ public class PmsDevDataSeeder implements CommandLineRunner {
         if (p11 != null) {
             User admin = users.get("관리자");
             TeamDto.Member m = member(users, "관리자", "운영", List.of("운영"), 3, "2026-07-01", "2026-12-31", null);
-            TeamDto.Spec spec = new TeamDto.Spec(new TeamDto.Manager(admin.getId(), "운영 PM"), List.of(m), false);
+            TeamDto.Member ops = member(users, "송운영", "운영", List.of("운영"), 3, "2026-07-01", "2026-12-31", null);
+            TeamDto.Spec spec = new TeamDto.Spec(new TeamDto.Manager(admin.getId(), "운영 PM"), List.of(m, ops), false);
             teamService.replaceTeam(p11, "OPS", spec);
             LocalDateTime when = LocalDate.of(2026, 7, 1).atStartOfDay();
             String transitionId = transitionRepository.saveAndFlush(Transition.create().withTransitionCode("TRN-2026-901").withProjectId(p11)

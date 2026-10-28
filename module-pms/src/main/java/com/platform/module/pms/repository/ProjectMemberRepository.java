@@ -13,5 +13,7 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, St
 
     List<ProjectMember> findAllByKindCodeOrderByCreatedDateAsc(String kindCode);
 
+    List<ProjectMember> findAllByUserIdAndDeletedYn(String userId, String deletedYn);
+
     List<ProjectMember> findAllByProjectIdInAndKindCodeOrderByCreatedDateAsc(Collection<String> projectIds, String kindCode);
 }
