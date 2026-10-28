@@ -691,7 +691,8 @@ SLA 판정(충족/정상/임박/위반)은 `pms_project_operation`의 목표 시
 | 4단계 | RFP·제안서: `pms_rfp`, `pms_rfp_item`, `pms_rfp_evaluator`, `pms_rfp_eval`, `pms_proposal`, `pms_proposal_version`, `pms_proposal_mapping`, `pms_proposal_checklist` | **완료(2026-10-28)** — API `/api/v1/pms/rfps`(+`/evaluators`, `/items`, `/evals/submit`, `/confirm-all`), `/rfp-items/{id}`(+`/evals/me`, `/confirm`), `/rfp-evals`, `/projects/{id}/rfps`, `/proposals`(+`/versions`, `/mappings/{rfpItemId}`, `/checklist`) |
 | 5단계 | 보고서·진척 스냅샷·산출물: `pms_report`, `pms_report_version`, `pms_report_history`, `pms_progress_snapshot`, `pms_std_doc`, `pms_doc_tailoring`, `pms_doc_version` | **완료(2026-10-28)** — API `/api/v1/pms/reports`(+`/projects/{id}/reports/{WEEK|MONTH}/{시작일}/draft·submit·reopen·cancel-edit`), `/progress-snapshots`, `/doc-tailoring`(+`/projects/{id}/doc-tailoring/init·reset`, `/versions`, `/reviewed`). 진척 스냅샷 자동 저장 스케줄러는 후속 |
 | 6단계 | 인력·원가: `pms_rate`, `pms_actual_mm`, `pms_setting` + 원가 필드 마스킹 | **완료(2026-10-28)** — API `/api/v1/pms/rates`, `/actual-mm`, `/projects/{id}/actual-mm`, `/settings` |
-| 7단계 | 운영·사업 기회(`pms_project_operation`, `pms_ops_*`, `pms_next_opportunity`, 운영 전환·인수) | 예정 |
+| 7단계 | 영업 노트·차기 사업 기회·운영: `pms_sales_note`, `pms_next_opportunity`, `pms_ops_task`, `pms_ops_incident`, `pms_ops_opportunity`, `pms_project_operation`, `pms_project_feature`, `pms_handover_item`(+ 운영 팀 `pms_project_member` kind=OPS, 운영 전환 `pms_transition` kind=OPS) | **완료(2026-10-28)** — API `/api/v1/pms/sales-notes`, `/next-opps`, `/ops-tasks`(+`/status`), `/ops-incidents`(+`/opportunity`), `/ops-opps`, `/operations`, `/project-features`, `/projects/{id}/end-execution`, `/operation-transition`, `/operation` |
+| 8단계 | 메신저 연동(Mattermost·텔레그램) — 사전 확인 후 별도 설계 | 예정 |
 
 **1단계 구현 메모**
 - 권한: 조회·등록·수정·상태 변경은 로그인 사용자, 삭제는 `ROLE_ADMIN`(프로젝트 멤버 기반 조회 범위는 2단계 이후).
@@ -708,6 +709,15 @@ SLA 판정(충족/정상/임박/위반)은 `pms_project_operation`의 목표 시
 - 투입 변경의 변경 요약·과투입 예상은 화면이 계산해 보낸다(`summary_text`, `conflict_json`).
 - 금액 컬럼은 `BIGINT`(엔티티 Long) — 기존 DB는 `db/postgresql/05_alter_pms_money_bigint.sql` 로 변경.
 - 운영 단계 전환·운영 정보·수행 종료 상세는 5단계 전까지 메모리(목업).
+
+**7단계 구현 메모**
+- 수행 종료: `POST /projects/{id}/end-execution` — 「수행 중」→「수행 종료」, 종료일·비고(`exec_end_date/memo`), 운영 인수 후보 기능 목록(`pms_project_feature`)을 남긴다.
+- 운영단계전환: `POST /projects/{id}/operation-transition` — 「수행 종료」→「운영 중」. 운영 정보(`pms_project_operation`: 형태·기간·계약 금액·SLA)·운영 팀(`kind=OPS`)을 만들고, 선택한 기능은 `handover_yn=Y`, 산출물·미해결 이슈·차기 사업 기회는 `pms_handover_item`(DOC/ISSUE/NEXT_OPP, 산출물·이슈는 `이름|버전`·`제목|우선순위` 형태로 보관)으로 남긴다. 선택한 차기 사업 기회는 서버가 운영 영업 기회로 이관(「이관 완료」, 담당 고객사 담당자·금액·예상 시기 유지)한다. 전환 이력은 `pms_transition`(kind=OPS, 승인)에 남고 별도 승인 절차는 없다. 운영 정보 수정은 `PUT /projects/{id}/operation`.
+- 반복 운영 업무: 「완료」로 바뀌면 서버가 다음 주기(매주 +7일/매월 +1개월/분기 +3개월) 업무를 자동 생성(대기, `prev_task_id` 연결, `auto_created_yn=Y`). 반복 종료일·운영 종료일 초과, 이미 생성됨, 같은 기한 동일 업무가 있으면 만들지 않고 사유(`skippedReason`)를 응답한다.
+- 운영 이슈: 응답·해결 시각은 화면이 보낸 값을 저장하고, 해결/종결은 조치 내용 필수. SLA 판정은 운영 정보의 목표 시간으로 화면이 계산(저장 안 함).
+- 코드는 서버가 채번(SN-/NB-/OT-/OI-/OS-###). 화면의 교차 참조(이슈↔업무↔영업 기회, 차기 기회↔운영 기회)는 서버 PK 로 주고받고 화면이 코드로 바꿔 보여준다.
+- 개발용 샘플: 영업 노트 6·차기 사업 기회 5·운영 업무 4·이슈 5·영업 2(`pms-seed-ops.json`), PRJ-2026-010 수행 종료(기능 5)·PRJ-2026-011 수행 종료+운영 정보+운영 팀을 시더가 넣는다.
+- 남은 것: 운영 종료·재계약 연계, 운영 정보 변경 승인/이력 필요 여부 결정, 이관 이슈 승계, 수주 기회→프로젝트 자동 생성.
 
 **6단계 구현 메모**
 - 단가: 같은 직무·등급의 적용 기간이 겹치면 서버가 거부(409 아님 — `ERR-PMS-0030`). **조회는 `PMS_COST_VIEW`, 등록·수정·삭제는 `PMS_APPROVE`**(ADMIN 포함). 인력 등급은 `pms_user_profile.job_grade_code` 를 쓰고 단가표의 「인력 등급」 탭에서 바꾼다.

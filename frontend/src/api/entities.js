@@ -97,6 +97,36 @@ export const pmsProposalsApi = {
   toggleCheck: (id, checkId) => apiFetch(`/api/v1/pms/proposals/${id}/checklist/${checkId}/toggle`, { method: 'POST', body: {} }),
   removeCheck: (id, checkId) => apiFetch(`/api/v1/pms/proposals/${id}/checklist/${checkId}`, { method: 'DELETE' }),
 }
+const crud = (path, projectPath) => ({
+  list: () => apiFetch(`/api/v1/pms/${path}`),
+  create: (projectId, body) => apiFetch(`/api/v1/pms/projects/${projectId}/${projectPath ?? path}`, { method: 'POST', body }),
+  update: (id, body) => apiFetch(`/api/v1/pms/${path}/${id}`, { method: 'PUT', body }),
+  remove: (id) => apiFetch(`/api/v1/pms/${path}/${id}`, { method: 'DELETE' }),
+})
+export const pmsSalesNotesApi = {
+  list: () => apiFetch('/api/v1/pms/sales-notes'),
+  create: (body) => apiFetch('/api/v1/pms/sales-notes', { method: 'POST', body }),
+  update: (id, body) => apiFetch(`/api/v1/pms/sales-notes/${id}`, { method: 'PUT', body }),
+  remove: (id) => apiFetch(`/api/v1/pms/sales-notes/${id}`, { method: 'DELETE' }),
+  toggleDone: (id) => apiFetch(`/api/v1/pms/sales-notes/${id}/toggle-done`, { method: 'POST', body: {} }),
+}
+export const pmsNextOppsApi = crud('next-opps')
+export const pmsOpsTasksApi = {
+  ...crud('ops-tasks'),
+  setStatus: (id, statusCode) => apiFetch(`/api/v1/pms/ops-tasks/${id}/status`, { method: 'POST', body: { statusCode } }),
+}
+export const pmsOpsIncidentsApi = {
+  ...crud('ops-incidents'),
+  linkOpportunity: (id, opportunityId) => apiFetch(`/api/v1/pms/ops-incidents/${id}/opportunity`, { method: 'PUT', body: { opportunityId } }),
+}
+export const pmsOpsOppsApi = crud('ops-opps')
+export const pmsOperationApi = {
+  list: () => apiFetch('/api/v1/pms/operations'),
+  features: () => apiFetch('/api/v1/pms/project-features'),
+  endExecution: (projectId, body) => apiFetch(`/api/v1/pms/projects/${projectId}/end-execution`, { method: 'POST', body }),
+  transition: (projectId, body) => apiFetch(`/api/v1/pms/projects/${projectId}/operation-transition`, { method: 'POST', body }),
+  update: (projectId, body) => apiFetch(`/api/v1/pms/projects/${projectId}/operation`, { method: 'PUT', body }),
+}
 export const pmsCostApi = {
   rates: () => apiFetch('/api/v1/pms/rates'),
   createRate: (body) => apiFetch('/api/v1/pms/rates', { method: 'POST', body }),

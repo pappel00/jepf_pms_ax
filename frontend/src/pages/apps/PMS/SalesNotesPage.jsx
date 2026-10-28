@@ -214,7 +214,7 @@ export default function SalesNotesPage() {
     <div>
       <div className="page-header">
         <div>
-          <h2>영업 노트 <span className="pms-mock-badge">목업 · 더미 데이터</span></h2>
+          <h2>영업 노트</h2>
           <p className="page-description">
             방문·미팅·통화 등 영업 활동과 고객 반응, 다음 할 일을 기록합니다. 프로젝트·고객사별로 히스토리가 쌓여, 담당자가 바뀌어도 업무를 그대로 이어받을 수 있습니다.
           </p>

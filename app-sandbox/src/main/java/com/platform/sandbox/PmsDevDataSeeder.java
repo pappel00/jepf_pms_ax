@@ -7,7 +7,15 @@ import com.platform.module.pms.domain.Issue;
 import com.platform.module.pms.domain.IssueHistory;
 import com.platform.module.pms.domain.IssueTask;
 import com.platform.module.pms.domain.ActualMm;
+import com.platform.module.pms.domain.NextOpportunity;
+import com.platform.module.pms.domain.OpsIncident;
+import com.platform.module.pms.domain.OpsOpportunity;
+import com.platform.module.pms.domain.OpsTask;
 import com.platform.module.pms.domain.Project;
+import com.platform.module.pms.domain.ProjectFeature;
+import com.platform.module.pms.domain.ProjectOperation;
+import com.platform.module.pms.domain.SalesNote;
+import com.platform.module.pms.domain.Transition;
 import com.platform.module.pms.domain.Rate;
 import com.platform.module.pms.domain.Setting;
 import com.platform.module.pms.domain.DocTailoring;
@@ -37,7 +45,14 @@ import com.platform.module.pms.repository.IssueHistoryRepository;
 import com.platform.module.pms.repository.IssueRepository;
 import com.platform.module.pms.repository.IssueTaskRepository;
 import com.platform.module.pms.repository.ActualMmRepository;
+import com.platform.module.pms.repository.NextOpportunityRepository;
+import com.platform.module.pms.repository.OpsIncidentRepository;
+import com.platform.module.pms.repository.OpsOpportunityRepository;
+import com.platform.module.pms.repository.OpsTaskRepository;
+import com.platform.module.pms.repository.ProjectFeatureRepository;
+import com.platform.module.pms.repository.ProjectOperationRepository;
 import com.platform.module.pms.repository.ProjectRepository;
+import com.platform.module.pms.repository.SalesNoteRepository;
 import com.platform.module.pms.repository.RateRepository;
 import com.platform.module.pms.repository.SettingRepository;
 import com.platform.module.pms.repository.DocTailoringRepository;
@@ -59,6 +74,7 @@ import com.platform.module.pms.repository.StatusHistoryRepository;
 import com.platform.module.pms.repository.TransitionRepository;
 import com.platform.module.pms.repository.UserProfileRepository;
 import com.platform.module.pms.repository.WbsTaskRepository;
+import com.platform.module.pms.service.ProjectMemberService;
 import com.platform.module.pms.service.TransitionService;
 import com.platform.module.tenant.domain.Company;
 import com.platform.module.tenant.repository.CompanyRepository;
@@ -127,6 +143,14 @@ public class PmsDevDataSeeder implements CommandLineRunner {
     private final ProposalChecklistRepository proposalChecklistRepository;
     private final DocTailoringRepository docTailoringRepository;
     private final RateRepository rateRepository;
+    private final ProjectMemberService teamService;
+    private final SalesNoteRepository salesNoteRepository;
+    private final NextOpportunityRepository nextOpportunityRepository;
+    private final OpsIncidentRepository opsIncidentRepository;
+    private final OpsTaskRepository opsTaskRepository;
+    private final OpsOpportunityRepository opsOpportunityRepository;
+    private final ProjectOperationRepository projectOperationRepository;
+    private final ProjectFeatureRepository projectFeatureRepository;
     private final ActualMmRepository actualMmRepository;
     private final SettingRepository settingRepository;
     private final DocVersionRepository docVersionRepository;
@@ -147,10 +171,19 @@ public class PmsDevDataSeeder implements CommandLineRunner {
                             IssueRepository issueRepository, IssueTaskRepository issueTaskRepository,
                             IssueHistoryRepository issueHistoryRepository,
                             RfpRepository rfpRepository, RfpItemRepository rfpItemRepository, RfpEvaluatorRepository rfpEvaluatorRepository, RfpEvalRepository rfpEvalRepository, ProposalRepository proposalRepository, ProposalVersionRepository proposalVersionRepository, ProposalMappingRepository proposalMappingRepository, ProposalChecklistRepository proposalChecklistRepository,
+                            ProjectMemberService teamService, SalesNoteRepository salesNoteRepository, NextOpportunityRepository nextOpportunityRepository, OpsIncidentRepository opsIncidentRepository, OpsTaskRepository opsTaskRepository, OpsOpportunityRepository opsOpportunityRepository, ProjectOperationRepository projectOperationRepository, ProjectFeatureRepository projectFeatureRepository,
                             RateRepository rateRepository, ActualMmRepository actualMmRepository, SettingRepository settingRepository,
                             DocTailoringRepository docTailoringRepository, DocVersionRepository docVersionRepository, StdDocRepository stdDocRepository, ReportRepository reportRepository, ReportVersionRepository reportVersionRepository, ReportHistoryRepository reportHistoryRepository, ProgressSnapshotRepository progressSnapshotRepository) {
         this.docTailoringRepository = docTailoringRepository;
         this.rateRepository = rateRepository;
+        this.teamService = teamService;
+        this.salesNoteRepository = salesNoteRepository;
+        this.nextOpportunityRepository = nextOpportunityRepository;
+        this.opsIncidentRepository = opsIncidentRepository;
+        this.opsTaskRepository = opsTaskRepository;
+        this.opsOpportunityRepository = opsOpportunityRepository;
+        this.projectOperationRepository = projectOperationRepository;
+        this.projectFeatureRepository = projectFeatureRepository;
         this.actualMmRepository = actualMmRepository;
         this.settingRepository = settingRepository;
         this.docVersionRepository = docVersionRepository;
@@ -207,6 +240,7 @@ public class PmsDevDataSeeder implements CommandLineRunner {
             seedRfpsAndProposals(users);
             seedReportsAndDocs(users);
             seedCost(users);
+            seedOps(users);
         } finally {
             TenantContext.clear();
         }
@@ -777,5 +811,103 @@ public class PmsDevDataSeeder implements CommandLineRunner {
             }
         }
         log.info("[PmsDevDataSeeder] 샘플 단가·설정·실적 M/M 생성");
+    }
+
+    // ---------- 영업 노트 · 차기 사업 기회 · 운영 업무/이슈/영업 · 수행 종료/운영 정보 (pms-seed-ops.json) ----------
+
+    private static LocalDateTime dateTime(Map<String, Object> m, String key) {
+        String v = str(m, key);
+        return v == null ? null : LocalDateTime.parse(v.replace(' ', 'T'));
+    }
+
+    @SuppressWarnings("unchecked")
+    private void seedOps(Map<String, User> users) {
+        if (!salesNoteRepository.findAll().isEmpty()) {
+            return;
+        }
+        Map<String, Object> root;
+        try (InputStream in = new ClassPathResource("pms-seed-ops.json").getInputStream()) {
+            root = JsonMapper.builder().build().readValue(in, new TypeReference<Map<String, Object>>() {
+            });
+        } catch (Exception e) {
+            log.warn("[PmsDevDataSeeder] pms-seed-ops.json 을 읽지 못해 운영 샘플을 건너뜁니다: {}", e.getMessage());
+            return;
+        }
+        Map<String, String> customerIds = new HashMap<>();
+        customerRepository.findAll().forEach(c -> customerIds.put(c.getCustomerCode(), c.getId()));
+        Map<String, String> contactIds = new HashMap<>();
+        contactRepository.findAll().forEach(c -> contactIds.put(c.getContactCode(), c.getId()));
+        Map<String, String> projectIds = new HashMap<>();
+        projectRepository.findAll().forEach(p -> projectIds.put(p.getProjectCode(), p.getId()));
+
+        for (Map<String, Object> n : (List<Map<String, Object>>) root.get("notes")) {
+            salesNoteRepository.save(SalesNote.create().withNoteCode(str(n, "id")).withNoteDate(date(n, "date")).withNoteTypeCode(str(n, "type"))
+                    .withAuthorUserId(users.get(str(n, "author")).getId()).withProjectId(projectIds.get(str(n, "projectId")))
+                    .withCustomerId(customerIds.get(str(n, "customerId"))).withContactId(contactIds.get(str(n, "contactId")))
+                    .withTitle(str(n, "title")).withContent(str(n, "content")).withNextAction(str(n, "nextAction")).withNextDate(date(n, "nextDate"))
+                    .withDoneYn(Boolean.TRUE.equals(n.get("done")) ? "Y" : "N"));
+        }
+        Map<String, String> issueIds = new HashMap<>();
+        issueRepository.findAll().forEach(i -> issueIds.put(i.getIssueCode(), i.getId()));
+        for (Map<String, Object> o : (List<Map<String, Object>>) root.get("nexts")) {
+            nextOpportunityRepository.save(NextOpportunity.create().withOppCode(str(o, "id")).withProjectId(projectIds.get(str(o, "projectId")))
+                    .withTitle(str(o, "title")).withKindCode(str(o, "kind")).withSourceCode(str(o, "source")).withContent(str(o, "content"))
+                    .withRequesterContactId(contactIds.get(str(o, "contactId"))).withDecisionMakerContactId(contactIds.get(str(o, "decisionMakerId")))
+                    .withBudgetCode(str(o, "budget")).withEstMm(num(o, "estMM")).withAmount(o.get("amount") == null ? null : Long.valueOf(str(o, "amount")))
+                    .withQuarter(str(o, "quarter")).withStageCode(str(o, "stage")).withPriorityCode(str(o, "priority"))
+                    .withOwnerUserId(users.get(str(o, "owner")).getId()).withIssueId(issueIds.get(str(o, "issueId")))
+                    .withNextAction(str(o, "nextAction")).withNextDate(date(o, "nextDate")).withScopeReason(str(o, "scopeReason")).withMemo(str(o, "memo")));
+        }
+        Map<String, String> incidentIds = new HashMap<>();
+        for (Map<String, Object> i : (List<Map<String, Object>>) root.get("incidents")) {
+            User assignee = str(i, "assignee") == null ? null : users.get(str(i, "assignee"));
+            OpsIncident saved = opsIncidentRepository.save(OpsIncident.create().withIncidentCode(str(i, "id")).withProjectId(projectIds.get(str(i, "projectId")))
+                    .withTypeCode(str(i, "type")).withTitle(str(i, "title")).withContent(str(i, "content")).withPriorityCode(str(i, "priority"))
+                    .withStatusCode(str(i, "status")).withReporterName(str(i, "reporter")).withAssigneeUserId(assignee == null ? null : assignee.getId())
+                    .withReceivedAt(dateTime(i, "receivedAt")).withRespondedAt(dateTime(i, "respondedAt")).withResolvedAt(dateTime(i, "resolvedAt"))
+                    .withActionText(str(i, "action")));
+            incidentIds.put(str(i, "id"), saved.getId());
+        }
+        for (Map<String, Object> t : (List<Map<String, Object>>) root.get("tasks")) {
+            opsTaskRepository.save(OpsTask.create().withTaskCode(str(t, "id")).withProjectId(projectIds.get(str(t, "projectId"))).withTitle(str(t, "title"))
+                    .withCategoryCode(str(t, "category")).withAssigneeUserId(users.get(str(t, "assignee")).getId()).withDueDate(date(t, "due"))
+                    .withStatusCode(str(t, "status")).withPriorityCode(str(t, "priority")).withRepeatCode(str(t, "repeat")).withAutoCreatedYn("N")
+                    .withMemo(str(t, "memo")).withIncidentId(incidentIds.get(str(t, "incidentId"))));
+        }
+        for (Map<String, Object> o : (List<Map<String, Object>>) root.get("opps")) {
+            opsOpportunityRepository.save(OpsOpportunity.create().withOppCode(str(o, "id")).withProjectId(projectIds.get(str(o, "projectId")))
+                    .withKindCode(str(o, "kind")).withTitle(str(o, "title")).withStageCode(str(o, "stage"))
+                    .withAmount(o.get("amount") == null ? null : Long.valueOf(str(o, "amount"))).withProbabilityPct(num(o, "probability"))
+                    .withOwnerUserId(users.get(str(o, "owner")).getId()).withExpectedDate(date(o, "expectedDate")).withNextAction(str(o, "nextAction"))
+                    .withNextDate(date(o, "nextDate")).withMemo(str(o, "memo")));
+        }
+
+        // 수행 종료(PRJ-2026-010 · 011) · 운영 정보(PRJ-2026-011)
+        seedCompleted(projectIds.get("PRJ-2026-010"), LocalDate.of(2026, 8, 28), "최종 검수 완료, 미해결 이슈 없음",
+                List.of("협업 워크스페이스", "프로젝트·태스크 관리", "주간 보고서", "알림·메신저 연동", "통합 검색"));
+        String p11 = projectIds.get("PRJ-2026-011");
+        seedCompleted(p11, LocalDate.of(2026, 6, 30), "검수 완료", List.of("전자결재", "통합검색", "모바일 결재"));
+        if (p11 != null) {
+            User admin = users.get("관리자");
+            TeamDto.Member m = member(users, "관리자", "운영", List.of("운영"), 3, "2026-07-01", "2026-12-31", null);
+            TeamDto.Spec spec = new TeamDto.Spec(new TeamDto.Manager(admin.getId(), "운영 PM"), List.of(m), false);
+            teamService.replaceTeam(p11, "OPS", spec);
+            LocalDateTime when = LocalDate.of(2026, 7, 1).atStartOfDay();
+            String transitionId = transitionRepository.saveAndFlush(Transition.create().withTransitionCode("TRN-2026-901").withProjectId(p11)
+                    .withKindCode("OPS").withStatusCode("승인").withRequesterUserId(admin.getId()).withRequestedAt(when).withApproverUserId(admin.getId())
+                    .withDecidedAt(when).withSelectionJson("{}").withSummary("운영단계전환 (유상 유지보수, 2026-07-01 ~ 2026-12-31)")).getId();
+            projectOperationRepository.save(ProjectOperation.create().withProjectId(p11).withOpTypeCode("유상 유지보수").withStartDate(LocalDate.of(2026, 7, 1))
+                    .withEndDate(LocalDate.of(2026, 12, 31)).withContractAmount(150000000L).withSlaLevelCode("표준").withSlaRespondHours(4)
+                    .withSlaResolveHours(24).withSlaServiceHours("평일 09~18시").withTransitionId(transitionId));
+        }
+        log.info("[PmsDevDataSeeder] 샘플 영업 노트·차기 사업 기회·운영 업무/이슈/영업·운영 정보 생성");
+    }
+
+    private void seedCompleted(String projectId, LocalDate date, String memo, List<String> features) {
+        if (projectId == null) {
+            return;
+        }
+        projectRepository.findById(projectId).ifPresent(p -> projectRepository.saveAndFlush(p.withExecEndDate(date).withExecEndMemo(memo)));
+        features.forEach(f -> projectFeatureRepository.save(ProjectFeature.create().withProjectId(projectId).withFeatureName(f).withHandoverYn("Y").withSourceCode("MANUAL")));
     }
 }

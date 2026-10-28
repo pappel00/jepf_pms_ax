@@ -158,6 +158,18 @@ public class TransitionService {
                 .withRfpId(PmsSupport.blankToNull(request.rfpId())).withItemCount(request.itemCount()));
     }
 
+    /** 운영단계전환처럼 별도 승인 절차 없이 바로 확정되는 전환의 이력을 「승인」 상태로 남긴다. 만든 전환 ID 를 돌려준다. */
+    @Transactional
+    public String recordApproved(String projectId, String kind, String selectionJson, String summary) {
+        LocalDateTime now = LocalDateTime.now();
+        String me = PmsSupport.currentUserId();
+        String code = PmsSupport.nextCode("TRN-" + now.getYear() + "-",
+                transitionRepository.findAll().stream().map(Transition::getTransitionCode).toList(), 3);
+        return transitionRepository.saveAndFlush(Transition.create().withTransitionCode(code).withProjectId(projectId).withKindCode(kind)
+                .withStatusCode("승인").withRequesterUserId(me).withRequestedAt(now).withApproverUserId(me).withDecidedAt(now)
+                .withSelectionJson(selectionJson).withSummary(summary)).getId();
+    }
+
     // ---------- 내부 ----------
 
     private void validateTeam(TransitionDto.Request request) {

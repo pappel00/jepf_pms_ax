@@ -77,6 +77,10 @@ export function nextIssueId(all) {
   return `ISS-${String(max + 1).padStart(3, '0')}`
 }
 
+/** 이슈 코드(ISS-###) ↔ 서버 PK 변환 — 다른 스토어(차기 사업 기회 등)가 이슈를 참조할 때 쓴다. */
+export const issueDbIdOf = (code) => state.list.find((i) => i.id === code)?.dbId
+export const issueCodeOfDbId = (dbId) => state.list.find((i) => i.dbId === dbId)?.id ?? ''
+
 export const issuesOfTask = (all, taskId) => all.filter((i) => i.taskIds.includes(taskId))
 
 /** 업무(들)에 연결된 이슈 집계: 전체/미해결/미해결 중 긴급·높음 (이슈 1건이 여러 업무에 걸려도 1건으로 센다). */

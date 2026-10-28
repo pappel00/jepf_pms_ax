@@ -102,7 +102,7 @@ export default function OpsSalesPage() {
     <div>
       <div className="page-header">
         <div>
-          <h2>운영 영업 관리 <span className="pms-mock-badge">목업 · 더미 데이터</span></h2>
+          <h2>운영 영업 관리</h2>
           <p className="page-description">운영 중에 생기는 재계약·갱신, 추가 개발, 유상 개선, 증설 같은 영업 기회를 발굴 → 제안 → 협상 → 수주 단계로 관리합니다. 운영 이슈의 개선 요청에서 바로 등록할 수 있고, 운영 종료일이 다가오면 재계약 등록을 안내합니다.</p>
         </div>
         <button className="primary" disabled={!project} onClick={() => setEdit(emptyOpp(project.id, ME))}>＋ 영업 기회 등록</button>

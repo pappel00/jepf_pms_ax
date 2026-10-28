@@ -233,7 +233,7 @@ export default function OpsProjectPage() {
       <div className="page-header">
         <div>
           <h2>
-            프로젝트 관리 (운영) <span className="pms-mock-badge">목업 · 더미 데이터</span>
+            프로젝트 관리 (운영)
           </h2>
           <p className="page-description">
             운영 중인 프로젝트의 기본 정보와 운영 정보를 봅니다. 영업·수행 단계 정보는 수정할 수 없고, 운영단계전환에서 지정한 <b>운영 형태·기간·SLA, 운영 관리자·운영 인력</b>은

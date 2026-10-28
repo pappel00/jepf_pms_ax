@@ -58,7 +58,7 @@ function TaskForm({ initial, opsEnd, onClose, onSaved }) {
       {t.incidentId && <p className="muted">연결된 운영 이슈: {t.incidentId}</p>}
       {t.prevTaskId && <p className="muted">반복으로 만들어진 업무 — 이전 업무 {t.prevTaskId}</p>}
       {err && <p style={{ color: '#c0392b' }}>{err}</p>}
-      <button className="primary" disabled={!!err} onClick={() => { onSaved(saveTask({ ...t, title: t.title.trim() }, opsEnd)); onClose() }}>저장</button>
+      <button className="primary" disabled={!!err} onClick={async () => { onClose(); onSaved(await saveTask({ ...t, title: t.title.trim() })) }}>저장</button>
     </Modal>
   )
 }
@@ -83,7 +83,7 @@ export default function OpsTasksPage() {
     <div>
       <div className="page-header">
         <div>
-          <h2>운영 업무 관리 <span className="pms-mock-badge">목업 · 더미 데이터</span></h2>
+          <h2>운영 업무 관리</h2>
           <p className="page-description">운영 중인 프로젝트의 정기 점검, 패치·배포, 장애 조치, 요청 작업, 보고 같은 업무를 등록하고 담당자·기한·진행 상태를 관리합니다. 반복 업무와 운영 이슈에서 만든 업무도 여기서 봅니다.</p>
         </div>
         <button className="primary" disabled={!project} onClick={() => setEdit(emptyTask(project.id, ME))}>＋ 업무 등록</button>
@@ -156,7 +156,7 @@ export default function OpsTasksPage() {
                   <td>{t.due} {t.status !== '완료' && <span className={`pms-tag ${overdue(t) ? 'late' : ''}`}>{dday(t.due)}</span>}</td>
                   <td>{t.repeat === '없음' ? <span className="muted">-</span> : <span className="pms-tag manual" title={t.repeatEnd ? `반복 종료일 ${t.repeatEnd}` : '운영 종료일까지'}>{t.repeat}</span>}</td>
                   <td>
-                    <select value={t.status} onChange={(e) => showSpawn(setTaskStatus(t.id, e.target.value, project?.operation?.endDate))}>
+                    <select value={t.status} onChange={async (e) => showSpawn(await setTaskStatus(t.id, e.target.value))}>
                       {TASK_STATUSES.map((s) => <option key={s}>{s}</option>)}
                     </select>
                   </td>

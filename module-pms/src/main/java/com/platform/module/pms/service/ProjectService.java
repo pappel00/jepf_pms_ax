@@ -135,6 +135,17 @@ public class ProjectService {
         recordHistory(project.getId(), before, "수주", "단계전환 롤백: " + reason);
     }
 
+    /** 수행 종료 처리 — 「수행 종료」로 바꾸고 종료일·비고를 남긴다(상태 이력 기록). */
+    @Transactional
+    public void endExecution(String projectId, java.time.LocalDate date, String memo) {
+        Project project = findActiveOrThrow(projectId);
+        if (!"수행 중".equals(project.getStatusCode())) {
+            throw new BusinessException(PmsErrorCode.PROJECT_STATUS_INVALID, "수행 중인 프로젝트만 수행 종료할 수 있습니다: " + project.getStatusCode());
+        }
+        project.withStatusCode("수행 종료").withExecEndDate(date).withExecEndMemo(PmsSupport.blankToNull(memo));
+        recordHistory(project.getId(), "수행 중", "수행 종료", PmsSupport.blankToNull(memo));
+    }
+
     /** 투입 계획 변경 승인 반영 — 수행 PM·열람 제한. */
     @Transactional
     public void updateExecutionSettings(String projectId, String pmUserId, boolean restricted) {

@@ -154,7 +154,7 @@ export default function NextOppsPage() {
     <div>
       <div className="page-header">
         <div>
-          <h2>차기 사업 기회 관리 <span className="pms-mock-badge">목업 · 더미 데이터</span></h2>
+          <h2>차기 사업 기회 관리</h2>
           <p className="page-description">
             수행 중 고객이 요청했지만 현재 요구사항 범위에 넣지 못한 추가 사항, 후속 단계, 확산 가능성을 모아 다음 사업 기회로 관리합니다. 요청자·의사결정자 같은 고객사 담당자 정보를 함께 남기고, 운영단계전환 때 선택한 기회를 운영 영업 관리로 이관합니다.
           </p>

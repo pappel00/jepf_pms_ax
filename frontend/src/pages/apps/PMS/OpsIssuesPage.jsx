@@ -89,9 +89,9 @@ export default function OpsIssuesPage() {
     saveTask({ ...emptyTask(project.id, i.assignee || ME), title: `[${i.id}] ${i.title}`, category: i.type === '장애' ? '장애 조치' : '문의 대응', priority: i.priority, due: TODAY, incidentId: i.id })
     window.alert('운영 업무를 등록했습니다. 운영 업무 관리에서 확인하세요.')
   }
-  const makeOpp = (i) => {
-    const id = saveOpp({ ...emptyOpp(project.id, ME), kind: '유상 개선', title: i.title, memo: `운영 이슈 ${i.id}에서 발굴: ${i.content}`, sourceIncidentId: i.id })
-    linkOpportunity(i.id, id)
+  const makeOpp = async (i) => {
+    const id = await saveOpp({ ...emptyOpp(project.id, ME), kind: '유상 개선', title: i.title, memo: `운영 이슈 ${i.id}에서 발굴: ${i.content}`, sourceIncidentId: i.id })
+    await linkOpportunity(i.id, id)
     navigate(`/workspace/PMS/ops-sales?project=${project.id}`)
   }
 
@@ -99,7 +99,7 @@ export default function OpsIssuesPage() {
     <div>
       <div className="page-header">
         <div>
-          <h2>운영 이슈 관리 <span className="pms-mock-badge">목업 · 더미 데이터</span></h2>
+          <h2>운영 이슈 관리</h2>
           <p className="page-description">운영 중 들어오는 장애·문의·개선 요청을 접수해 분석 → 조치 → 해결 → 종결로 처리합니다. 운영 정보의 SLA(응답·해결 목표 시간)로 시한을 계산해 위반·임박을 표시하고, 이슈에서 운영 업무나 영업 기회를 바로 만들 수 있습니다.</p>
         </div>
         <button className="primary" disabled={!project} onClick={() => setEdit(emptyIncident(project.id, project.client))}>＋ 이슈 접수</button>

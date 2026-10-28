@@ -1,12 +1,11 @@
 /**
- * PMS 프로젝트(사업) 관리 목업 스토어 — 더미 데이터, API 연동 없음(새로고침하면 초기화).
- * 영업 담당자만 실제 사용자 관리(/api/v1/users) 연동을 목업으로 보여준다(ProjectsPage 참고).
+ * PMS 프로젝트(사업) 스토어 — 서버(`/api/v1/pms/projects`)에서 읽고 저장한다. 수행 팀·승인된 단계전환·수행 종료 정보·운영 정보(운영 팀 포함)를 함께 읽어 화면 형태로 조립한다.
  */
 import { useEffect, useSyncExternalStore } from 'react'
-import { pmsProjectsApi, pmsTeamsApi, pmsTransitionsApi } from '../../../api/entities'
+import { pmsOperationApi, pmsProjectsApi, pmsTeamsApi, pmsTransitionsApi } from '../../../api/entities'
 import { contactCodeOfDbId, contactDbId, customerCodeOfDbId, customerDbId, ensureCustomersLoaded } from './customerStore'
 import { ensurePmsUsersLoaded } from './pmsUsers'
-import { teamFromResponse } from './teamCodec'
+import { teamFromResponse, teamToSpec } from './teamCodec'
 
 /**
  * 사업 상태 — 영업(수주 전) 파이프라인 + 수행 + 종료.
@@ -42,41 +41,14 @@ export const FAIL_REASON_CODES = ['가격 경쟁력 열세', '기술·제안 평
 export const BUSINESS_TYPES = ['SI 구축', 'SM 운영/유지보수', '컨설팅', '솔루션 공급', '기타']
 export const BID_TYPES = ['공개 경쟁입찰', '제한 경쟁입찰', '협상에 의한 계약', '수의계약', '내부/그룹사']
 
-// 서버 테이블이 아직 없는 목업 전용 정보(프로젝트 코드별). 이후 단계에서 pms_project_member 등으로 옮긴다.
-const EXTRAS_SEED = {
-  'PRJ-2026-001': {
-  },
-  'PRJ-2026-009': {
-  },
-  'PRJ-2026-010': {
-    completed: {
-      date: '2026-08-28', memo: '최종 검수 완료, 미해결 이슈 없음',
-      features: ['협업 워크스페이스', '프로젝트·태스크 관리', '주간 보고서', '알림·메신저 연동', '통합 검색'],
-      openIssues: 0,
-    },
-  },
-  'PRJ-2026-011': {
-    completed: { date: '2026-06-30', memo: '검수 완료', features: ['전자결재', '통합검색', '모바일 결재'], openIssues: 0 },
-    operation: {
-      date: '2026-07-01', type: '유상 유지보수', startDate: '2026-07-01', endDate: '2026-12-31', contractAmount: 150000000,
-      sla: { level: '표준', respond: 4, resolve: 24, hours: '평일 09~18시' },
-      manager: { name: '관리자', role: '운영 PM' },
-      team: [{ name: '관리자', role: '운영', phases: ['운영'], mm: 3, from: '2026-07-01', to: '2026-12-31', notify: '' }],
-      features: ['전자결재', '통합검색', '모바일 결재'], docs: [], carriedIssues: [],
-    },
-  },
-}
-
 let base = [] // 서버 데이터를 화면 형태로 바꾼 목록
-let extras = structuredClone(EXTRAS_SEED) // 프로젝트 코드 → 목업 전용 정보(+ 메모리에서 바뀐 pmName 등)
 let projects = []
 let loaded = false
 let loading = null
 const listeners = new Set()
 
-const combine = () => base.map((b) => ({ ...b, ...(extras[b.id] ?? {}) }))
 function emit() {
-  projects = combine()
+  projects = base
   listeners.forEach((l) => l())
 }
 function subscribe(listener) {
@@ -95,7 +67,7 @@ const fromApi = (a) => ({
   dueDate: a.dueDate ?? '', presentDate: a.presentDate ?? '', competitors: a.competitors ?? '',
   costEstimate: a.costEstimate ?? null, costSourceType: a.costSourceType ?? '', costSource: a.costSourceNote ?? '',
   failReasonCode: a.failReasonCode ?? '', failReason: a.failReasonDetail ?? '', viewRestricted: a.viewRestrictedYn === 'Y', memo: a.memo ?? '',
-  execStart: a.execStartDate ?? '',
+  execStart: a.execStartDate ?? '', execEnd: a.execEndDate ?? '', execEndMemo: a.execEndMemo ?? '',
 })
 
 /** 화면 형태 → 서버 요청. */
@@ -123,10 +95,17 @@ export function loadProjects() {
         pmsProjectsApi.list('?size=1000&sort=projectCode'),
         pmsTeamsApi.list('EXEC').catch(() => ({ data: [] })),
         pmsTransitionsApi.list('?status=승인&kind=EXEC').catch(() => ({ data: [] })),
+        pmsTeamsApi.list('OPS').catch(() => ({ data: [] })),
+        pmsOperationApi.list().catch(() => ({ data: [] })),
+        pmsOperationApi.features().catch(() => ({ data: [] })),
       ]),
     )
-    .then(([projRes, teamRes, trRes]) => {
+    .then(([projRes, teamRes, trRes, opsTeamRes, opRes, featRes]) => {
       const teamOf = Object.fromEntries((teamRes.data || []).map((x) => [x.projectId, teamFromResponse(x)]))
+      const opsTeamOf = Object.fromEntries((opsTeamRes.data || []).map((x) => [x.projectId, teamFromResponse(x)]))
+      const opOf = Object.fromEntries((opRes.data || []).map((x) => [x.projectId, x]))
+      const featuresOf = {}
+      ;(featRes.data || []).forEach((f) => (featuresOf[f.projectId] ??= []).push(f))
       // 프로젝트별 가장 최근 승인 건
       const approvedOf = {}
       ;(trRes.data || []).forEach((tr) => {
@@ -147,6 +126,11 @@ export function loadProjects() {
             restricted: team.restricted,
           }
         }
+        if (a.execEndDate) {
+          p.completed = { date: a.execEndDate, memo: a.execEndMemo ?? '', features: (featuresOf[a.id] ?? []).map((f) => f.featureName), openIssues: 0 }
+        }
+        const op = opOf[a.id]
+        if (op) p.operation = operationFromApi(op, opsTeamOf[a.id], featuresOf[a.id] ?? [])
         return p
       })
       loaded = true
@@ -187,7 +171,6 @@ export async function deleteProject(id) {
   const p = base.find((x) => x.id === id)
   if (!p) return
   await pmsProjectsApi.remove(p.dbId)
-  delete extras[id]
   await loadProjects()
 }
 
@@ -203,31 +186,79 @@ function setStatus(id, status, memo) {
     .finally(() => loadProjects())
 }
 
-const patchExtras = (id, patch) => {
-  extras = { ...extras, [id]: { ...(extras[id] ?? {}), ...patch } }
+/** 서버 운영 정보 + 운영 팀 + 운영 인수 기능 → 화면의 operation. */
+function operationFromApi(op, team, features) {
+  const handover = op.handover ?? []
+  return {
+    date: op.transitionDate ?? '',
+    type: op.opTypeCode,
+    startDate: op.startDate,
+    endDate: op.endDate,
+    contractAmount: op.contractAmount ?? null,
+    sla: { level: op.slaLevelCode, respond: op.slaRespondHours, resolve: op.slaResolveHours, hours: op.slaServiceHours ?? '' },
+    manager: team?.manager ?? { name: '', role: '운영 PM' },
+    team: team?.team ?? [],
+    features: features.filter((f) => f.handover).map((f) => f.featureName),
+    docs: handover.filter((h) => h.typeCode === 'DOC').map((h) => {
+      const [phase, name, version] = h.itemName.split('|')
+      return { phase, name, version }
+    }),
+    carriedIssues: handover.filter((h) => h.typeCode === 'ISSUE').map((h) => {
+      const [title, priority] = h.itemName.split('|')
+      return { id: h.refId, title, priority }
+    }),
+  }
+}
+
+const guard = async (fn, message) => {
+  try {
+    await fn()
+  } catch (e) {
+    window.alert(`${message}: ${e.message}`)
+    throw e
+  } finally {
+    await loadProjects()
+  }
 }
 
 /** 수행 종료 처리 — 프로젝트 관리자가 준공/검수 완료를 확정한다. 운영단계 인수 대상 기능 목록을 함께 남긴다. */
-export function endExecution(id, { date, memo, features, openIssues }) {
-  patchExtras(id, { completed: { date, memo, features, openIssues } })
-  setStatus(id, '수행 종료', memo)
+export async function endExecution(id, { date, memo, features }) {
+  const p = base.find((x) => x.id === id)
+  await guard(() => pmsOperationApi.endExecution(p.dbId, { date, memo: memo || null, features }), '수행 종료 처리하지 못했습니다')
 }
 
 /**
- * 운영단계전환 — 수행 종료 프로젝트를 「운영 중」으로 바꾸고 운영 기초데이터를 남긴다.
- * operation: { date, type, startDate, endDate, sla, manager, team, features, docs, carriedIssueIds }
+ * 운영단계전환 — 수행 종료 프로젝트를 「운영 중」으로 바꾸고 운영 기초데이터를 만든다.
+ * operation: { type, startDate, endDate, contractAmount, sla, manager, team, features, docs: [{ refId, phase, name, version }],
+ *              carriedIssues: [{ refId, title, priority }] }, nextOppIds: 차기 사업 기회 서버 PK(운영 영업 기회로 이관)
  */
-export function transitionToOperation(id, operation) {
-  patchExtras(id, { operation })
-  setStatus(id, '운영 중', '운영단계전환')
+export async function transitionToOperation(id, operation, nextOppIds = []) {
+  const p = base.find((x) => x.id === id)
+  await guard(() => pmsOperationApi.transition(p.dbId, operationBody(operation, nextOppIds)), '운영단계로 전환하지 못했습니다')
 }
 
-/** 운영 정보 수정(운영 관리자). */
-export function updateOperation(id, patch) {
-  const cur = projects.find((p) => p.id === id)
-  patchExtras(id, { operation: { ...cur?.operation, ...patch } })
-  emit()
+/** 운영 정보 수정(운영 관리자) — 형태·기간·계약 금액·SLA 와 운영 팀. */
+export async function updateOperation(id, patch) {
+  const p = base.find((x) => x.id === id)
+  const cur = { ...p.operation, ...patch }
+  await guard(() => pmsOperationApi.update(p.dbId, operationBody(cur, [])), '운영 정보를 저장하지 못했습니다')
 }
+
+const operationBody = (o, nextOppIds) => ({
+  opTypeCode: o.type,
+  startDate: o.startDate,
+  endDate: o.endDate,
+  contractAmount: o.contractAmount ?? null,
+  slaLevelCode: o.sla.level,
+  slaRespondHours: o.sla.respond,
+  slaResolveHours: o.sla.resolve,
+  slaServiceHours: o.sla.hours || null,
+  team: teamToSpec({ manager: o.manager, team: o.team, restricted: false }),
+  features: o.features ?? null,
+  docs: (o.docs ?? []).map((d) => ({ refId: d.refId ?? null, phase: d.phase, name: d.name, version: d.version ?? null })),
+  issues: (o.carriedIssues ?? []).map((i) => ({ refId: i.id ?? null, title: i.title, priority: i.priority ?? null })),
+  nextOppIds,
+})
 /** 금액을 "12억 3,000만원" 식으로 읽기 쉽게. */
 export function formatKoreanWon(n) {
   if (!n) return '-'

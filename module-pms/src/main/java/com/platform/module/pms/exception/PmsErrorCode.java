@@ -38,4 +38,7 @@ public final class PmsErrorCode {
     public static final String RATE_INVALID = "ERR-PMS-0030";
     public static final String ACTUAL_FORBIDDEN = "ERR-PMS-0031";
     public static final String SETTING_INVALID = "ERR-PMS-0032";
+    public static final String NOTE_NOT_FOUND = "ERR-PMS-0033";
+    public static final String OPS_NOT_FOUND = "ERR-PMS-0034";
+    public static final String OPS_INVALID = "ERR-PMS-0035";
 }

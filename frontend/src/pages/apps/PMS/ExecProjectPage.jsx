@@ -425,7 +425,7 @@ export default function ExecProjectPage() {
       <div className="page-header">
         <div>
           <h2>
-            프로젝트 관리 (수행) <span className="pms-mock-badge">목업 · 더미 데이터</span>
+            프로젝트 관리 (수행)
           </h2>
           <p className="page-description">
             수행 중인 프로젝트의 기본 정보와 수행 관리 정보를 봅니다. 영업단계 기본 정보는 수정할 수 없고, 단계전환에서 지정한 <b>프로젝트 관리자 · 투입 인력(프로젝트 멤버)</b>은

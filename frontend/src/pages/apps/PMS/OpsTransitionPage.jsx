@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import './pms.css'
 import { DEFAULT_PROJECT_ID, docOf, tailoringOf, useDocs } from './docStore'
 import { isOpenStatus, useIssues } from './issueStore'
-import { isOpenNext, transferToOps, useNextOpps } from './nextOppStore'
+import { isOpenNext, nextDbIdOf, useNextOpps } from './nextOppStore'
 import { OPS_TYPES, SLA_LEVELS, addDaysISO, carryOverTeam, defaultOpsManager, oneYearAfter } from './opsConfig'
 import { TODAY, useTasks } from './pmsStore'
 import { formatKoreanWon, transitionToOperation, useProjects } from './projectStore'
@@ -84,20 +84,27 @@ export default function OpsTransitionPage() {
   const openIssues = project ? openIssuesOf(project) : []
   const opps = project ? nextOpps.filter((o) => o.projectId === project.id && isOpenNext(o)) : []
 
-  const execute = () => {
+  const execute = async () => {
     if (!startDate || !endDate || endDate < startDate) return window.alert('운영 기간을 확인하세요(종료일이 시작일보다 빠릅니다).')
     if (!manager.name) return window.alert('운영 관리자를 선택하세요.')
     if (team.some((m) => !m.name)) return window.alert('운영 인력의 이름을 모두 선택하세요.')
     if (team.some((m) => m.from && m.to && m.to < m.from)) return window.alert('투입 기간의 종료일이 시작일보다 빠른 인력이 있습니다.')
     if (!window.confirm(`"${project.name}" 프로젝트를 운영 단계로 전환할까요?\n\n• 운영 대상 기능 ${featureSel.size}건\n• 인수 산출물 ${docSel.size}종\n• 이관 이슈 ${issueSel.size}건\n• 차기 사업 기회 이관 ${oppSel.size}건\n• 운영 인력 ${team.length}명`)) return
-    transitionToOperation(project.id, {
-      date: TODAY, type, startDate, endDate, sla: { level: slaLevel, ...sla }, contractAmount,
-      manager, team,
-      features: features.filter((f) => featureSel.has(f)),
-      docs: docs.filter((t) => docSel.has(t.id)).map((t) => ({ phase: t.phase, name: t.name, version: docOf(docState, project.id, t.id).versions.slice(-1)[0].ver })),
-      carriedIssues: openIssues.filter((i) => issueSel.has(i.id)).map((i) => ({ id: i.id, title: i.title, priority: i.priority })),
-    })
-    transferToOps(project.id, [...oppSel])
+    try {
+      await transitionToOperation(
+        project.id,
+        {
+          type, startDate, endDate, sla: { level: slaLevel, ...sla }, contractAmount,
+          manager, team,
+          features: features.filter((f) => featureSel.has(f)),
+          docs: docs.filter((t) => docSel.has(t.id)).map((t) => ({ refId: t.id, phase: t.phase, name: t.name, version: docOf(docState, project.id, t.id).versions.slice(-1)[0].ver })),
+          carriedIssues: openIssues.filter((i) => issueSel.has(i.id)).map((i) => ({ id: i.dbId, title: i.title, priority: i.priority })),
+        },
+        [...oppSel].map(nextDbIdOf).filter(Boolean),
+      )
+    } catch {
+      return // 서버가 거부하면 안내를 이미 보여줬다 — 화면은 그대로 둔다
+    }
     setResult({ id: project.id, name: project.name, features: featureSel.size, docs: docSel.size, issues: issueSel.size, opps: oppSel.size, team: team.length })
     setProjectId(null)
   }
@@ -107,7 +114,7 @@ export default function OpsTransitionPage() {
       <div className="page-header">
         <div>
           <h2>
-            운영단계전환 <span className="pms-mock-badge">목업 · 더미 데이터</span>
+            운영단계전환
           </h2>
           <p className="page-description">
             수행이 종료(준공/검수 완료)된 프로젝트를 <b>운영 단계</b>로 넘깁니다. 운영 형태·기간·SLA, 인수 대상(운영 기능 · 산출물 · 미해결 이슈), 운영 관리자·인력을 정하면
