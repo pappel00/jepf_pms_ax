@@ -50,17 +50,22 @@ function RfpForm({ initial, isNew, projects, onClose, onSaved }) {
   const [errors, setErrors] = useState({})
   const set = (k, v) => setR((p) => ({ ...p, [k]: v }))
 
-  const submit = () => {
+  const submit = async () => {
     const e = {}
     if (!r.projectId) e.projectId = '프로젝트를 선택하세요.'
     if (!r.title.trim()) e.title = 'RFP명을 입력하세요.'
     if (!r.receivedDate) e.receivedDate = '접수일을 선택하세요.'
-    if (!r.fileName) e.fileName = 'RFP 원본 문서를 선택하세요.'
     setErrors(e)
     if (Object.keys(e).length) return
-    saveRfp({ ...r, title: r.title.trim() })
-    if (isNew && method === 'excel') importSampleItems(r.id)
-    onSaved(r.id)
+    let saved
+    try {
+      saved = await saveRfp({ ...r, title: r.title.trim() })
+      if (isNew && method === 'excel') await importSampleItems(saved.id)
+    } catch (err) {
+      window.alert(`RFP를 저장하지 못했습니다: ${err.message}`)
+      return
+    }
+    onSaved(saved.id)
     onClose()
   }
 
@@ -92,17 +97,6 @@ function RfpForm({ initial, isNew, projects, onClose, onSaved }) {
         </Field>
         <Field label="제안서 제출 마감일">
           <input type="date" value={r.dueDate} onChange={(e) => set('dueDate', e.target.value)} />
-        </Field>
-        <Field label="원본 문서" required error={errors.fileName} hint="pdf / hwp / docx / xlsx — 목업이라 파일명만 저장합니다">
-          <input
-            type="file"
-            accept=".pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx"
-            onChange={(e) => {
-              const f = e.target.files?.[0]
-              setR((p) => ({ ...p, fileName: f?.name ?? '', fileSize: f ? `${(f.size / 1048576).toFixed(1)}MB` : '' }))
-            }}
-          />
-          {r.fileName && <div className="pms-field-hint">선택됨: {r.fileName}</div>}
         </Field>
       </div>
 
@@ -302,12 +296,6 @@ function RfpDetail({ rfp, project, onDeleted, onEditRfp }) {
           <div className="muted">
             {rfp.id} · {project ? `${project.id} ${project.name} (${project.client})` : '프로젝트 미지정'} · {rfp.round} · 접수{' '}
             {rfp.receivedDate} · 제출 마감 {rfp.dueDate || '-'} {rfp.dueDate && `(${dday(rfp.dueDate)})`}
-          </div>
-          <div className="muted" style={{ marginTop: 4 }}>
-            📎 {rfp.fileName} ({rfp.fileSize}){' '}
-            <button className="link-btn" onClick={() => window.alert('목업: 원본 문서 다운로드/미리보기')}>
-              원문 보기
-            </button>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -519,7 +507,7 @@ export default function RfpPage() {
       <div className="page-header">
         <div>
           <h2>
-            RFP 관리 <span className="pms-mock-badge">목업 · 더미 데이터</span>
+            RFP 관리
           </h2>
           <p className="page-description">
             발주사 RFP 문서를 접수해 항목 단위로 세분화하고, 평가할 PM(평가자)을 지정합니다. 항목별 기능/비기능 구분, 구현 여부,

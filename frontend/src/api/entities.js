@@ -68,6 +68,35 @@ export const pmsIssuesApi = {
   unlink: (id, taskId) => apiFetch(`/api/v1/pms/issues/${id}/tasks/${taskId}`, { method: 'DELETE' }),
   addNote: (id, text) => apiFetch(`/api/v1/pms/issues/${id}/notes`, { method: 'POST', body: { text } }),
 }
+export const pmsRfpsApi = {
+  list: (projectId = '') => apiFetch(`/api/v1/pms/rfps${projectId ? `?projectId=${projectId}` : ''}`),
+  evals: () => apiFetch('/api/v1/pms/rfp-evals'),
+  create: (projectId, body) => apiFetch(`/api/v1/pms/projects/${projectId}/rfps`, { method: 'POST', body }),
+  update: (id, body) => apiFetch(`/api/v1/pms/rfps/${id}`, { method: 'PUT', body }),
+  remove: (id) => apiFetch(`/api/v1/pms/rfps/${id}`, { method: 'DELETE' }),
+  setEvaluators: (id, userIds) => apiFetch(`/api/v1/pms/rfps/${id}/evaluators`, { method: 'PUT', body: { userIds } }),
+  addItem: (id, body) => apiFetch(`/api/v1/pms/rfps/${id}/items`, { method: 'POST', body }),
+  addItems: (id, items) => apiFetch(`/api/v1/pms/rfps/${id}/items/bulk`, { method: 'POST', body: { items } }),
+  updateItem: (itemId, body) => apiFetch(`/api/v1/pms/rfp-items/${itemId}`, { method: 'PUT', body }),
+  deleteItem: (itemId) => apiFetch(`/api/v1/pms/rfp-items/${itemId}`, { method: 'DELETE' }),
+  saveMyEval: (itemId, body) => apiFetch(`/api/v1/pms/rfp-items/${itemId}/evals/me`, { method: 'PUT', body }),
+  submit: (id) => apiFetch(`/api/v1/pms/rfps/${id}/evals/submit`, { method: 'POST', body: {} }),
+  reopen: (id, userId) => apiFetch(`/api/v1/pms/rfps/${id}/evaluators/${userId}/reopen`, { method: 'POST', body: {} }),
+  confirm: (itemId, body) => apiFetch(`/api/v1/pms/rfp-items/${itemId}/confirm`, { method: 'PUT', body }),
+  confirmAll: (id, evaluatorUserId) => apiFetch(`/api/v1/pms/rfps/${id}/confirm-all`, { method: 'POST', body: { evaluatorUserId } }),
+}
+export const pmsProposalsApi = {
+  list: () => apiFetch('/api/v1/pms/proposals'),
+  create: (body) => apiFetch('/api/v1/pms/proposals', { method: 'POST', body }),
+  update: (id, body) => apiFetch(`/api/v1/pms/proposals/${id}`, { method: 'PUT', body }),
+  remove: (id) => apiFetch(`/api/v1/pms/proposals/${id}`, { method: 'DELETE' }),
+  addVersion: (id, body) => apiFetch(`/api/v1/pms/proposals/${id}/versions`, { method: 'POST', body }),
+  saveMapping: (id, rfpItemId, body) => apiFetch(`/api/v1/pms/proposals/${id}/mappings/${rfpItemId}`, { method: 'PUT', body }),
+  deleteMapping: (id, rfpItemId) => apiFetch(`/api/v1/pms/proposals/${id}/mappings/${rfpItemId}`, { method: 'DELETE' }),
+  addCheck: (id, itemName) => apiFetch(`/api/v1/pms/proposals/${id}/checklist`, { method: 'POST', body: { itemName } }),
+  toggleCheck: (id, checkId) => apiFetch(`/api/v1/pms/proposals/${id}/checklist/${checkId}/toggle`, { method: 'POST', body: {} }),
+  removeCheck: (id, checkId) => apiFetch(`/api/v1/pms/proposals/${id}/checklist/${checkId}`, { method: 'DELETE' }),
+}
 export const pmsScheduleProposalsApi = {
   list: (projectId = '') => apiFetch(`/api/v1/pms/schedule-proposals${projectId ? `?projectId=${projectId}` : ''}`),
   approve: (id) => apiFetch(`/api/v1/pms/schedule-proposals/${id}/approve`, { method: 'POST', body: {} }),

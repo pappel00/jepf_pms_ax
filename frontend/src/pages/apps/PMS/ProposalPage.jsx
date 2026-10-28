@@ -66,7 +66,7 @@ function ProposalForm({ initial, isNew, projects, rfps, onClose, onSaved }) {
     />
   )
 
-  const submit = () => {
+  const submit = async () => {
     const e = {}
     if (!p.projectId) e.projectId = '프로젝트를 선택하세요.'
     if (!p.rfpId) e.rfpId = '대응할 RFP를 선택하세요.'
@@ -77,8 +77,13 @@ function ProposalForm({ initial, isNew, projects, rfps, onClose, onSaved }) {
     if (Object.keys(e).length) return
     const next = { ...p, title: p.title.trim() }
     if (next.status === '제출 완료' && !next.submittedDate) next.submittedDate = TODAY
-    saveProposal(next)
-    onSaved(next.id)
+    try {
+      const saved = await saveProposal(next)
+      onSaved(saved.id)
+    } catch (err) {
+      window.alert(`제안서를 저장하지 못했습니다: ${err.message}`)
+      return
+    }
     onClose()
   }
 
@@ -547,7 +552,7 @@ export default function ProposalPage() {
   const [statusFilter, setStatusFilter] = useState('')
 
   const filtered = proposals.filter((p) => !statusFilter || p.status === statusFilter)
-  const selected = proposals.find((p) => p.id === selectedId)
+  const selected = proposals.find((p) => p.id === selectedId) ?? (selectedId === null ? proposals[0] : undefined)
   const projectOf = (id) => projects.find((p) => p.id === id)
   const rfpOf = (id) => rfps.find((r) => r.id === id)
 
@@ -572,7 +577,7 @@ export default function ProposalPage() {
       <div className="page-header">
         <div>
           <h2>
-            제안서 관리 <span className="pms-mock-badge">목업 · 더미 데이터</span>
+            제안서 관리
           </h2>
           <p className="page-description">
             RFP별 제안서를 버전으로 관리하고, RFP 항목이 제안서 목차에 빠짐없이 대응되는지 점검합니다. 제출 서류 체크리스트로 제출 준비

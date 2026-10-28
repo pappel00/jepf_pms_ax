@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import './pms.css'
-import { ME } from './pmsStore'
+import { currentUserName } from './pmsUsers'
 import { DIFFICULTIES, IMPLS, KINDS, getEval, isComplete, isSubmitted, mdOf, saveEval, submitEvals, useEvals } from './evalStore'
 import { REQ_CATEGORIES, useRfps } from './rfpStore'
 
@@ -13,12 +13,12 @@ const fmt = (n) => (Number.isInteger(n) ? `${n}.0` : `${n}`)
 export default function RfpEvalPage() {
   const rfps = useRfps()
   useEvals()
-  const targets = rfps.filter((r) => r.evaluators.length > 0 && r.items.length > 0)
+  const me = currentUserName()
+  // 내가 평가자로 지정된 RFP만 — 평가는 로그인한 본인 것만 입력·제출한다.
+  const targets = rfps.filter((r) => r.evaluators.includes(me) && r.items.length > 0)
   const [rfpId, setRfpId] = useState(targets[0]?.id ?? '')
   const rfp = targets.find((r) => r.id === rfpId) ?? targets[0]
-  // 목업: 실제로는 로그인한 사용자가 평가자다. 화면 시연을 위해 평가자 전환을 둔다.
-  const [asUser, setAsUser] = useState(null)
-  const evaluator = rfp ? (rfp.evaluators.includes(asUser) ? asUser : rfp.evaluators.includes(ME) ? ME : rfp.evaluators[0]) : null
+  const evaluator = rfp ? me : null
 
   if (!rfp) {
     return (
@@ -26,7 +26,7 @@ export default function RfpEvalPage() {
         <div className="page-header">
           <h2>RFP 평가</h2>
         </div>
-        <p className="muted">평가자가 지정된 RFP가 없습니다. RFP 관리에서 항목을 등록하고 평가자를 지정하세요.</p>
+        <p className="muted">내가 평가자로 지정된 RFP가 없습니다. RFP 관리에서 항목을 등록하고 평가자를 지정하세요.</p>
       </div>
     )
   }
@@ -39,9 +39,9 @@ export default function RfpEvalPage() {
   const totalMd = evs.reduce((s, x) => s + mdOf(x.ev), 0)
   const usedCategories = REQ_CATEGORIES.filter((c) => rfp.items.some((i) => i.category === c.code))
 
-  const onSubmit = () => {
-    const res = submitEvals(rfp, evaluator)
-    if (!res.ok) window.alert(`아직 입력이 끝나지 않은 항목이 ${res.missing}건 있습니다.`)
+  const onSubmit = async () => {
+    const res = await submitEvals(rfp, evaluator)
+    if (!res.ok) window.alert(res.error ?? `아직 입력이 끝나지 않은 항목이 ${res.missing}건 있습니다.`)
     else window.alert('평가를 제출했습니다. 제출 후에는 수정할 수 없습니다(수정이 필요하면 평가관리자에게 재평가를 요청하세요).')
   }
 
@@ -50,7 +50,7 @@ export default function RfpEvalPage() {
       <div className="page-header">
         <div>
           <h2>
-            RFP 평가 <span className="pms-mock-badge">목업 · 더미 데이터</span>
+            RFP 평가
           </h2>
           <p className="page-description">
             RFP 항목마다 <b>기능/비기능</b>을 구분하고, 기능 항목은 <b>구현 여부</b>와 구현 시 <b>예상 M/D</b>를 입력합니다.
@@ -71,12 +71,7 @@ export default function RfpEvalPage() {
             </option>
           ))}
         </select>
-        <span className="muted">평가자로 보기(목업)</span>
-        <select value={evaluator} onChange={(e) => setAsUser(e.target.value)}>
-          {rfp.evaluators.map((n) => (
-            <option key={n}>{n}</option>
-          ))}
-        </select>
+        <span className="muted">평가자: {evaluator}</span>
         <span className={`pms-tag ${submitted ? 'done' : 'doing'}`}>{submitted ? '제출 완료' : '작성 중'}</span>
         <button className="primary small" style={{ marginLeft: 'auto' }} disabled={submitted} onClick={onSubmit}>
           평가 제출

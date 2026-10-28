@@ -1,0 +1,863 @@
+{
+ "rfps": [
+  {
+   "id": "RFP-2026-001",
+   "projectId": "PRJ-2026-003",
+   "title": "전사 문서중앙화(ECM) 고도화 제안요청서",
+   "round": "1차",
+   "receivedDate": "2026-10-01",
+   "dueDate": "2026-10-21",
+   "fileName": "대한물산_ECM고도화_RFP_v1.0.pdf",
+   "fileSize": "4.2MB",
+   "evaluators": [
+    "이설계",
+    "관리자"
+   ],
+   "items": [
+    {
+     "category": "SFR",
+     "area": "문서 관리",
+     "name": "문서 등록·수정·삭제",
+     "content": "사용자는 문서를 등록·수정·삭제할 수 있어야 하며 모든 변경은 이력으로 남아야 한다.",
+     "page": 12,
+     "mandatory": true,
+     "evalDone": 2,
+     "id": "RFP-2026-001-I001",
+     "code": "SFR-001"
+    },
+    {
+     "category": "SFR",
+     "area": "문서 관리",
+     "name": "버전 관리",
+     "content": "문서의 버전을 자동 채번하고 이전 버전으로 복원할 수 있어야 한다.",
+     "page": 12,
+     "mandatory": true,
+     "evalDone": 2,
+     "id": "RFP-2026-001-I002",
+     "code": "SFR-002"
+    },
+    {
+     "category": "SFR",
+     "area": "권한 관리",
+     "name": "조직·직급별 접근 권한",
+     "content": "폴더·문서 단위로 조직, 직급, 개인별 접근 권한을 설정할 수 있어야 한다.",
+     "page": 13,
+     "mandatory": true,
+     "evalDone": 2,
+     "id": "RFP-2026-001-I003",
+     "code": "SFR-003"
+    },
+    {
+     "category": "SFR",
+     "area": "검색",
+     "name": "통합 검색 연계",
+     "content": "기존 통합검색 시스템과 연계하여 ECM 문서를 색인·검색할 수 있어야 한다.",
+     "page": 14,
+     "mandatory": true,
+     "evalDone": 1,
+     "id": "RFP-2026-001-I004",
+     "code": "SFR-004"
+    },
+    {
+     "category": "SFR",
+     "area": "연계",
+     "name": "그룹웨어 문서 연계",
+     "content": "전자결재 첨부문서를 ECM으로 자동 이관할 수 있어야 한다.",
+     "page": 15,
+     "mandatory": true,
+     "evalDone": 1,
+     "id": "RFP-2026-001-I005",
+     "code": "SFR-005"
+    },
+    {
+     "category": "SFR",
+     "area": "연계",
+     "name": "DRM 연계",
+     "content": "문서 반출 시 DRM 암·복호화 모듈과 연계해야 한다.",
+     "page": 15,
+     "mandatory": false,
+     "evalDone": 0,
+     "id": "RFP-2026-001-I006",
+     "code": "SFR-006"
+    },
+    {
+     "category": "PER",
+     "area": "응답 성능",
+     "name": "동시 접속 1,000명 처리",
+     "content": "동시 사용자 1,000명 기준으로 주요 화면 응답시간 3초 이내를 보장해야 한다.",
+     "page": 21,
+     "mandatory": true,
+     "evalDone": 1,
+     "id": "RFP-2026-001-I007",
+     "code": "PER-001"
+    },
+    {
+     "category": "PER",
+     "area": "응답 성능",
+     "name": "대용량 파일 업로드",
+     "content": "500MB 이하 파일을 안정적으로 업로드할 수 있어야 한다.",
+     "page": 21,
+     "mandatory": false,
+     "evalDone": 0,
+     "id": "RFP-2026-001-I008",
+     "code": "PER-002"
+    },
+    {
+     "category": "SER",
+     "area": "접근 통제",
+     "name": "접근 로그 및 감사",
+     "content": "문서 열람·다운로드 이력을 1년 이상 보관하고 조회할 수 있어야 한다.",
+     "page": 24,
+     "mandatory": true,
+     "evalDone": 2,
+     "id": "RFP-2026-001-I009",
+     "code": "SER-001"
+    },
+    {
+     "category": "SER",
+     "area": "암호화",
+     "name": "저장 데이터 암호화",
+     "content": "저장되는 문서는 국정원 검증 암호 모듈로 암호화해야 한다.",
+     "page": 24,
+     "mandatory": true,
+     "evalDone": 1,
+     "id": "RFP-2026-001-I010",
+     "code": "SER-002"
+    },
+    {
+     "category": "DAR",
+     "area": "이관",
+     "name": "기존 문서 마이그레이션",
+     "content": "기존 문서 약 120만 건을 이관하고 정합성을 검증해야 한다.",
+     "page": 28,
+     "mandatory": true,
+     "evalDone": 0,
+     "id": "RFP-2026-001-I011",
+     "code": "DAR-001"
+    },
+    {
+     "category": "COR",
+     "area": "제약",
+     "name": "국산 소프트웨어 우선 적용",
+     "content": "핵심 솔루션은 GS 인증 국산 제품을 우선 적용한다.",
+     "page": 31,
+     "mandatory": true,
+     "evalDone": 2,
+     "id": "RFP-2026-001-I012",
+     "code": "COR-001"
+    },
+    {
+     "category": "PMR",
+     "area": "보고",
+     "name": "주간·월간 보고",
+     "content": "수행사는 주간 및 월간 진행 보고서를 제출해야 한다.",
+     "page": 35,
+     "mandatory": true,
+     "evalDone": 0,
+     "id": "RFP-2026-001-I013",
+     "code": "PMR-001"
+    },
+    {
+     "category": "PSR",
+     "area": "교육·하자",
+     "name": "교육 및 하자보수",
+     "content": "사용자·관리자 교육을 실시하고 검수 후 1년간 무상 하자보수를 제공해야 한다.",
+     "page": 37,
+     "mandatory": true,
+     "evalDone": 0,
+     "id": "RFP-2026-001-I014",
+     "code": "PSR-001"
+    }
+   ]
+  },
+  {
+   "id": "RFP-2026-002",
+   "projectId": "PRJ-2026-004",
+   "title": "모바일 앱 통합 플랫폼 구축 제안요청서",
+   "round": "1차",
+   "receivedDate": "2026-09-02",
+   "dueDate": "2026-09-25",
+   "fileName": "새솔금융_모바일플랫폼_RFP.hwp",
+   "fileSize": "3.1MB",
+   "evaluators": [
+    "이설계",
+    "김개발",
+    "관리자"
+   ],
+   "items": [
+    {
+     "category": "SFR",
+     "area": "모바일 앱",
+     "name": "통합 로그인(SSO)",
+     "content": "기존 SSO와 연계하여 1회 로그인으로 전 서비스를 이용할 수 있어야 한다.",
+     "page": 9,
+     "mandatory": true,
+     "evalDone": 3,
+     "id": "RFP-2026-002-I001",
+     "code": "SFR-001"
+    },
+    {
+     "category": "SFR",
+     "area": "모바일 앱",
+     "name": "푸시 알림",
+     "content": "업무 알림을 푸시로 발송하고 수신 이력을 관리해야 한다.",
+     "page": 9,
+     "mandatory": true,
+     "evalDone": 3,
+     "id": "RFP-2026-002-I002",
+     "code": "SFR-002"
+    },
+    {
+     "category": "SFR",
+     "area": "모바일 앱",
+     "name": "간편 인증",
+     "content": "생체 인증 및 FIDO 기반 간편 인증을 지원해야 한다.",
+     "page": 10,
+     "mandatory": true,
+     "evalDone": 2,
+     "id": "RFP-2026-002-I003",
+     "code": "SFR-003"
+    },
+    {
+     "category": "SFR",
+     "area": "관리자",
+     "name": "앱 배포·버전 관리",
+     "content": "관리자 화면에서 앱 버전과 강제 업데이트 정책을 관리할 수 있어야 한다.",
+     "page": 11,
+     "mandatory": false,
+     "evalDone": 2,
+     "id": "RFP-2026-002-I004",
+     "code": "SFR-004"
+    },
+    {
+     "category": "PER",
+     "area": "응답 성능",
+     "name": "앱 구동 시간",
+     "content": "앱 구동 후 메인 화면 노출까지 2초 이내여야 한다.",
+     "page": 14,
+     "mandatory": true,
+     "evalDone": 1,
+     "id": "RFP-2026-002-I005",
+     "code": "PER-001"
+    },
+    {
+     "category": "SER",
+     "area": "앱 보안",
+     "name": "위·변조 방지",
+     "content": "앱 위변조, 루팅 탐지, 소스 난독화를 적용해야 한다.",
+     "page": 16,
+     "mandatory": true,
+     "evalDone": 3,
+     "id": "RFP-2026-002-I006",
+     "code": "SER-001"
+    },
+    {
+     "category": "QUR",
+     "area": "품질",
+     "name": "단말·OS 호환성",
+     "content": "Android 10 이상, iOS 15 이상 주요 단말에서 정상 동작해야 한다.",
+     "page": 18,
+     "mandatory": true,
+     "evalDone": 1,
+     "id": "RFP-2026-002-I007",
+     "code": "QUR-001"
+    },
+    {
+     "category": "COR",
+     "area": "제약",
+     "name": "망 분리 환경 대응",
+     "content": "내부망/외부망 분리 환경에서 동작하도록 구성해야 한다.",
+     "page": 19,
+     "mandatory": true,
+     "evalDone": 0,
+     "id": "RFP-2026-002-I008",
+     "code": "COR-001"
+    },
+    {
+     "category": "PMR",
+     "area": "일정",
+     "name": "단계별 산출물 제출",
+     "content": "착수·중간·완료 단계별 산출물을 제출해야 한다.",
+     "page": 22,
+     "mandatory": true,
+     "evalDone": 0,
+     "id": "RFP-2026-002-I009",
+     "code": "PMR-001"
+    }
+   ]
+  },
+  {
+   "id": "RFP-2026-003",
+   "projectId": "PRJ-2026-002",
+   "title": "차세대 인사시스템 구축 제안요청서",
+   "round": "1차",
+   "receivedDate": "2026-10-12",
+   "dueDate": "2026-10-30",
+   "fileName": "한빛전자_차세대인사_RFP.pdf",
+   "fileSize": "5.8MB",
+   "evaluators": [],
+   "items": []
+  }
+ ],
+ "evals": {
+  "RFP-2026-001|RFP-2026-001-I001|이설계": {
+   "difficulty": "중",
+   "kind": "기능",
+   "impl": "구현",
+   "md": 8,
+   "comment": ""
+  },
+  "RFP-2026-001|RFP-2026-001-I002|이설계": {
+   "difficulty": "중",
+   "kind": "기능",
+   "impl": "구현",
+   "md": 5,
+   "comment": ""
+  },
+  "RFP-2026-001|RFP-2026-001-I003|이설계": {
+   "difficulty": "상",
+   "kind": "기능",
+   "impl": "구현",
+   "md": 10,
+   "comment": ""
+  },
+  "RFP-2026-001|RFP-2026-001-I004|이설계": {
+   "difficulty": "상",
+   "kind": "기능",
+   "impl": "구현",
+   "md": 12,
+   "comment": ""
+  },
+  "RFP-2026-001|RFP-2026-001-I005|이설계": {
+   "difficulty": "중",
+   "kind": "기능",
+   "impl": "구현",
+   "md": 6,
+   "comment": ""
+  },
+  "RFP-2026-001|RFP-2026-001-I006|이설계": {
+   "difficulty": "하",
+   "kind": "기능",
+   "impl": "일부 구현",
+   "md": 4,
+   "comment": "기존 DRM 모듈 재사용 가능"
+  },
+  "RFP-2026-001|RFP-2026-001-I007|이설계": {
+   "difficulty": null,
+   "kind": "비기능",
+   "impl": null,
+   "md": null,
+   "comment": ""
+  },
+  "RFP-2026-001|RFP-2026-001-I008|이설계": {
+   "difficulty": null,
+   "kind": "비기능",
+   "impl": null,
+   "md": null,
+   "comment": ""
+  },
+  "RFP-2026-001|RFP-2026-001-I009|이설계": {
+   "difficulty": null,
+   "kind": "비기능",
+   "impl": null,
+   "md": null,
+   "comment": ""
+  },
+  "RFP-2026-001|RFP-2026-001-I010|이설계": {
+   "difficulty": null,
+   "kind": "비기능",
+   "impl": null,
+   "md": null,
+   "comment": ""
+  },
+  "RFP-2026-001|RFP-2026-001-I011|이설계": {
+   "difficulty": "상",
+   "kind": "기능",
+   "impl": "구현",
+   "md": 25,
+   "comment": ""
+  },
+  "RFP-2026-001|RFP-2026-001-I012|이설계": {
+   "difficulty": null,
+   "kind": "비기능",
+   "impl": null,
+   "md": null,
+   "comment": ""
+  },
+  "RFP-2026-001|RFP-2026-001-I013|이설계": {
+   "difficulty": null,
+   "kind": "비기능",
+   "impl": null,
+   "md": null,
+   "comment": ""
+  },
+  "RFP-2026-001|RFP-2026-001-I014|이설계": {
+   "difficulty": null,
+   "kind": "비기능",
+   "impl": null,
+   "md": null,
+   "comment": ""
+  },
+  "RFP-2026-001|RFP-2026-001-I001|관리자": {
+   "difficulty": "중",
+   "kind": "기능",
+   "impl": "구현",
+   "md": 9.5,
+   "comment": ""
+  },
+  "RFP-2026-001|RFP-2026-001-I002|관리자": {
+   "difficulty": "중",
+   "kind": "기능",
+   "impl": "구현",
+   "md": 6,
+   "comment": ""
+  },
+  "RFP-2026-001|RFP-2026-001-I003|관리자": {
+   "difficulty": "상",
+   "kind": "기능",
+   "impl": "구현",
+   "md": 12,
+   "comment": ""
+  },
+  "RFP-2026-001|RFP-2026-001-I004|관리자": {
+   "difficulty": "상",
+   "kind": "기능",
+   "impl": "구현",
+   "md": 14.5,
+   "comment": ""
+  },
+  "RFP-2026-001|RFP-2026-001-I005|관리자": {
+   "difficulty": "중",
+   "kind": "기능",
+   "impl": "구현",
+   "md": 7,
+   "comment": ""
+  },
+  "RFP-2026-001|RFP-2026-001-I006|관리자": {
+   "difficulty": "하",
+   "kind": "기능",
+   "impl": "협의 필요",
+   "md": 3,
+   "comment": "발주사 DRM 제품 확인 후 확정"
+  },
+  "RFP-2026-001|RFP-2026-001-I007|관리자": {
+   "difficulty": null,
+   "kind": "비기능",
+   "impl": null,
+   "md": null,
+   "comment": ""
+  },
+  "RFP-2026-001|RFP-2026-001-I008|관리자": {
+   "difficulty": null,
+   "kind": "비기능",
+   "impl": null,
+   "md": null,
+   "comment": ""
+  },
+  "RFP-2026-002|RFP-2026-002-I001|이설계": {
+   "difficulty": "상",
+   "kind": "기능",
+   "impl": "구현",
+   "md": 10,
+   "comment": ""
+  },
+  "RFP-2026-002|RFP-2026-002-I002|이설계": {
+   "difficulty": "중",
+   "kind": "기능",
+   "impl": "구현",
+   "md": 6,
+   "comment": ""
+  },
+  "RFP-2026-002|RFP-2026-002-I003|이설계": {
+   "difficulty": "중",
+   "kind": "기능",
+   "impl": "구현",
+   "md": 8,
+   "comment": ""
+  },
+  "RFP-2026-002|RFP-2026-002-I004|이설계": {
+   "difficulty": "중",
+   "kind": "기능",
+   "impl": "구현",
+   "md": 5,
+   "comment": ""
+  },
+  "RFP-2026-002|RFP-2026-002-I005|이설계": {
+   "difficulty": null,
+   "kind": "비기능",
+   "impl": null,
+   "md": null,
+   "comment": ""
+  },
+  "RFP-2026-002|RFP-2026-002-I006|이설계": {
+   "difficulty": null,
+   "kind": "비기능",
+   "impl": null,
+   "md": null,
+   "comment": ""
+  },
+  "RFP-2026-002|RFP-2026-002-I007|이설계": {
+   "difficulty": null,
+   "kind": "비기능",
+   "impl": null,
+   "md": null,
+   "comment": ""
+  },
+  "RFP-2026-002|RFP-2026-002-I008|이설계": {
+   "difficulty": null,
+   "kind": "비기능",
+   "impl": null,
+   "md": null,
+   "comment": ""
+  },
+  "RFP-2026-002|RFP-2026-002-I009|이설계": {
+   "difficulty": null,
+   "kind": "비기능",
+   "impl": null,
+   "md": null,
+   "comment": ""
+  },
+  "RFP-2026-002|RFP-2026-002-I001|김개발": {
+   "difficulty": "중",
+   "kind": "기능",
+   "impl": "구현",
+   "md": 9,
+   "comment": ""
+  },
+  "RFP-2026-002|RFP-2026-002-I002|김개발": {
+   "difficulty": "중",
+   "kind": "기능",
+   "impl": "구현",
+   "md": 5.5,
+   "comment": ""
+  },
+  "RFP-2026-002|RFP-2026-002-I003|김개발": {
+   "difficulty": "하",
+   "kind": "기능",
+   "impl": "일부 구현",
+   "md": 4.5,
+   "comment": "생체 인증은 단말 의존"
+  },
+  "RFP-2026-002|RFP-2026-002-I004|김개발": {
+   "difficulty": "하",
+   "kind": "기능",
+   "impl": "구현",
+   "md": 4.5,
+   "comment": ""
+  },
+  "RFP-2026-002|RFP-2026-002-I005|김개발": {
+   "difficulty": null,
+   "kind": "비기능",
+   "impl": null,
+   "md": null,
+   "comment": ""
+  },
+  "RFP-2026-002|RFP-2026-002-I006|김개발": {
+   "difficulty": null,
+   "kind": "비기능",
+   "impl": null,
+   "md": null,
+   "comment": ""
+  },
+  "RFP-2026-002|RFP-2026-002-I007|김개발": {
+   "difficulty": null,
+   "kind": "비기능",
+   "impl": null,
+   "md": null,
+   "comment": ""
+  },
+  "RFP-2026-002|RFP-2026-002-I008|김개발": {
+   "difficulty": null,
+   "kind": "비기능",
+   "impl": null,
+   "md": null,
+   "comment": ""
+  },
+  "RFP-2026-002|RFP-2026-002-I009|김개발": {
+   "difficulty": null,
+   "kind": "비기능",
+   "impl": null,
+   "md": null,
+   "comment": ""
+  },
+  "RFP-2026-002|RFP-2026-002-I001|관리자": {
+   "difficulty": "상",
+   "kind": "기능",
+   "impl": "구현",
+   "md": 12,
+   "comment": ""
+  },
+  "RFP-2026-002|RFP-2026-002-I002|관리자": {
+   "difficulty": "중",
+   "kind": "기능",
+   "impl": "구현",
+   "md": 7,
+   "comment": ""
+  },
+  "RFP-2026-002|RFP-2026-002-I003|관리자": {
+   "difficulty": "중",
+   "kind": "기능",
+   "impl": "구현",
+   "md": 9.5,
+   "comment": ""
+  },
+  "RFP-2026-002|RFP-2026-002-I004|관리자": {
+   "difficulty": "중",
+   "kind": "기능",
+   "impl": "구현",
+   "md": 6,
+   "comment": ""
+  }
+ },
+ "subs": {
+  "RFP-2026-001|이설계": true,
+  "RFP-2026-001|관리자": false,
+  "RFP-2026-002|이설계": true,
+  "RFP-2026-002|김개발": true,
+  "RFP-2026-002|관리자": false
+ },
+ "proposals": [
+  {
+   "id": "PROP-2026-001",
+   "projectId": "PRJ-2026-003",
+   "rfpId": "RFP-2026-001",
+   "title": "전사 문서중앙화(ECM) 고도화 제안서",
+   "status": "작성 중",
+   "owner": "이설계",
+   "dueDate": "2026-10-21",
+   "submittedDate": "",
+   "price": 905000000,
+   "costEstimate": 740000000,
+   "versions": [
+    {
+     "ver": "v0.1",
+     "date": "2026-10-05",
+     "author": "이설계",
+     "summary": "목차 및 RFP 항목 대응 골격 작성",
+     "fileName": "ECM고도화_제안서_v0.1.pptx",
+     "fileSize": "3.4MB"
+    },
+    {
+     "ver": "v0.2",
+     "date": "2026-10-09",
+     "author": "이설계",
+     "summary": "기능 요구사항 대응 및 아키텍처 보완",
+     "fileName": "ECM고도화_제안서_v0.2.pptx",
+     "fileSize": "5.8MB"
+    }
+   ],
+   "mapping": {
+    "RFP-2026-001-I001": {
+     "section": "3.1.1",
+     "response": "수용",
+     "summary": "문서 등록·수정·삭제 및 변경 이력 관리 기능을 표준 기능으로 제공",
+     "owner": "이설계"
+    },
+    "RFP-2026-001-I002": {
+     "section": "3.1.2",
+     "response": "수용",
+     "summary": "자동 버전 채번 및 이전 버전 복원",
+     "owner": "이설계"
+    },
+    "RFP-2026-001-I003": {
+     "section": "3.2.1",
+     "response": "수용",
+     "summary": "폴더·문서 단위 조직/직급/개인 권한 체계 제안",
+     "owner": "이설계"
+    },
+    "RFP-2026-001-I004": {
+     "section": "3.3.1",
+     "response": "수용",
+     "summary": "기존 통합검색과 색인 연계 인터페이스 제공",
+     "owner": "김개발"
+    },
+    "RFP-2026-001-I005": {
+     "section": "3.4.1",
+     "response": "일부 수용",
+     "summary": "결재 첨부 이관은 배치 방식으로 제공 (실시간은 2단계)",
+     "owner": "김개발"
+    },
+    "RFP-2026-001-I006": {
+     "section": "3.4.2",
+     "response": "대안 제시",
+     "summary": "발주사 DRM 제품 확인 후 연계, 1차는 표준 API 방식 제안",
+     "owner": "김개발"
+    },
+    "RFP-2026-001-I007": {
+     "section": "4.1.1",
+     "response": "수용",
+     "summary": "동시접속 1,000명 기준 부하 테스트 결과 제시",
+     "owner": "이설계"
+    },
+    "RFP-2026-001-I008": {
+     "section": "4.1.2",
+     "response": "일부 수용",
+     "summary": "500MB 이하 업로드, 분할 업로드 방식 적용",
+     "owner": "김개발"
+    },
+    "RFP-2026-001-I009": {
+     "section": "5.1.1",
+     "response": "수용",
+     "summary": "접근/다운로드 로그 1년 이상 보관 및 조회",
+     "owner": "이설계"
+    },
+    "RFP-2026-001-I010": {
+     "section": "5.2.1",
+     "response": "수용",
+     "summary": "검증 암호 모듈 적용",
+     "owner": "김개발"
+    }
+   },
+   "checklist": [
+    {
+     "id": "C1",
+     "name": "제안서 본문",
+     "done": true
+    },
+    {
+     "id": "C2",
+     "name": "제안서 요약본",
+     "done": false
+    },
+    {
+     "id": "C3",
+     "name": "가격(견적) 제안서",
+     "done": false
+    },
+    {
+     "id": "C4",
+     "name": "사업자등록증·인증서 사본",
+     "done": false
+    },
+    {
+     "id": "C5",
+     "name": "위임장·서약서",
+     "done": false
+    },
+    {
+     "id": "C6",
+     "name": "발표 자료(PT)",
+     "done": false
+    }
+   ]
+  },
+  {
+   "id": "PROP-2026-002",
+   "projectId": "PRJ-2026-004",
+   "rfpId": "RFP-2026-002",
+   "title": "모바일 앱 통합 플랫폼 구축 제안서",
+   "status": "제출 완료",
+   "owner": "관리자",
+   "dueDate": "2026-09-25",
+   "submittedDate": "2026-09-24",
+   "price": 2380000000,
+   "costEstimate": 1980000000,
+   "versions": [
+    {
+     "ver": "v0.5",
+     "date": "2026-09-15",
+     "author": "관리자",
+     "summary": "내부 검토 반영본",
+     "fileName": "모바일플랫폼_제안서_v0.5.pptx",
+     "fileSize": "7.1MB"
+    },
+    {
+     "ver": "v1.0",
+     "date": "2026-09-24",
+     "author": "관리자",
+     "summary": "최종 제출본",
+     "fileName": "모바일플랫폼_제안서_v1.0.pdf",
+     "fileSize": "9.6MB"
+    }
+   ],
+   "mapping": {
+    "RFP-2026-002-I001": {
+     "section": "2.1",
+     "response": "수용",
+     "summary": "SSO 연계 표준 모듈 적용",
+     "owner": "관리자"
+    },
+    "RFP-2026-002-I002": {
+     "section": "2.2",
+     "response": "수용",
+     "summary": "FCM/APNs 기반 푸시 및 수신 이력 관리",
+     "owner": "관리자"
+    },
+    "RFP-2026-002-I003": {
+     "section": "2.3",
+     "response": "일부 수용",
+     "summary": "생체 인증은 지원 단말 한정",
+     "owner": "관리자"
+    },
+    "RFP-2026-002-I004": {
+     "section": "2.4",
+     "response": "수용",
+     "summary": "관리자 앱 배포·버전 정책 화면 제공",
+     "owner": "관리자"
+    },
+    "RFP-2026-002-I005": {
+     "section": "3.1",
+     "response": "수용",
+     "summary": "구동 시간 2초 이내 성능 설계",
+     "owner": "관리자"
+    },
+    "RFP-2026-002-I006": {
+     "section": "4.1",
+     "response": "수용",
+     "summary": "위·변조 방지 솔루션 적용",
+     "owner": "관리자"
+    },
+    "RFP-2026-002-I007": {
+     "section": "4.2",
+     "response": "수용",
+     "summary": "OS 호환성 테스트 매트릭스 제시",
+     "owner": "관리자"
+    },
+    "RFP-2026-002-I008": {
+     "section": "5.1",
+     "response": "일부 수용",
+     "summary": "망 분리 환경 구성안 제시",
+     "owner": "관리자"
+    },
+    "RFP-2026-002-I009": {
+     "section": "6.1",
+     "response": "수용",
+     "summary": "단계별 산출물 목록 제시",
+     "owner": "관리자"
+    }
+   },
+   "checklist": [
+    {
+     "id": "C1",
+     "name": "제안서 본문",
+     "done": true
+    },
+    {
+     "id": "C2",
+     "name": "제안서 요약본",
+     "done": true
+    },
+    {
+     "id": "C3",
+     "name": "가격(견적) 제안서",
+     "done": true
+    },
+    {
+     "id": "C4",
+     "name": "사업자등록증·인증서 사본",
+     "done": true
+    },
+    {
+     "id": "C5",
+     "name": "위임장·서약서",
+     "done": true
+    },
+    {
+     "id": "C6",
+     "name": "발표 자료(PT)",
+     "done": true
+    }
+   ]
+  }
+ ]
+}

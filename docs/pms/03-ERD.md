@@ -688,7 +688,9 @@ SLA 판정(충족/정상/임박/위반)은 `pms_project_operation`의 목표 시
 | 1단계 | 마스터·프로젝트: `pms_customer`, `pms_customer_contact`, `pms_project`, `pms_user_profile`, `pms_status_history`(프로젝트 상태 이력), 공통코드 시드(`PMS_*` 13개 그룹) | **완료(2026-10-27)** — API `/api/v1/pms/customers`, `/customer-contacts`, `/projects`(+`/status`, `/history`), `/user-profiles` |
 | 2단계 | 멤버·전환: `pms_project_member`(+`pms_member_phase`/`gap`/`month_plan`), `pms_transition`, `pms_team_change` | **완료(2026-10-27)** — API `/api/v1/pms/teams`, `/projects/{id}/team`, `/projects/{id}/transitions`, `/transitions/*`(approve/reject/cancel/rollback), `/projects/{id}/team-changes`, `/team-changes/*` |
 | 3단계 | WBS·이슈: `pms_wbs_task`, `pms_task_progress_log`, `pms_issue`, `pms_issue_task`, `pms_issue_history`, `pms_schedule_proposal`(+`_item`) | **완료(2026-10-28)** — API `/api/v1/pms/wbs-tasks`(+`/progress`, `/copy`), `/projects/{id}/wbs-tasks/bulk`, `/issues`(+`/tasks/{taskId}`, `/notes`), `/projects/{id}/issues`, `/schedule-proposals`(approve/reject/ignore) |
-| 4~5단계 | RFP·제안서·보고서·산출물 / 인력·원가·운영·사업 기회 | 예정 |
+| 4단계 | RFP·제안서: `pms_rfp`, `pms_rfp_item`, `pms_rfp_evaluator`, `pms_rfp_eval`, `pms_proposal`, `pms_proposal_version`, `pms_proposal_mapping`, `pms_proposal_checklist` | **완료(2026-10-28)** — API `/api/v1/pms/rfps`(+`/evaluators`, `/items`, `/evals/submit`, `/confirm-all`), `/rfp-items/{id}`(+`/evals/me`, `/confirm`), `/rfp-evals`, `/projects/{id}/rfps`, `/proposals`(+`/versions`, `/mappings/{rfpItemId}`, `/checklist`) |
+| 5단계 | 보고서·진척 스냅샷·산출물: `pms_report*`, `pms_progress_snapshot`, `pms_std_doc`, `pms_doc_*`, 진척 스냅샷 스케줄러 | 예정 |
+| 6~7단계 | 인력·원가(`pms_actual_mm`, `pms_rate`, `pms_setting`) / 운영·사업 기회(`pms_project_operation`, `pms_ops_*`, `pms_next_opportunity`) | 예정 |
 
 **1단계 구현 메모**
 - 권한: 조회·등록·수정·상태 변경은 로그인 사용자, 삭제는 `ROLE_ADMIN`(프로젝트 멤버 기반 조회 범위는 2단계 이후).
@@ -705,6 +707,16 @@ SLA 판정(충족/정상/임박/위반)은 `pms_project_operation`의 목표 시
 - 투입 변경의 변경 요약·과투입 예상은 화면이 계산해 보낸다(`summary_text`, `conflict_json`).
 - 금액 컬럼은 `BIGINT`(엔티티 Long) — 기존 DB는 `db/postgresql/05_alter_pms_money_bigint.sql` 로 변경.
 - 운영 단계 전환·운영 정보·수행 종료 상세는 5단계 전까지 메모리(목업).
+
+**4단계 구현 메모**
+- RFP 상태(접수→항목 정리 중→평가 중→평가 완료)는 저장하지 않고 화면이 계산한다. RFP 코드(`RFP-연도-###`)·제안서 코드(`PROP-연도-###`)·항목 코드(`분류-###`)는 서버가 채번.
+- 평가는 **로그인 사용자 본인 것만** 입력·제출한다(평가자로 지정된 사용자, 제출 후 수정 불가). 목업의 「평가자로 보기」 전환은 없앴다.
+- 블라인드는 서버가 강제한다: `GET /rfp-evals` 는 본인 평가 + **제출된** 평가자의 평가만 내려준다. 항목별 "n/m 완료"(`evalDone`)는 초안까지 서버가 세어 내려준다.
+- 확정 M/D: 확정 평가자(제출 완료자) 선택 → 그 평가자의 M/D가 확정 값, 직접 수정하면 「수정됨」. 확정·일괄 확정·재평가 요청은 센터장/admin 권한. 평가자 1명이면 제출 값이 기본 확정 값(화면 계산, 미저장).
+- RFP 삭제는 대응 제안서가 있으면 거부, 항목 삭제 시 그 항목의 평가·제안서 대응도 함께 삭제. 평가자에서 빠지면 그 평가자의 평가도 삭제.
+- 제안서 버전은 삭제 없이 누적(버전 번호 중복 거부). 항목 대응·체크리스트는 개별 API로 저장.
+- RFP 원본 문서·제안서 파일은 아직 저장하지 않는다(`module-file` 연동 시 지원): RFP 등록 화면의 파일 선택을 없앴고 제안서 버전은 파일명/크기 표시값만 저장. (RFP 파일명 컬럼은 소유권 문제 없이 쓰려고 추가하지 않았다.)
+- 개발용 샘플: 목업의 RFP 3·항목 23·평가 44·제안서 2를 `app-sandbox/src/main/resources/pms-seed-rfp.json` 으로 옮겨 `PmsDevDataSeeder` 가 넣는다.
 
 **3단계 구현 메모**
 - WBS 생성: RFP·평가가 4단계 전까지 목업이라 서버가 `selection_json`만으로 만들 수 없다. 그래서 **단계전환 승인 직후 화면이 만든 WBS를 `POST /projects/{id}/wbs-tasks/bulk` 로 일괄 저장**한다(임시 key/parentKey/predKey → 서버 ID로 변환, 이미 WBS가 있으면 거부). 4단계에서 서버 생성으로 옮긴다.

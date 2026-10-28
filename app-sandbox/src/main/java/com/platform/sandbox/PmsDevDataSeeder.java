@@ -7,6 +7,14 @@ import com.platform.module.pms.domain.Issue;
 import com.platform.module.pms.domain.IssueHistory;
 import com.platform.module.pms.domain.IssueTask;
 import com.platform.module.pms.domain.Project;
+import com.platform.module.pms.domain.Proposal;
+import com.platform.module.pms.domain.ProposalChecklist;
+import com.platform.module.pms.domain.ProposalMapping;
+import com.platform.module.pms.domain.ProposalVersion;
+import com.platform.module.pms.domain.Rfp;
+import com.platform.module.pms.domain.RfpEval;
+import com.platform.module.pms.domain.RfpEvaluator;
+import com.platform.module.pms.domain.RfpItem;
 import com.platform.module.pms.domain.StatusHistory;
 import com.platform.module.pms.domain.UserProfile;
 import com.platform.module.pms.domain.WbsTask;
@@ -19,6 +27,14 @@ import com.platform.module.pms.repository.IssueHistoryRepository;
 import com.platform.module.pms.repository.IssueRepository;
 import com.platform.module.pms.repository.IssueTaskRepository;
 import com.platform.module.pms.repository.ProjectRepository;
+import com.platform.module.pms.repository.ProposalChecklistRepository;
+import com.platform.module.pms.repository.ProposalMappingRepository;
+import com.platform.module.pms.repository.ProposalRepository;
+import com.platform.module.pms.repository.ProposalVersionRepository;
+import com.platform.module.pms.repository.RfpEvalRepository;
+import com.platform.module.pms.repository.RfpEvaluatorRepository;
+import com.platform.module.pms.repository.RfpItemRepository;
+import com.platform.module.pms.repository.RfpRepository;
 import com.platform.module.pms.repository.StatusHistoryRepository;
 import com.platform.module.pms.repository.TransitionRepository;
 import com.platform.module.pms.repository.UserProfileRepository;
@@ -80,6 +96,14 @@ public class PmsDevDataSeeder implements CommandLineRunner {
     private final IssueRepository issueRepository;
     private final IssueTaskRepository issueTaskRepository;
     private final IssueHistoryRepository issueHistoryRepository;
+    private final RfpRepository rfpRepository;
+    private final RfpItemRepository rfpItemRepository;
+    private final RfpEvaluatorRepository rfpEvaluatorRepository;
+    private final RfpEvalRepository rfpEvalRepository;
+    private final ProposalRepository proposalRepository;
+    private final ProposalVersionRepository proposalVersionRepository;
+    private final ProposalMappingRepository proposalMappingRepository;
+    private final ProposalChecklistRepository proposalChecklistRepository;
 
     public PmsDevDataSeeder(CompanyRepository companyRepository, UserRepository userRepository,
                             UserGroupRepository userGroupRepository, UserGroupUserRepository userGroupUserRepository,
@@ -89,7 +113,16 @@ public class PmsDevDataSeeder implements CommandLineRunner {
                             StatusHistoryRepository historyRepository, TransitionRepository transitionRepository,
                             TransitionService transitionService, WbsTaskRepository wbsTaskRepository,
                             IssueRepository issueRepository, IssueTaskRepository issueTaskRepository,
-                            IssueHistoryRepository issueHistoryRepository) {
+                            IssueHistoryRepository issueHistoryRepository,
+                            RfpRepository rfpRepository, RfpItemRepository rfpItemRepository, RfpEvaluatorRepository rfpEvaluatorRepository, RfpEvalRepository rfpEvalRepository, ProposalRepository proposalRepository, ProposalVersionRepository proposalVersionRepository, ProposalMappingRepository proposalMappingRepository, ProposalChecklistRepository proposalChecklistRepository) {
+        this.rfpRepository = rfpRepository;
+        this.rfpItemRepository = rfpItemRepository;
+        this.rfpEvaluatorRepository = rfpEvaluatorRepository;
+        this.rfpEvalRepository = rfpEvalRepository;
+        this.proposalRepository = proposalRepository;
+        this.proposalVersionRepository = proposalVersionRepository;
+        this.proposalMappingRepository = proposalMappingRepository;
+        this.proposalChecklistRepository = proposalChecklistRepository;
         this.wbsTaskRepository = wbsTaskRepository;
         this.issueRepository = issueRepository;
         this.issueTaskRepository = issueTaskRepository;
@@ -125,6 +158,7 @@ public class PmsDevDataSeeder implements CommandLineRunner {
             seedProjects(customers, contacts, users);
             seedExecutionTeams(users);
             seedWbsAndIssues(users);
+            seedRfpsAndProposals(users);
         } finally {
             TenantContext.clear();
         }
@@ -443,5 +477,100 @@ public class PmsDevDataSeeder implements CommandLineRunner {
             issues++;
         }
         log.info("[PmsDevDataSeeder] 샘플 WBS 업무 {}건·이슈 {}건 생성", tasks.size(), issues);
+    }
+
+    // ---------- RFP · 평가 · 제안서 (pms-seed-rfp.json: 목업의 더미 데이터를 옮긴 것) ----------
+
+    @SuppressWarnings("unchecked")
+    private void seedRfpsAndProposals(Map<String, User> users) {
+        if (!rfpRepository.findAll().isEmpty()) {
+            return;
+        }
+        Map<String, Object> root;
+        try (InputStream in = new ClassPathResource("pms-seed-rfp.json").getInputStream()) {
+            root = JsonMapper.builder().build().readValue(in, new TypeReference<Map<String, Object>>() {
+            });
+        } catch (Exception e) {
+            log.warn("[PmsDevDataSeeder] pms-seed-rfp.json 을 읽지 못해 RFP·제안서 샘플을 건너뜁니다: {}", e.getMessage());
+            return;
+        }
+        Map<String, Object> evals = (Map<String, Object>) root.get("evals");
+        Map<String, Object> subs = (Map<String, Object>) root.get("subs");
+        Map<String, Rfp> rfpByMockId = new HashMap<>();
+        Map<String, RfpItem> itemByMockId = new HashMap<>();
+        int itemCount = 0;
+        for (Map<String, Object> r : (List<Map<String, Object>>) root.get("rfps")) {
+            Project project = projectRepository.findByProjectCodeAndDeletedYn(str(r, "projectId"), "N").orElse(null);
+            if (project == null) {
+                continue;
+            }
+            Rfp rfp = rfpRepository.saveAndFlush(Rfp.create().withRfpCode(str(r, "id")).withProjectId(project.getId()).withTitle(str(r, "title"))
+                    .withRoundCode(str(r, "round")).withReceivedDate(date(r, "receivedDate")).withDueDate(date(r, "dueDate")));
+            rfpByMockId.put(str(r, "id"), rfp);
+            int order = 0;
+            for (Map<String, Object> i : (List<Map<String, Object>>) r.get("items")) {
+                RfpItem item = rfpItemRepository.save(RfpItem.create().withRfpId(rfp.getId()).withItemCode(str(i, "code"))
+                        .withCategoryCode(str(i, "category")).withArea(str(i, "area")).withItemName(str(i, "name")).withContent(str(i, "content"))
+                        .withSourcePage(i.get("page") == null ? null : Integer.valueOf(str(i, "page")))
+                        .withMandatoryYn(Boolean.TRUE.equals(i.get("mandatory")) ? "Y" : "N").withSortOrder(order++));
+                itemByMockId.put(str(i, "id"), item);
+                itemCount++;
+            }
+            for (Object name : (List<Object>) r.get("evaluators")) {
+                User u = users.get(name.toString());
+                boolean submitted = Boolean.TRUE.equals(subs.get(str(r, "id") + "|" + name));
+                rfpEvaluatorRepository.save(RfpEvaluator.create().withRfpId(rfp.getId()).withEvaluatorUserId(u.getId())
+                        .withSubmittedYn(submitted ? "Y" : "N").withSubmittedAt(submitted ? LocalDateTime.now() : null));
+            }
+        }
+        for (Map.Entry<String, Object> e : evals.entrySet()) {
+            String[] k = e.getKey().split("[|]");
+            RfpItem item = itemByMockId.get(k[1]);
+            User u = users.get(k[2]);
+            if (item == null || u == null) {
+                continue;
+            }
+            Map<String, Object> v = (Map<String, Object>) e.getValue();
+            rfpEvalRepository.save(RfpEval.create().withRfpItemId(item.getId()).withEvaluatorUserId(u.getId()).withKindCode(str(v, "kind"))
+                    .withImplCode(str(v, "impl")).withDifficultyCode(str(v, "difficulty")).withMd(num(v, "md")).withCommentText(str(v, "comment")));
+        }
+        int proposals = 0;
+        for (Map<String, Object> p : (List<Map<String, Object>>) root.get("proposals")) {
+            Rfp rfp = rfpByMockId.get(str(p, "rfpId"));
+            if (rfp == null) {
+                continue;
+            }
+            Proposal proposal = proposalRepository.saveAndFlush(Proposal.create().withProposalCode(str(p, "id")).withProjectId(rfp.getProjectId())
+                    .withRfpId(rfp.getId()).withTitle(str(p, "title")).withStatusCode(str(p, "status"))
+                    .withOwnerUserId(users.get(str(p, "owner")).getId()).withDueDate(date(p, "dueDate"))
+                    .withSubmittedDate(date(p, "submittedDate")).withPrice(p.get("price") == null ? null : Long.valueOf(str(p, "price")))
+                    .withCostEstimate(p.get("costEstimate") == null ? null : Long.valueOf(str(p, "costEstimate"))));
+            List<Map<String, Object>> versions = (List<Map<String, Object>>) p.get("versions");
+            for (int i = 0; i < versions.size(); i++) {
+                Map<String, Object> v = versions.get(i);
+                proposalVersionRepository.save(ProposalVersion.create().withProposalId(proposal.getId()).withVer(str(v, "ver"))
+                        .withVersionDate(date(v, "date")).withAuthorUserId(users.get(str(v, "author")).getId()).withSummary(str(v, "summary"))
+                        .withFileName(str(v, "fileName")).withFileSize(str(v, "fileSize"))
+                        .withSubmittedYn("제출 완료".equals(str(p, "status")) && i == versions.size() - 1 ? "Y" : "N"));
+            }
+            for (Map.Entry<String, Object> m : ((Map<String, Object>) p.get("mapping")).entrySet()) {
+                RfpItem item = itemByMockId.get(m.getKey());
+                if (item == null) {
+                    continue;
+                }
+                Map<String, Object> v = (Map<String, Object>) m.getValue();
+                User owner = str(v, "owner") == null ? null : users.get(str(v, "owner"));
+                proposalMappingRepository.save(ProposalMapping.create().withProposalId(proposal.getId()).withRfpItemId(item.getId())
+                        .withSection(str(v, "section")).withResponseCode(str(v, "response")).withSummary(str(v, "summary"))
+                        .withOwnerUserId(owner == null ? null : owner.getId()));
+            }
+            int order = 0;
+            for (Map<String, Object> c : (List<Map<String, Object>>) p.get("checklist")) {
+                proposalChecklistRepository.save(ProposalChecklist.create().withProposalId(proposal.getId()).withItemName(str(c, "name"))
+                        .withDoneYn(Boolean.TRUE.equals(c.get("done")) ? "Y" : "N").withSortOrder(order++));
+            }
+            proposals++;
+        }
+        log.info("[PmsDevDataSeeder] 샘플 RFP {}건(항목 {}건)·평가 {}건·제안서 {}건 생성", rfpByMockId.size(), itemCount, evals.size(), proposals);
     }
 }

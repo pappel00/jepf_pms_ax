@@ -3,6 +3,7 @@
  * 화면의 투입 인력은 이름으로 다루고 서버는 사용자 ID로 다루므로, 그 변환(teamCodec)과 현재 로그인 사용자 이름 조회에 쓴다.
  */
 import { useEffect, useSyncExternalStore } from 'react'
+import { getStoredAuth } from '../../../api/http'
 import { pmsUserProfilesApi } from '../../../api/entities'
 
 let state = { users: [], loaded: false }
@@ -42,3 +43,6 @@ export function usePmsUsers() {
 
 export const userIdByName = (name) => state.users.find((u) => u.userName === name)?.userId
 export const userNameById = (id) => state.users.find((u) => u.userId === id)?.userName ?? ''
+
+/** 현재 로그인한 사용자의 이름(사용자 디렉터리가 아직 없으면 빈 문자열). */
+export const currentUserName = () => userNameById(getStoredAuth()?.userId)

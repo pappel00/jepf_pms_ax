@@ -113,7 +113,7 @@ export default function RfpEvalAdminPage() {
       <div className="page-header">
         <div>
           <h2>
-            RFP 평가 관리 <span className="pms-mock-badge">목업 · 더미 데이터</span>
+            RFP 평가 관리
           </h2>
           <p className="page-description">
             평가자별 평가 현황을 항목 단위로 비교합니다. M/D는 자동으로 합산·평균하지 않고 평가자별 값과 소계·총합만 보여줍니다.

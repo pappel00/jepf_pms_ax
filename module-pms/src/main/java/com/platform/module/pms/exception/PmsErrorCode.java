@@ -27,4 +27,8 @@ public final class PmsErrorCode {
     public static final String ISSUE_INVALID = "ERR-PMS-0019";
     public static final String PROPOSAL_NOT_FOUND = "ERR-PMS-0020";
     public static final String PROPOSAL_INVALID = "ERR-PMS-0021";
+    public static final String RFP_NOT_FOUND = "ERR-PMS-0022";
+    public static final String RFP_INVALID = "ERR-PMS-0023";
+    public static final String PROPOSAL_DOC_NOT_FOUND = "ERR-PMS-0024";
+    public static final String PROPOSAL_DOC_INVALID = "ERR-PMS-0025";
 }
