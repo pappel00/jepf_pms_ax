@@ -24,7 +24,7 @@ public class Rate extends TenantAwareEntity {
     private String gradeCode;
 
     /** M/M 단가(원) */
-    @Column(name = "unit_price", precision = 18, scale = 0, nullable = false)
+    @Column(name = "unit_price", nullable = false)
     private Long unitPrice;
 
     /** 적용 시작일 */

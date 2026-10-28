@@ -72,7 +72,7 @@ public class Project extends TenantAwareEntity {
     private LocalDate endDate;
 
     /** 발주금액(확정 전 추정치, 원화) */
-    @Column(name = "amount", precision = 18, scale = 0, nullable = false)
+    @Column(name = "amount", nullable = false)
     private Long amount;
 
     /** 발주금액 부가세 포함 여부 */
@@ -112,7 +112,7 @@ public class Project extends TenantAwareEntity {
     private String competitors;
 
     /** 예상 원가 */
-    @Column(name = "cost_estimate", precision = 18, scale = 0)
+    @Column(name = "cost_estimate")
     private Long costEstimate;
 
     /** 예상 원가 출처: MANUAL/RATE_CALC */

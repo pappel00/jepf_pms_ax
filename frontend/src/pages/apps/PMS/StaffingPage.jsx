@@ -17,7 +17,10 @@ import {
   sumActual,
   useActuals,
 } from './assignmentStore'
+import { useAuth } from '../../../context/AuthContext'
 import { CHANGE_STATUSES, computeConflicts, decideChange, useChanges } from './changeStore'
+import { canSeeAllProjects } from './participation'
+import { usePmsUsers } from './pmsUsers'
 import { ME, MEMBERS, TODAY } from './pmsStore'
 import { useProjects } from './projectStore'
 import { isPartner, orgOf } from './teamConfig'
@@ -474,15 +477,18 @@ function AvailableTab({ assignments }) {
 function ChangesTab({ projects }) {
   const changes = useChanges()
   const [status, setStatus] = useState('')
-  const [approver, setApprover] = useState('인력 관리자') // 목업: 실제로는 로그인한 인력 관리자
+  const { auth } = useAuth()
+  const users = usePmsUsers()
+  const me = users.find((x) => x.userId === auth?.userId)?.userName ?? ''
+  const canApprove = canSeeAllProjects(auth) // 센터장·admin (서버도 같은 권한을 검사, 요청자 본인은 불가)
   const list = changes.filter((c) => !status || c.status === status)
 
   const decide = (c, result) => {
-    if (approver === c.requester) return window.alert('요청자 본인은 승인/반려할 수 없습니다. 승인자를 변경하세요.')
+    if (me && me === c.requester) return window.alert('요청자 본인은 승인/반려할 수 없습니다. 다른 승인자가 처리해야 합니다.')
     const comment = window.prompt(result === '승인' ? '승인 의견(선택)' : '반려 사유를 입력하세요.', '')
     if (comment === null) return
     if (result === '반려' && !comment.trim()) return window.alert('반려 사유를 입력하세요.')
-    decideChange(c.id, result, { by: approver, comment: comment.trim(), today: TODAY })
+    decideChange(c.id, result, { comment: comment.trim() }).catch((e) => window.alert(e.message))
   }
 
   return (
@@ -503,14 +509,8 @@ function ChangesTab({ projects }) {
           ))}
         </div>
         <span className="muted" style={{ marginLeft: 'auto' }}>
-          승인자로 보기(목업)
+          {canApprove ? '승인자 권한(센터장·admin)으로 로그인되어 있습니다' : '승인·반려는 센터장·admin만 할 수 있습니다'}
         </span>
-        <select value={approver} onChange={(e) => setApprover(e.target.value)}>
-          <option>인력 관리자</option>
-          {MEMBERS.map((m) => (
-            <option key={m.name}>{m.name}</option>
-          ))}
-        </select>
       </div>
       <table className="data-table pms-wbs">
         <thead>
@@ -573,12 +573,17 @@ function ChangesTab({ projects }) {
                   <span className={`pms-tag ${{ '승인 대기': 'manual', 승인: 'done', 반려: 'late', 취소: '' }[c.status]}`}>{c.status}</span>
                   {c.status === '승인 대기' ? (
                     <div style={{ marginTop: 6 }}>
-                      <button className="primary small" style={{ marginRight: 6 }} onClick={() => decide(c, '승인')}>
-                        승인
-                      </button>
-                      <button className="secondary small" onClick={() => decide(c, '반려')}>
-                        반려
-                      </button>
+                      {!canApprove && <span className="muted">승인 대기 중</span>}
+                      {canApprove && (
+                        <>
+                          <button className="primary small" style={{ marginRight: 6 }} onClick={() => decide(c, '승인')}>
+                            승인
+                          </button>
+                          <button className="secondary small" onClick={() => decide(c, '반려')}>
+                            반려
+                          </button>
+                        </>
+                      )}
                     </div>
                   ) : (
                     <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>

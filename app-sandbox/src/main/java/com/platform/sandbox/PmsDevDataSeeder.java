@@ -6,12 +6,16 @@ import com.platform.module.pms.domain.CustomerContact;
 import com.platform.module.pms.domain.Project;
 import com.platform.module.pms.domain.StatusHistory;
 import com.platform.module.pms.domain.UserProfile;
+import com.platform.module.pms.dto.TeamDto;
+import com.platform.module.pms.dto.TransitionDto;
 import com.platform.module.pms.event.PmsCodeBootstrapListener;
 import com.platform.module.pms.repository.CustomerContactRepository;
 import com.platform.module.pms.repository.CustomerRepository;
 import com.platform.module.pms.repository.ProjectRepository;
 import com.platform.module.pms.repository.StatusHistoryRepository;
+import com.platform.module.pms.repository.TransitionRepository;
 import com.platform.module.pms.repository.UserProfileRepository;
+import com.platform.module.pms.service.TransitionService;
 import com.platform.module.tenant.domain.Company;
 import com.platform.module.tenant.repository.CompanyRepository;
 import com.platform.module.user.domain.User;
@@ -58,13 +62,16 @@ public class PmsDevDataSeeder implements CommandLineRunner {
     private final ProjectRepository projectRepository;
     private final UserProfileRepository profileRepository;
     private final StatusHistoryRepository historyRepository;
+    private final TransitionRepository transitionRepository;
+    private final TransitionService transitionService;
 
     public PmsDevDataSeeder(CompanyRepository companyRepository, UserRepository userRepository,
                             UserGroupRepository userGroupRepository, UserGroupUserRepository userGroupUserRepository,
                             PasswordEncoder passwordEncoder, PmsCodeBootstrapListener pmsCodeBootstrapListener,
                             CustomerRepository customerRepository, CustomerContactRepository contactRepository,
                             ProjectRepository projectRepository, UserProfileRepository profileRepository,
-                            StatusHistoryRepository historyRepository) {
+                            StatusHistoryRepository historyRepository, TransitionRepository transitionRepository,
+                            TransitionService transitionService) {
         this.companyRepository = companyRepository;
         this.userRepository = userRepository;
         this.userGroupRepository = userGroupRepository;
@@ -76,6 +83,8 @@ public class PmsDevDataSeeder implements CommandLineRunner {
         this.projectRepository = projectRepository;
         this.profileRepository = profileRepository;
         this.historyRepository = historyRepository;
+        this.transitionRepository = transitionRepository;
+        this.transitionService = transitionService;
     }
 
     @Override
@@ -92,6 +101,7 @@ public class PmsDevDataSeeder implements CommandLineRunner {
             Map<String, Customer> customers = seedCustomers();
             Map<String, CustomerContact> contacts = seedContacts(customers);
             seedProjects(customers, contacts, users);
+            seedExecutionTeams(users);
         } finally {
             TenantContext.clear();
         }
@@ -107,6 +117,16 @@ public class PmsDevDataSeeder implements CommandLineRunner {
                 {"kimsales", "김영업"}, {"choisales", "최영업"}, {"leedesign", "이설계"},
                 {"kimdev", "김개발"}, {"parkpartner", "박협력"}, {"jungqa", "정QA"},
         };
+        // 센터장: 단계전환·투입 변경 승인 시연용(ADMIN_GROUP → ROLE_ADMIN). 요청자 본인은 승인할 수 없으므로 별도 승인자가 필요하다.
+        userRepository.findByLoginIdAndDeletedYn("centerhead", "N").orElseGet(() -> userRepository.saveAndFlush(
+                User.create("centerhead", passwordEncoder.encode("pms1234"), "centerhead@example.com", "센터장")));
+        User head = userRepository.findByLoginIdAndDeletedYn("centerhead", "N").orElseThrow();
+        userGroupRepository.findByGroupCodeAndDeletedYn("ADMIN_GROUP", "N").ifPresent(g -> {
+            if (!userGroupUserRepository.existsByUserGroupIdAndUserId(g.getId(), head.getId())) {
+                userGroupUserRepository.saveAndFlush(UserGroupUser.create(g.getId(), head.getId()));
+            }
+        });
+        byName.put(head.getUserName(), head);
         for (String[] s : samples) {
             User user = userRepository.findByLoginIdAndDeletedYn(s[0], "N").orElseGet(() -> {
                 User created = userRepository.saveAndFlush(
@@ -259,5 +279,55 @@ public class PmsDevDataSeeder implements CommandLineRunner {
                     .withActedAt(LocalDateTime.now()).withMemo("샘플 데이터 등록"));
         }
         log.info("[PmsDevDataSeeder] 샘플 프로젝트 {}건 생성", rows.length);
+    }
+
+    // ---------- 수행 팀(프로젝트 관리자·투입 인력) + 승인된 단계전환 이력 ----------
+
+    private TeamDto.Member member(Map<String, User> users, String name, String role, List<String> phases, double mm,
+                                  String from, String to, String notify) {
+        return new TeamDto.Member(users.get(name).getId(), role, phases, BigDecimal.valueOf(mm), null, LocalDate.parse(from),
+                LocalDate.parse(to), false, "편집", notify, List.of(), Map.of());
+    }
+
+    private void seedExecutionTeams(Map<String, User> users) {
+        if (!transitionRepository.findAll().isEmpty()) {
+            return;
+        }
+        List<String> all4 = List.of("분석", "설계", "개발", "테스트");
+        List<String> devTest = List.of("개발", "테스트");
+        User head = users.get("센터장");
+        // 코드, 전환일, 단계, 관리자, 관리자 역할, 팀
+        Object[][] rows = {
+                {"PRJ-2026-001", "2026-09-01", all4, "관리자", "PM", List.of(
+                        member(users, "이설계", "분석/설계", List.of("분석", "설계"), 4, "2026-09-01", "2026-12-31", null),
+                        member(users, "김개발", "개발", devTest, 6, "2026-10-01", "2027-03-31", null),
+                        member(users, "박협력", "개발", List.of("개발"), 4.5, "2026-10-06", "2027-02-26", "Mattermost"),
+                        member(users, "정QA", "QA", List.of("테스트"), 3, "2026-11-02", "2027-02-26", null))},
+                {"PRJ-2026-009", "2026-08-25", devTest, "이설계", "PL", List.of(
+                        member(users, "김개발", "개발", devTest, 2, "2026-09-01", "2026-12-31", null),
+                        member(users, "정QA", "QA", List.of("테스트"), 1.5, "2026-10-01", "2026-12-31", null))},
+                {"PRJ-2026-010", "2026-02-23", all4, "관리자", "PM", List.of(
+                        member(users, "이설계", "분석/설계", List.of("분석", "설계"), 3, "2026-03-02", "2026-05-29", null),
+                        member(users, "김개발", "개발", devTest, 4, "2026-04-01", "2026-08-28", null),
+                        member(users, "박협력", "개발", List.of("개발"), 3, "2026-04-01", "2026-07-31", "Mattermost"),
+                        member(users, "정QA", "QA", List.of("테스트"), 1.5, "2026-07-01", "2026-08-28", null))},
+                {"PRJ-2026-011", "2026-01-02", devTest, "관리자", "PM", List.of(
+                        member(users, "관리자", "PL", devTest, 3, "2026-01-05", "2026-06-30", null))},
+        };
+        for (Object[] r : rows) {
+            Project project = projectRepository.findByProjectCodeAndDeletedYn((String) r[0], "N").orElse(null);
+            if (project == null) {
+                continue;
+            }
+            LocalDate date = LocalDate.parse((String) r[1]);
+            @SuppressWarnings("unchecked")
+            List<TeamDto.Member> team = (List<TeamDto.Member>) r[5];
+            TeamDto.Spec spec = new TeamDto.Spec(new TeamDto.Manager(users.get((String) r[3]).getId(), (String) r[4]), team, false);
+            TransitionDto.Request request = new TransitionDto.Request((List<String>) r[2], null, List.of(), 0, "auto",
+                    "샘플 단계전환 (" + r[0] + ")", spec);
+            transitionService.seedApproved(project.getId(), request, date, users.get((String) r[3]).getId(), head.getId());
+            projectRepository.saveAndFlush(project.withExecStartDate(date));
+        }
+        log.info("[PmsDevDataSeeder] 샘플 수행 팀·단계전환 이력 {}건 생성", rows.length);
     }
 }

@@ -60,7 +60,7 @@ public class NextOpportunity extends TenantAwareEntity {
     private BigDecimal estMm;
 
     /** 예상 금액 */
-    @Column(name = "amount", precision = 18, scale = 0)
+    @Column(name = "amount")
     private Long amount;
 
     /** 예상 시기 (YYYY-Qn) */

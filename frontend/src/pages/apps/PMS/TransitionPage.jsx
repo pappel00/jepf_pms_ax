@@ -7,7 +7,9 @@ import { transitionProcess } from './processModels'
 import { buildTailoringFor } from './docStore'
 import { useIssues } from './issueStore'
 import { canSeeAllProjects } from './participation'
-import { cancelTransition, decideTransition, pendingTransitionOf, requestTransition, rollbackBlocker, rollbackProjectTransition, useRollbackLog, useTransitionRequests } from './transitionStore'
+import { approveTransition, cancelTransition, pendingTransitionOf, rejectTransition, requestTransition, rollbackBlocker, rollbackProjectTransition, useRollbackLog, useTransitionRequests } from './transitionStore'
+import { teamToSpec } from './teamCodec'
+import { usePmsUsers } from './pmsUsers'
 import { itemEvalSummary, useEvals } from './evalStore'
 import {
   CHAIN,
@@ -44,7 +46,8 @@ export default function TransitionPage() {
   const issues = useIssues()
   const requests = useTransitionRequests()
   const rollbackLog = useRollbackLog()
-  const canApprove = canSeeAllProjects(auth) // 센터장·admin만 승인 (목업: 본인 요청도 승인 가능)
+  usePmsUsers() // 사용자 디렉터리 로드(이름 ↔ 사용자 ID 변환)
+  const canApprove = canSeeAllProjects(auth) // 센터장·admin만 승인·반려·롤백 (서버도 같은 권한을 검사)
 
   const candidates = projects.filter((p) => p.status === '수주' && !tasks.some((t) => t.projectId === p.id) && !pendingTransitionOf(requests, p.id))
   const history = projects.filter((p) => p.transitioned)
@@ -126,7 +129,7 @@ export default function TransitionPage() {
   const unevaluated = chosen.filter((i) => !summaries[i.id]?.count).length
   const nonFunc = chosen.filter((i) => summaries[i.id]?.kind === '비기능').length
 
-  const execute = () => {
+  const execute = async () => {
     if (selectedPhases.length === 0) return window.alert('프로젝트 단계를 하나 이상 선택하세요.')
     if (!manager.name) return window.alert('프로젝트 관리자를 선택하세요.')
     if (team.some((m) => !m.name)) return window.alert('투입 인력의 이름을 모두 선택하세요.')
@@ -135,18 +138,20 @@ export default function TransitionPage() {
     if (!rfp && !window.confirm('등록된 RFP 항목이 없습니다. 항목 없이 단계와 표준 산출물만으로 기초데이터를 만들까요?')) return
     if (rfp && chosen.length === 0 && !window.confirm('선택한 RFP 항목이 없습니다. 항목 없이 단계와 표준 산출물만으로 기초데이터를 만들까요?')) return
     if (!window.confirm(`"${project.name}" 단계전환을 요청할까요?\n\n• WBS 업무 ${leaves.length}건 생성 예정\n• 문서 테일러링 ${docApplied.length}종 적용 예정\n\n승인자(센터장·admin)가 승인하면 실제로 반영됩니다.`)) return
-    // 실행에 필요한 값을 요청에 담아 두고, 승인 시점에 그대로 적용한다.
-    requestTransition({
-      project,
-      requester: ME,
-      today: TODAY,
-      payload: {
-        tasks: preview,
-        tailoring: { phases: selectedPhases, owners: docOwners, categories: new Set(chosen.map((i) => i.category)) },
-        transition: { manager, team, rfpId: rfp?.id, itemCount: chosen.length, phases: selectedPhases },
-      },
-      summary: `단계 ${selectedPhases.join(' → ')} · RFP 항목 ${chosen.length}건 · WBS 업무 ${leaves.length}건 · 문서 ${docApplied.length}종 · 관리자 ${manager.name}(${manager.role}), 투입 ${team.length}명`,
-    })
+    // 선택값(단계·RFP 항목·배정 방식·관리자/투입 인력)을 요청에 담아 서버에 저장한다 — 승인 시점에 이 값으로 기초데이터를 만든다.
+    try {
+      await requestTransition(project, {
+        phases: selectedPhases,
+        rfpId: rfp?.id ?? null,
+        itemIds: chosen.map((i) => i.id),
+        itemCount: chosen.length,
+        assignMode,
+        summary: `단계 ${selectedPhases.join(' → ')} · RFP 항목 ${chosen.length}건 · WBS 업무 ${leaves.length}건 · 문서 ${docApplied.length}종 · 관리자 ${manager.name}(${manager.role}), 투입 ${team.length}명`,
+        team: teamToSpec({ manager, team, restricted: false }),
+      })
+    } catch (e) {
+      return window.alert(e.message)
+    }
     setResult({ id: project.id, name: project.name, requested: true })
     setProjectId(null)
   }
@@ -158,7 +163,7 @@ export default function TransitionPage() {
       <div className="page-header">
         <div>
           <h2>
-            수행단계전환 <span className="pms-mock-badge">목업 · 더미 데이터</span>
+            수행단계전환
           </h2>
           <p className="page-description">
             수주가 확정된 프로젝트를 수행 단계로 넘깁니다. <b>프로젝트 단계</b>와 <b>RFP 항목</b>, <b>프로젝트 관리자·투입 인력</b>을 선택하면 수행 단계의
@@ -220,8 +225,8 @@ export default function TransitionPage() {
                           <button
                             className="link-btn"
                             onClick={() => {
-                              if (!window.confirm('승인하면 WBS·문서 테일러링이 생성되고 프로젝트가 「수행 중」이 됩니다. 승인할까요?')) return
-                              decideTransition(r.id, '승인', { by: ME, comment: '', today: TODAY })
+                              if (!window.confirm('승인하면 투입 인력이 확정되고 WBS·문서 테일러링이 생성되며 프로젝트가 「수행 중」이 됩니다. 승인할까요?')) return
+                              approveTransition(r.id).catch((e) => window.alert(e.message))
                             }}
                           >
                             승인
@@ -232,14 +237,14 @@ export default function TransitionPage() {
                             className="link-btn danger"
                             onClick={() => {
                               const comment = window.prompt('반려 사유를 입력하세요 (필수)')
-                              if (comment && comment.trim()) decideTransition(r.id, '반려', { by: ME, comment: comment.trim(), today: TODAY })
+                              if (comment && comment.trim()) rejectTransition(r.id, comment.trim()).catch((e) => window.alert(e.message))
                             }}
                           >
                             반려
                           </button>
                         )}
-                        {r.requester === ME && (
-                          <button className="link-btn" onClick={() => cancelTransition(r.id, { by: ME, today: TODAY })}>
+                        {(
+                          <button className="link-btn" onClick={() => cancelTransition(r.id).catch((e) => window.alert(e.message))}>
                             요청 취소
                           </button>
                         )}
@@ -623,7 +628,7 @@ export default function TransitionPage() {
                           title={!canApprove ? '롤백은 센터장·admin만 할 수 있습니다' : blocker ? `롤백 불가: ${blocker}` : '단계전환을 취소하고 수주 상태로 되돌립니다'}
                           onClick={() => {
                             const reason = window.prompt(`"${p.name}" 단계전환을 롤백합니다. WBS·문서 테일러링이 삭제되고 「수주」로 되돌아갑니다.\n롤백 사유를 입력하세요 (필수)`)
-                            if (reason && reason.trim()) rollbackProjectTransition(p, { reason: reason.trim(), by: ME, today: TODAY })
+                            if (reason && reason.trim()) rollbackProjectTransition(p, { reason: reason.trim() }).catch((e) => window.alert(e.message))
                           }}
                         >
                           롤백

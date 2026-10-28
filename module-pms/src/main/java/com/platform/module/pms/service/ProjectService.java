@@ -114,6 +114,38 @@ public class ProjectService {
         return toResponse(project);
     }
 
+    /** 수행단계전환 승인 — 상태를 「수행 중」으로, 전환일·수행 PM·열람 제한을 반영한다(상태 이력 기록). */
+    @Transactional
+    public void startExecution(String projectId, java.time.LocalDate date, String pmUserId, boolean restricted, String memo) {
+        Project project = findActiveOrThrow(projectId);
+        String before = project.getStatusCode();
+        project.withStatusCode("수행 중").withExecStartDate(date).withPmUserId(PmsSupport.blankToNull(pmUserId))
+                .withViewRestrictedYn(restricted ? "Y" : "N");
+        if (!before.equals("수행 중")) {
+            recordHistory(project.getId(), before, "수행 중", memo);
+        }
+    }
+
+    /** 단계전환 롤백 — 「수주」로 되돌리고 전환일·수행 PM·열람 제한을 지운다. */
+    @Transactional
+    public void rollbackExecution(String projectId, String reason) {
+        Project project = findActiveOrThrow(projectId);
+        String before = project.getStatusCode();
+        project.withStatusCode("수주").withExecStartDate(null).withPmUserId(null).withViewRestrictedYn("N");
+        recordHistory(project.getId(), before, "수주", "단계전환 롤백: " + reason);
+    }
+
+    /** 투입 계획 변경 승인 반영 — 수행 PM·열람 제한. */
+    @Transactional
+    public void updateExecutionSettings(String projectId, String pmUserId, boolean restricted) {
+        findActiveOrThrow(projectId).withPmUserId(PmsSupport.blankToNull(pmUserId)).withViewRestrictedYn(restricted ? "Y" : "N");
+    }
+
+    /** 프로젝트 존재/상태 확인용(전환·변경 요청 서비스가 사용). */
+    public Project requireProject(String projectId) {
+        return findActiveOrThrow(projectId);
+    }
+
     @Transactional
     public void delete(String id) {
         Project project = findActiveOrThrow(id);

@@ -51,11 +51,11 @@ public class Proposal extends TenantAwareEntity {
     private LocalDate submittedDate;
 
     /** 제안 금액 */
-    @Column(name = "price", precision = 18, scale = 0)
+    @Column(name = "price")
     private Long price;
 
     /** 예상 원가 */
-    @Column(name = "cost_estimate", precision = 18, scale = 0)
+    @Column(name = "cost_estimate")
     private Long costEstimate;
 
     protected Proposal() {

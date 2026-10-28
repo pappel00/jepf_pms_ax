@@ -88,6 +88,7 @@ const seed = [
 ]
 
 let rfps = seed
+export const getRfps = () => rfps
 const listeners = new Set()
 
 function emit(next) {

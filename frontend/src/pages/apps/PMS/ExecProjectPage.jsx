@@ -64,9 +64,12 @@ function ChangeRequestModal({ project, after, onClose, onSubmitted }) {
           disabled={summary.length === 0}
           onClick={() => {
             if (!reason.trim()) return setError('변경 사유를 입력하세요.')
-            submitChange({ project, after, reason: reason.trim(), requester: ME, today: TODAY })
-            onSubmitted()
-            onClose()
+            submitChange({ project, after, reason: reason.trim() })
+              .then(() => {
+                onSubmitted()
+                onClose()
+              })
+              .catch((e) => setError(e.message))
           }}
         >
           변경 요청 등록
@@ -242,7 +245,7 @@ function ExecProject({ project }) {
           <div className="pms-blind" style={{ background: '#fff4d6', borderColor: '#ecd48b', color: '#6b4d00', marginTop: 10 }}>
             ⏳ <b>변경 요청 {pending.id}</b>이(가) 승인 대기 중입니다({pending.requester}, {pending.requestedAt}). 승인 또는 반려될 때까지 수정할 수 없습니다.
             {pending.requester === ME && (
-              <button className="link-btn" style={{ marginLeft: 12 }} onClick={() => cancelChange(pending.id, { by: ME, today: TODAY })}>
+              <button className="link-btn" style={{ marginLeft: 12 }} onClick={() => cancelChange(pending.id).catch((e) => window.alert(e.message))}>
                 요청 취소
               </button>
             )}

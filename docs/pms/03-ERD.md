@@ -686,7 +686,7 @@ SLA 판정(충족/정상/임박/위반)은 `pms_project_operation`의 목표 시
 | 단계 | 범위 | 상태 |
 |---|---|---|
 | 1단계 | 마스터·프로젝트: `pms_customer`, `pms_customer_contact`, `pms_project`, `pms_user_profile`, `pms_status_history`(프로젝트 상태 이력), 공통코드 시드(`PMS_*` 13개 그룹) | **완료(2026-10-27)** — API `/api/v1/pms/customers`, `/customer-contacts`, `/projects`(+`/status`, `/history`), `/user-profiles` |
-| 2단계 | 멤버·전환: `pms_project_member*`, `pms_transition`, `pms_team_change` | 예정 |
+| 2단계 | 멤버·전환: `pms_project_member`(+`pms_member_phase`/`gap`/`month_plan`), `pms_transition`, `pms_team_change` | **완료(2026-10-27)** — API `/api/v1/pms/teams`, `/projects/{id}/team`, `/projects/{id}/transitions`, `/transitions/*`(approve/reject/cancel/rollback), `/projects/{id}/team-changes`, `/team-changes/*` |
 | 3단계 | WBS·이슈 | 예정 |
 | 4~5단계 | RFP·제안서·보고서·산출물 / 인력·원가·운영·사업 기회 | 예정 |
 
@@ -696,3 +696,12 @@ SLA 판정(충족/정상/임박/위반)은 `pms_project_operation`의 목표 시
 - 서버 검증: 상태별 조건부 필수(제안 단계부터 담당자·연락처, 공고 중/제안 중 마감일, 실패/보류 사유 코드), 고객사–담당자 일치, 수주 이후 삭제 불가, 사용 중인 고객사·담당자 삭제 불가.
 - 프론트: 고객사·담당자·프로젝트 화면은 API 사용(화면 id = 코드, 서버 PK = dbId). 수행 관리 정보(투입 인력 등)·수행 종료·운영 정보는 서버 테이블이 생기는 2단계 전까지 메모리(목업)로 유지.
 - 개발용 샘플 데이터: `PmsDevDataSeeder`(app-sandbox) — 고객사 7·담당자 9·프로젝트 11·샘플 사용자 6명(김영업·최영업·이설계·김개발·박협력·정QA, 비밀번호 `pms1234`). 운영 배포 시 제거.
+
+**2단계 구현 메모**
+- 팀은 직접 수정 API가 없다 — 단계전환 승인(최초 지정)과 투입 계획 변경 승인으로만 `replaceTeam`(물리 삭제 후 재생성)으로 바뀐다. 이력은 `pms_team_change`의 before/after 스냅샷(JSONB)에 남는다.
+- 관리자가 투입 인력에 없으면 `role_code=MANAGER_ONLY` 행으로 둔다(팀 조회에서는 제외).
+- 승인·반려·롤백은 `ROLE_CENTER_HEAD`/`ROLE_ADMIN`/`ROLE_SYSTEM_ADMIN`. 투입 변경은 **요청자 본인 승인/반려 불가**(서버 검증), 단계전환은 본인 요청도 승인 가능.
+- 단계전환 승인 시 서버는 팀 확정·프로젝트 「수행 중」(전환일·수행 PM·열람 제한)까지 처리하고, WBS·문서 테일러링 기초데이터는 3단계 전까지 화면이 요청의 `selection`으로 승인 직후 메모리에 생성한다. 롤백의 진척·이슈 확인도 같은 이유로 화면이 먼저 확인한다.
+- 투입 변경의 변경 요약·과투입 예상은 화면이 계산해 보낸다(`summary_text`, `conflict_json`).
+- 금액 컬럼은 `BIGINT`(엔티티 Long) — 기존 DB는 `db/postgresql/05_alter_pms_money_bigint.sql` 로 변경.
+- 운영 단계 전환·운영 정보·수행 종료 상세는 5단계 전까지 메모리(목업).

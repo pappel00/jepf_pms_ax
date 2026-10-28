@@ -40,7 +40,7 @@ public class OpsOpportunity extends TenantAwareEntity {
     private String stageCode;
 
     /** 예상 금액 */
-    @Column(name = "amount", precision = 18, scale = 0)
+    @Column(name = "amount")
     private Long amount;
 
     /** 확률도(%) */

@@ -17,4 +17,8 @@ public final class PmsErrorCode {
     public static final String USER_NOT_FOUND = "ERR-PMS-0009";
     public static final String PROJECT_STATUS_INVALID = "ERR-PMS-0010";
     public static final String CONTACT_INVALID = "ERR-PMS-0011";
+    public static final String TRANSITION_NOT_FOUND = "ERR-PMS-0012";
+    public static final String TRANSITION_INVALID = "ERR-PMS-0013";
+    public static final String TEAM_CHANGE_NOT_FOUND = "ERR-PMS-0014";
+    public static final String TEAM_CHANGE_INVALID = "ERR-PMS-0015";
 }

@@ -35,7 +35,7 @@ public class ProjectOperation extends TenantAwareEntity {
     private LocalDate endDate;
 
     /** 계약금액 */
-    @Column(name = "contract_amount", precision = 18, scale = 0)
+    @Column(name = "contract_amount")
     private Long contractAmount;
 
     /** SLA 등급: 기본/표준/프리미엄 */

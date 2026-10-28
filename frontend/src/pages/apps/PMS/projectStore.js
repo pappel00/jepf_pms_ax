@@ -3,8 +3,10 @@
  * 영업 담당자만 실제 사용자 관리(/api/v1/users) 연동을 목업으로 보여준다(ProjectsPage 참고).
  */
 import { useEffect, useSyncExternalStore } from 'react'
-import { pmsProjectsApi } from '../../../api/entities'
+import { pmsProjectsApi, pmsTeamsApi, pmsTransitionsApi } from '../../../api/entities'
 import { contactCodeOfDbId, contactDbId, customerCodeOfDbId, customerDbId, ensureCustomersLoaded } from './customerStore'
+import { ensurePmsUsersLoaded } from './pmsUsers'
+import { teamFromResponse } from './teamCodec'
 
 /**
  * 사업 상태 — 영업(수주 전) 파이프라인 + 수행 + 종료.
@@ -43,38 +45,10 @@ export const BID_TYPES = ['공개 경쟁입찰', '제한 경쟁입찰', '협상�
 // 서버 테이블이 아직 없는 목업 전용 정보(프로젝트 코드별). 이후 단계에서 pms_project_member 등으로 옮긴다.
 const EXTRAS_SEED = {
   'PRJ-2026-001': {
-    transitioned: {
-      date: '2026-09-01', rfpId: '', itemCount: 0, phases: ['분석', '설계', '개발', '테스트'],
-      manager: { name: '관리자', role: 'PM' },
-      team: [
-        { name: '이설계', role: '분석/설계', phases: ['분석', '설계'], mm: 4, from: '2026-09-01', to: '2026-12-31', notify: '' },
-        { name: '김개발', role: '개발', phases: ['개발', '테스트'], mm: 6, from: '2026-10-01', to: '2027-03-31', notify: '' },
-        { name: '박협력', role: '개발', phases: ['개발'], mm: 4.5, from: '2026-10-06', to: '2027-02-26', notify: 'Mattermost' },
-        { name: '정QA', role: 'QA', phases: ['테스트'], mm: 3, from: '2026-11-02', to: '2027-02-26', notify: '' },
-      ],
-    },
   },
   'PRJ-2026-009': {
-    transitioned: {
-      date: '2026-08-25', rfpId: '', itemCount: 0, phases: ['개발', '테스트'],
-      manager: { name: '이설계', role: 'PL' },
-      team: [
-        { name: '김개발', role: '개발', phases: ['개발', '테스트'], mm: 2, from: '2026-09-01', to: '2026-12-31', notify: '' },
-        { name: '정QA', role: 'QA', phases: ['테스트'], mm: 1.5, from: '2026-10-01', to: '2026-12-31', notify: '' },
-      ],
-    },
   },
   'PRJ-2026-010': {
-    transitioned: {
-      date: '2026-02-23', rfpId: '', itemCount: 0, phases: ['분석', '설계', '개발', '테스트'],
-      manager: { name: '관리자', role: 'PM' },
-      team: [
-        { name: '이설계', role: '분석/설계', phases: ['분석', '설계'], mm: 3, from: '2026-03-02', to: '2026-05-29', notify: '' },
-        { name: '김개발', role: '개발', phases: ['개발', '테스트'], mm: 4, from: '2026-04-01', to: '2026-08-28', notify: '' },
-        { name: '박협력', role: '개발', phases: ['개발'], mm: 3, from: '2026-04-01', to: '2026-07-31', notify: 'Mattermost' },
-        { name: '정QA', role: 'QA', phases: ['테스트'], mm: 1.5, from: '2026-07-01', to: '2026-08-28', notify: '' },
-      ],
-    },
     completed: {
       date: '2026-08-28', memo: '최종 검수 완료, 미해결 이슈 없음',
       features: ['협업 워크스페이스', '프로젝트·태스크 관리', '주간 보고서', '알림·메신저 연동', '통합 검색'],
@@ -82,11 +56,6 @@ const EXTRAS_SEED = {
     },
   },
   'PRJ-2026-011': {
-    transitioned: {
-      date: '2026-01-02', rfpId: '', itemCount: 0, phases: ['개발', '테스트'],
-      manager: { name: '관리자', role: 'PM' },
-      team: [{ name: '관리자', role: 'PL', phases: ['개발', '테스트'], mm: 3, from: '2026-01-05', to: '2026-06-30', notify: '' }],
-    },
     completed: { date: '2026-06-30', memo: '검수 완료', features: ['전자결재', '통합검색', '모바일 결재'], openIssues: 0 },
     operation: {
       date: '2026-07-01', type: '유상 유지보수', startDate: '2026-07-01', endDate: '2026-12-31', contractAmount: 150000000,
@@ -126,6 +95,7 @@ const fromApi = (a) => ({
   dueDate: a.dueDate ?? '', presentDate: a.presentDate ?? '', competitors: a.competitors ?? '',
   costEstimate: a.costEstimate ?? null, costSourceType: a.costSourceType ?? '', costSource: a.costSourceNote ?? '',
   failReasonCode: a.failReasonCode ?? '', failReason: a.failReasonDetail ?? '', viewRestricted: a.viewRestrictedYn === 'Y', memo: a.memo ?? '',
+  execStart: a.execStartDate ?? '',
 })
 
 /** 화면 형태 → 서버 요청. */
@@ -141,13 +111,44 @@ const toApi = (p) => ({
   viewRestrictedYn: p.viewRestricted ? 'Y' : 'N', memo: p.memo || null,
 })
 
-/** 서버에서 프로젝트 목록을 다시 읽는다(고객사 코드 변환을 위해 고객사를 먼저 불러온다). */
+/**
+ * 서버에서 프로젝트 목록을 다시 읽는다 — 고객사(코드 변환), 사용자 디렉터리, 수행 팀, 승인된 단계전환을 함께 읽어
+ * 화면이 쓰는 transitioned({ date, rfpId, itemCount, phases, manager, team, restricted })를 조립한다.
+ */
 export function loadProjects() {
   if (loading) return loading
-  loading = ensureCustomersLoaded()
-    .then(() => pmsProjectsApi.list('?size=1000&sort=projectCode'))
-    .then((res) => {
-      base = (res.data || []).map(fromApi)
+  loading = Promise.all([ensureCustomersLoaded(), ensurePmsUsersLoaded()])
+    .then(() =>
+      Promise.all([
+        pmsProjectsApi.list('?size=1000&sort=projectCode'),
+        pmsTeamsApi.list('EXEC').catch(() => ({ data: [] })),
+        pmsTransitionsApi.list('?status=승인&kind=EXEC').catch(() => ({ data: [] })),
+      ]),
+    )
+    .then(([projRes, teamRes, trRes]) => {
+      const teamOf = Object.fromEntries((teamRes.data || []).map((x) => [x.projectId, teamFromResponse(x)]))
+      // 프로젝트별 가장 최근 승인 건
+      const approvedOf = {}
+      ;(trRes.data || []).forEach((tr) => {
+        if (!approvedOf[tr.projectId] || tr.requestedAt > approvedOf[tr.projectId].requestedAt) approvedOf[tr.projectId] = tr
+      })
+      base = (projRes.data || []).map((a) => {
+        const p = fromApi(a)
+        const team = teamOf[a.id]
+        if (team && a.statusCode !== '수주') {
+          const tr = approvedOf[a.id]
+          p.transitioned = {
+            date: a.execStartDate ?? (tr?.decidedAt ?? '').slice(0, 10),
+            rfpId: tr?.rfpId ?? '',
+            itemCount: tr?.itemCount ?? 0,
+            phases: tr?.selection?.phases ?? ['분석', '설계', '개발', '테스트'],
+            manager: team.manager,
+            team: team.team,
+            restricted: team.restricted,
+          }
+        }
+        return p
+      })
       loaded = true
       emit()
     })
@@ -162,6 +163,10 @@ export function loadProjects() {
   return loading
 }
 
+/** 훅 없이 현재 프로젝트 목록을 읽는다(다른 스토어가 계산에 쓴다). */
+export const getProjects = () => projects
+/** 서버 PK → 프로젝트 코드(화면 id). */
+export const projectCodeOfDbId = (dbId) => base.find((p) => p.dbId === dbId)?.id ?? ''
 export function useProjects() {
   useEffect(() => {
     if (!loaded) loadProjects()
@@ -200,36 +205,6 @@ function setStatus(id, status, memo) {
 
 const patchExtras = (id, patch) => {
   extras = { ...extras, [id]: { ...(extras[id] ?? {}), ...patch } }
-}
-
-/** 단계전환 — 수주 프로젝트를 수행 중으로 바꾸고 수행 PM·전환 이력을 남긴다. */
-export function transitionProject(id, { manager, team, date, rfpId, itemCount, phases }) {
-  // 프로젝트 관리자의 프로젝트 내 역할이 PM이면 수행 PM으로도 기록한다(PL/PMO 관리자면 PM은 비움).
-  patchExtras(id, {
-    pmName: manager.role === 'PM' ? manager.name : '',
-    transitioned: { date, rfpId: rfpId ?? '', itemCount, phases, manager, team },
-  })
-  setStatus(id, '수행 중', '단계전환')
-}
-
-/** 단계전환 롤백 — 수행 중이던 프로젝트를 「수주」로 되돌리고 수행 관리 정보를 지운다. */
-export function rollbackTransition(id) {
-  const { transitioned, pmName, ...rest } = extras[id] ?? {}
-  extras = { ...extras, [id]: { ...rest, pmName: '' } }
-  setStatus(id, '수주', '단계전환 롤백')
-}
-
-/**
- * 수행 단계 「프로젝트 관리」 저장 — 프로젝트 관리자와 투입 인력(프로젝트 멤버)을 수정한다.
- * 영업단계 기본 정보는 수정하지 않는다.
- */
-export function updateExecution(id, { manager, team, restricted }) {
-  const cur = projects.find((p) => p.id === id)
-  patchExtras(id, {
-    pmName: manager.role === 'PM' ? manager.name : '',
-    transitioned: { ...cur?.transitioned, manager, team, restricted: restricted ?? cur?.transitioned?.restricted ?? false },
-  })
-  emit()
 }
 
 /** 수행 종료 처리 — 프로젝트 관리자가 준공/검수 완료를 확정한다. 운영단계 인수 대상 기능 목록을 함께 남긴다. */

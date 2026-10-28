@@ -33,6 +33,25 @@ export const pmsUserProfilesApi = {
   get: (userId) => apiFetch(`/api/v1/pms/user-profiles/${userId}`),
   upsert: (userId, body) => apiFetch(`/api/v1/pms/user-profiles/${userId}`, { method: 'PUT', body }),
 }
+export const pmsTeamsApi = {
+  list: (kind = 'EXEC') => apiFetch(`/api/v1/pms/teams?kind=${kind}`),
+  get: (projectId, kind = 'EXEC') => apiFetch(`/api/v1/pms/projects/${projectId}/team?kind=${kind}`),
+}
+export const pmsTransitionsApi = {
+  list: (query = '') => apiFetch(`/api/v1/pms/transitions${query}`),
+  request: (projectId, body) => apiFetch(`/api/v1/pms/projects/${projectId}/transitions`, { method: 'POST', body }),
+  approve: (id) => apiFetch(`/api/v1/pms/transitions/${id}/approve`, { method: 'POST', body: {} }),
+  reject: (id, comment) => apiFetch(`/api/v1/pms/transitions/${id}/reject`, { method: 'POST', body: { comment } }),
+  cancel: (id) => apiFetch(`/api/v1/pms/transitions/${id}/cancel`, { method: 'POST', body: {} }),
+  rollback: (id, reason) => apiFetch(`/api/v1/pms/transitions/${id}/rollback`, { method: 'POST', body: { reason } }),
+}
+export const pmsTeamChangesApi = {
+  list: (query = '') => apiFetch(`/api/v1/pms/team-changes${query}`),
+  request: (projectId, body) => apiFetch(`/api/v1/pms/projects/${projectId}/team-changes`, { method: 'POST', body }),
+  approve: (id, comment) => apiFetch(`/api/v1/pms/team-changes/${id}/approve`, { method: 'POST', body: { comment: comment || null } }),
+  reject: (id, comment) => apiFetch(`/api/v1/pms/team-changes/${id}/reject`, { method: 'POST', body: { comment } }),
+  cancel: (id) => apiFetch(`/api/v1/pms/team-changes/${id}/cancel`, { method: 'POST', body: {} }),
+}
 // --- 매핑(N:M) 하위 리소스 ---
 export const userGroupRolesApi = (userGroupId) => createMappingApi(`/api/v1/user-groups/${userGroupId}/roles`)
 export const userGroupUsersApi = (userGroupId) => createMappingApi(`/api/v1/user-groups/${userGroupId}/users`)
