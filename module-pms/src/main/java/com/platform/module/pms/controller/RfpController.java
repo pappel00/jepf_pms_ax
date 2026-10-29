@@ -2,6 +2,8 @@ package com.platform.module.pms.controller;
 
 import com.platform.framework.core.common.response.ApiResponse;
 import com.platform.module.pms.dto.RfpDto;
+import com.platform.module.pms.dto.RfpParseDto;
+import com.platform.module.pms.service.RfpParseService;
 import com.platform.module.pms.service.RfpService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /** RFP·항목·평가자·평가·확정 M/D API. 재평가 요청·확정은 평가 관리자(센터장·admin). */
 @RestController
@@ -28,9 +31,18 @@ public class RfpController {
     private static final String EVAL_ADMIN = "hasAnyRole('PMS_APPROVE','ADMIN','SYSTEM_ADMIN')";
 
     private final RfpService rfpService;
+    private final RfpParseService parseService;
 
-    public RfpController(RfpService rfpService) {
+    public RfpController(RfpService rfpService, RfpParseService parseService) {
         this.rfpService = rfpService;
+        this.parseService = parseService;
+    }
+
+    /** RFP 문서(hwpx) 자동 분해 미리보기 — 저장하지 않는다. 확인한 항목은 항목 일괄 등록 API 로 저장한다. */
+    @PostMapping(value = "/rfp-parse", consumes = "multipart/form-data")
+    public ApiResponse<RfpParseDto.Response> parse(@RequestParam("file") MultipartFile file,
+                                                    @RequestParam(defaultValue = "false") boolean splitLines) {
+        return ApiResponse.success("200", "문서를 분석했습니다.", parseService.parse(file, splitLines));
     }
 
     @GetMapping("/rfps")

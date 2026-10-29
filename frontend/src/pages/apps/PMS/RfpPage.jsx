@@ -12,7 +12,9 @@ import {
   deleteItem,
   deleteRfp,
   evalProgressOf,
+  importParsedItems,
   importSampleItems,
+  parseRfpDocument,
   nextItemCode,
   nextRfpId,
   rfpStatusOf,
@@ -49,21 +51,49 @@ function RfpForm({ initial, isNew, projects, onClose, onSaved }) {
   const [method, setMethod] = useState('excel')
   const [errors, setErrors] = useState({})
   const set = (k, v) => setR((p) => ({ ...p, [k]: v }))
+  // 문서 자동 분해: 파일 → 분석(미리보기) → 분류별로 포함 여부를 고르고 저장
+  const [file, setFile] = useState(null)
+  const [split, setSplit] = useState(false)
+  const [parsing, setParsing] = useState(false)
+  const [preview, setPreview] = useState(null)
+  const [catOff, setCatOff] = useState(new Set())
+  const analyze = async () => {
+    if (!file) return window.alert('hwpx 문서를 선택하세요.')
+    setParsing(true)
+    try {
+      setPreview(await parseRfpDocument(file, split))
+      setCatOff(new Set())
+    } catch (err) {
+      setPreview(null)
+      window.alert(`문서를 분석하지 못했습니다: ${err.message}`)
+    } finally {
+      setParsing(false)
+    }
+  }
+  const selectedItems = preview ? preview.items.filter((i) => !catOff.has(i.categoryCode)) : []
 
   const submit = async () => {
     const e = {}
     if (!r.projectId) e.projectId = '프로젝트를 선택하세요.'
     if (!r.title.trim()) e.title = 'RFP명을 입력하세요.'
     if (!r.receivedDate) e.receivedDate = '접수일을 선택하세요.'
+    if (isNew && method === 'auto' && !preview) e.intake = '문서를 선택하고 「문서 분석」으로 항목을 확인하세요.'
     setErrors(e)
     if (Object.keys(e).length) return
     let saved
     try {
       saved = await saveRfp({ ...r, title: r.title.trim() })
-      if (isNew && method === 'excel') await importSampleItems(saved.id)
     } catch (err) {
       window.alert(`RFP를 저장하지 못했습니다: ${err.message}`)
       return
+    }
+    try {
+      if (isNew && method === 'excel') await importSampleItems(saved.id)
+      if (isNew && method === 'auto' && selectedItems.length) await importParsedItems(saved.id, selectedItems)
+    } catch (err) {
+      // RFP 는 이미 등록되어 있다 — 등록된 항목까지만 남고, 나머지는 RFP 상세에서 다시 추가할 수 있다.
+      window.alert(`RFP는 등록했지만 항목 등록 중 오류가 발생했습니다.
+${err.message}`)
     }
     onSaved(saved.id)
     onClose()
@@ -115,6 +145,85 @@ function RfpForm({ initial, isNew, projects, onClose, onSaved }) {
           {method === 'excel' && (
             <div className="pms-hint" style={{ boxShadow: 'none', background: '#f4f5f7' }}>
               목업: 저장하면 샘플 항목 6건이 엑셀에서 읽혀 등록된 것으로 처리합니다.
+            </div>
+          )}
+          {method === 'auto' && (
+            <div className="pms-hint" style={{ boxShadow: 'none', background: '#f4f5f7' }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <input
+                  type="file"
+                  accept=".hwpx"
+                  onChange={(e) => {
+                    setFile(e.target.files?.[0] ?? null)
+                    setPreview(null)
+                  }}
+                />
+                <label style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                  <input type="checkbox" checked={split} onChange={(e) => { setSplit(e.target.checked); setPreview(null) }} />
+                  세부내용을 줄 단위로 분해
+                </label>
+                <button className="secondary small" disabled={!file || parsing} onClick={analyze}>
+                  {parsing ? '분석 중…' : '문서 분석'}
+                </button>
+              </div>
+              <div className="pms-field-hint">
+                요구사항 상세표(구분·고유번호·명칭·정의·세부내용)를 읽습니다. 줄 단위 분해를 켜면 세부내용의 줄마다 항목이 만들어져 건수가 크게 늘어납니다. 원문 파일은 저장하지 않습니다.
+              </div>
+              {errors.intake && <div className="pms-field-error">{errors.intake}</div>}
+              {preview && (
+                <div style={{ marginTop: 8 }}>
+                  <b>
+                    요구사항 {preview.requirementCount}건 → 항목 {preview.itemCount}건
+                  </b>{' '}
+                  <span className="muted">(등록 대상 {selectedItems.length}건)</span>
+                  {preview.warnings.length > 0 && (
+                    <ul style={{ margin: '4px 0', color: '#b3261e', fontSize: 12 }}>
+                      {preview.warnings.slice(0, 8).map((w) => (
+                        <li key={w}>{w}</li>
+                      ))}
+                    </ul>
+                  )}
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', margin: '6px 0' }}>
+                    {[...new Set(preview.items.map((i) => i.categoryCode))].map((c) => (
+                      <label key={c} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={!catOff.has(c)}
+                          onChange={() =>
+                            setCatOff((prev) => {
+                              const next = new Set(prev)
+                              next.has(c) ? next.delete(c) : next.add(c)
+                              return next
+                            })
+                          }
+                        />
+                        {c} {categoryName(c) !== c ? `· ${categoryName(c)}` : ''} ({preview.items.filter((i) => i.categoryCode === c).length})
+                      </label>
+                    ))}
+                  </div>
+                  <div style={{ maxHeight: 220, overflow: 'auto', background: '#fff', border: '1px solid #e3e6ee' }}>
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>코드</th>
+                          <th>분류</th>
+                          <th>항목명</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedItems.slice(0, 100).map((i) => (
+                          <tr key={i.itemCode}>
+                            <td>{i.itemCode}</td>
+                            <td>{i.categoryCode}</td>
+                            <td>{i.itemName}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {selectedItems.length > 100 && <div className="pms-field-hint">미리보기는 처음 100건만 표시합니다. 등록 후 항목 목록에서 수정·삭제할 수 있습니다.</div>}
+                </div>
+              )}
             </div>
           )}
         </>

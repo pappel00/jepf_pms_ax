@@ -126,7 +126,13 @@ public class RfpService {
             throw new BusinessException(PmsErrorCode.RFP_INVALID, "이 RFP에 대응하는 제안서가 있어 삭제할 수 없습니다.");
         }
         List<RfpItem> items = itemRepository.findAllByRfpIdAndDeletedYnOrderBySortOrderAscCreatedDateAsc(id, "N");
-        items.forEach(this::deleteItemRows);
+        // 항목이 수천 건일 수 있어(문서 자동 분해) 평가·제안서 대응은 한 번에 조회해 지운다.
+        List<String> itemIds = items.stream().map(RfpItem::getId).toList();
+        if (!itemIds.isEmpty()) {
+            evalRepository.findAllByRfpItemIdInAndDeletedYn(itemIds, "N").forEach(RfpEval::markDeleted);
+            mappingRepository.findAllByRfpItemIdInAndDeletedYn(itemIds, "N").forEach(ProposalMapping::markDeleted);
+        }
+        items.forEach(RfpItem::markDeleted);
         evaluatorRepository.findAllByRfpIdAndDeletedYnOrderByCreatedDateAsc(id, "N").forEach(RfpEvaluator::markDeleted);
         rfp.markDeleted();
     }
@@ -330,10 +336,21 @@ public class RfpService {
         int order = existing.stream().mapToInt(RfpItem::getSortOrder).max().orElse(-1) + 1;
         Map<String, Integer> counters = new HashMap<>();
         existing.forEach(i -> counters.merge(i.getCategoryCode(), codeNo(i.getItemCode()), Math::max));
+        Set<String> usedCodes = new HashSet<>();
+        existing.forEach(i -> usedCodes.add(i.getItemCode()));
         List<RfpItem> created = new ArrayList<>();
         for (RfpDto.ItemRequest r : list) {
-            int no = counters.merge(r.categoryCode(), 1, (a, b) -> a + 1);
-            created.add(RfpItem.create().withRfpId(rfp.getId()).withItemCode(r.categoryCode() + "-" + String.format("%03d", no))
+            // 원문 고유번호가 있고 겹치지 않으면 그대로 쓴다(문서 자동 분해). 아니면 분류-일련번호로 채번.
+            String wanted = PmsSupport.blankToNull(r.itemCode());
+            String code;
+            if (wanted != null && !usedCodes.contains(wanted)) {
+                code = wanted;
+            } else {
+                int no = counters.merge(r.categoryCode(), 1, (a, b) -> a + 1);
+                code = r.categoryCode() + "-" + String.format("%03d", no);
+            }
+            usedCodes.add(code);
+            created.add(RfpItem.create().withRfpId(rfp.getId()).withItemCode(code)
                     .withCategoryCode(r.categoryCode()).withArea(PmsSupport.blankToNull(r.area())).withItemName(r.itemName().trim())
                     .withContent(PmsSupport.blankToNull(r.content())).withSourcePage(r.sourcePage())
                     .withMandatoryYn(r.mandatory() ? "Y" : "N").withSortOrder(order++));

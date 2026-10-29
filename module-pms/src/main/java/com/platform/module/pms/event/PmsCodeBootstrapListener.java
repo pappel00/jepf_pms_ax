@@ -51,7 +51,7 @@ public class PmsCodeBootstrapListener {
                 List.of("방문", "미팅", "전화", "이메일", "식사·접대", "제안·발표", "자료 전달", "정보 수집", "인수인계", "기타")));
         GROUPS.put("PMS_PRIORITY", new Group("PMS 우선순위", List.of("긴급", "높음", "보통", "낮음")));
         GROUPS.put("PMS_RFP_CATEGORY", new Group("PMS RFP 요구사항 분류",
-                List.of("SFR", "PER", "SER", "ECR", "DAR", "QUR", "COR", "PMR", "PSR")));
+                List.of("SFR", "PER", "SER", "ECR", "DAR", "QUR", "COR", "PMR", "PSR", "INF", "SIR", "TER")));
         GROUPS.put("PMS_RFP_ROUND", new Group("PMS RFP 차수", List.of("1차", "2차", "재공고", "변경 공고")));
     }
 

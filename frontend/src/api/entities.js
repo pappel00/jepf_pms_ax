@@ -69,6 +69,13 @@ export const pmsIssuesApi = {
   addNote: (id, text) => apiFetch(`/api/v1/pms/issues/${id}/notes`, { method: 'POST', body: { text } }),
 }
 export const pmsRfpsApi = {
+  /** RFP 문서(hwpx) 자동 분해 미리보기 — 저장하지 않는다. */
+  parse: (file, splitLines) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('splitLines', splitLines ? 'true' : 'false')
+    return uploadFile('/api/v1/pms/rfp-parse', fd)
+  },
   list: (projectId = '') => apiFetch(`/api/v1/pms/rfps${projectId ? `?projectId=${projectId}` : ''}`),
   evals: () => apiFetch('/api/v1/pms/rfp-evals'),
   create: (projectId, body) => apiFetch(`/api/v1/pms/projects/${projectId}/rfps`, { method: 'POST', body }),

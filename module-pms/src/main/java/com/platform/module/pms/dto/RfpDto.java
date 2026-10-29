@@ -32,7 +32,8 @@ public final class RfpDto {
             @NotBlank @Size(max = 300) String itemName,
             String content,
             Integer sourcePage,
-            @NotNull Boolean mandatory
+            @NotNull Boolean mandatory,
+            @Size(max = 30) @Schema(description = "원문 고유번호(문서 자동 분해 시). 비우면 분류-일련번호로 자동 채번") String itemCode
     ) {
     }
 

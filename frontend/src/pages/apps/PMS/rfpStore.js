@@ -24,6 +24,9 @@ export const REQ_CATEGORIES = [
   { code: 'COR', name: '제약사항' },
   { code: 'PMR', name: '프로젝트 관리 요구사항' },
   { code: 'PSR', name: '프로젝트 지원 요구사항' },
+  { code: 'INF', name: '클라우드 서비스 요구사항' },
+  { code: 'SIR', name: '인터페이스 요구사항' },
+  { code: 'TER', name: '테스트 요구사항' },
 ]
 export const categoryName = (code) => REQ_CATEGORIES.find((c) => c.code === code)?.name ?? code
 
@@ -32,7 +35,7 @@ export const ROUNDS = ['1차', '2차', '재공고', '변경 공고']
 export const INTAKE_METHODS = [
   { value: 'excel', label: '엑셀 템플릿 업로드 (권장)', desc: '항목 양식에 맞춰 정리한 엑셀을 올리면 항목이 한 번에 등록됩니다.' },
   { value: 'manual', label: '수동 입력', desc: '원본 문서를 보면서 항목을 직접 하나씩 추가합니다.' },
-  { value: 'auto', label: '문서 자동 분해 (추후 지원)', desc: '원본 문서에서 요구사항 표를 자동 추출합니다. 정확도 검증 후 도입 예정.', disabled: true },
+  { value: 'auto', label: '문서 자동 분해 (hwpx)', desc: '한글(hwpx) 원본 문서의 요구사항 표를 읽어 항목 후보를 만듭니다. 저장 전에 미리보기로 확인합니다.' },
 ]
 
 let rfps = []
@@ -206,6 +209,7 @@ export async function setEvaluators(rfpId, names) {
 }
 
 const itemBody = (item) => ({
+  itemCode: item.itemCode ?? null,
   categoryCode: item.category,
   area: item.area || null,
   itemName: item.name,
@@ -232,6 +236,32 @@ export async function deleteItem(rfpId, itemId) {
     window.alert(`항목을 삭제하지 못했습니다: ${e.message}`)
   }
   await loadRfps()
+}
+
+/** RFP 문서(hwpx)를 서버에서 분석해 항목 후보를 받는다(저장하지 않음). */
+export async function parseRfpDocument(file, splitLines) {
+  const res = await pmsRfpsApi.parse(file, splitLines)
+  return res.data
+}
+
+/** 자동 분해로 읽은 항목 후보를 RFP 에 일괄 등록한다(원문 고유번호 유지). 등록한 건수를 돌려준다. */
+export async function importParsedItems(rfpId, items) {
+  const rfp = rfpByCode(rfpId)
+  const body = items.map((i) => itemBody({ itemCode: i.itemCode, category: i.categoryCode, area: i.area, name: i.itemName, content: i.content, page: null, mandatory: i.mandatory }))
+  let done = 0
+  try {
+    for (let i = 0; i < body.length; i += 500) {
+      await pmsRfpsApi.addItems(rfp.dbId, body.slice(i, i + 500))
+      done = Math.min(i + 500, body.length)
+    }
+  } catch (e) {
+    await loadRfps()
+    // 어느 항목에서 왜 실패했는지 알려 준다(서버 검증 오류는 첫 번째 필드를 덧붙인다).
+    const first = e.errors?.[0]
+    throw new Error(`항목 ${body.length}건 중 ${done}건까지 등록하고 중단했습니다: ${e.message}${first ? ` (${first.field}: ${first.reason})` : ''}`)
+  }
+  await loadRfps()
+  return body.length
 }
 
 /** 목업: 엑셀 템플릿을 올렸다고 가정하고 샘플 항목을 만들어 붙인다. */
