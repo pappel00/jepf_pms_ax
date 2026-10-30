@@ -167,13 +167,13 @@ export default function UsersPage() {
         <table className="data-table">
           <thead>
             <tr>
-              <th>아이디</th>
-              <th>이름</th>
-              <th>이메일</th>
-              <th>부서</th>
-              <th>역할</th>
-              <th>사용여부</th>
-              <th>삭제여부</th>
+              <th style={{ whiteSpace: 'nowrap' }}>아이디</th>
+              <th style={{ whiteSpace: 'nowrap' }}>이름</th>
+              <th style={{ whiteSpace: 'nowrap' }}>이메일</th>
+              <th style={{ whiteSpace: 'nowrap' }}>부서</th>
+              <th style={{ whiteSpace: 'nowrap' }}>역할</th>
+              <th style={{ whiteSpace: 'nowrap' }}>사용여부</th>
+              <th style={{ whiteSpace: 'nowrap' }}>삭제여부</th>
               <th style={{ width: 120 }}>액션</th>
             </tr>
           </thead>
@@ -181,9 +181,9 @@ export default function UsersPage() {
             {rows.map((row) => (
               <tr key={row.id}>
                 <td>{row.loginId}</td>
-                <td>{row.userName}</td>
+                <td style={{ whiteSpace: 'nowrap' }}>{row.userName}</td>
                 <td>{row.email}</td>
-                <td>{departmentName(row.departmentId)}</td>
+                <td style={{ whiteSpace: 'nowrap' }}>{departmentName(row.departmentId)}</td>
                 <td>
                   <div className="roles-list">
                     {row.roles?.length ? (
@@ -197,8 +197,8 @@ export default function UsersPage() {
                     )}
                   </div>
                 </td>
-                <td>{row.useYn}</td>
-                <td>{row.deletedYn}</td>
+                <td style={{ whiteSpace: 'nowrap' }}>{row.useYn}</td>
+                <td style={{ whiteSpace: 'nowrap' }}>{row.deletedYn}</td>
                 <td>
                   <button className="link-btn" onClick={() => openEdit(row)}>
                     수정

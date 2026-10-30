@@ -16,7 +16,7 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { pmsWbsApi } from '../../../api/entities'
 import { getStoredAuth } from '../../../api/http'
-import { currentUserName, ensurePmsUsersLoaded, userIdByName } from './pmsUsers'
+import { currentUserName, ensurePmsUsersLoaded, getUsers, userIdByName } from './pmsUsers'
 
 export const TODAY = '2026-10-13'
 /**
@@ -27,6 +27,7 @@ export let ME = '관리자'
 export function refreshMe() {
   const name = currentUserName()
   if (name) ME = name
+  syncMembers()
 }
 if (typeof window !== 'undefined') {
   window.addEventListener('jepf-auth-changed', () => getStoredAuth() && ensurePmsUsersLoaded().then(refreshMe))
@@ -48,6 +49,27 @@ export const MEMBERS = [
   { name: '박협력', role: '개발', org: '협력사 (가나다시스템)' },
   { name: '정QA', role: '테스트', org: '자사' },
 ]
+
+/**
+ * 인력 선택 목록(평가자·담당자·투입 인력 등) — 서버의 PMS 사용자 목록으로 채운다. 위의 5명은 사용자 목록을 읽기 전의 기본값이다.
+ * 배열 자체는 그대로 두고 내용만 바꾼다(가져다 쓰는 쪽이 같은 배열을 본다). 기존 5명이 앞, 나머지는 이름순.
+ * 역할은 기존 5명은 기본 직무를 유지하고, 새 사용자는 인력 등급(특급 등)을 보여 준다.
+ */
+const DEFAULT_ROLES = { 관리자: 'PM', 이설계: 'PL', 김개발: '개발', 박협력: '개발', 정QA: '테스트' }
+export function syncMembers() {
+  const users = getUsers()
+  if (!users.length) return
+  const order = Object.keys(DEFAULT_ROLES)
+  const rank = (n) => (order.includes(n) ? order.indexOf(n) : order.length)
+  const list = [...users]
+    .sort((a, b) => rank(a.userName) - rank(b.userName) || a.userName.localeCompare(b.userName, 'ko'))
+    .map((u) => ({
+      name: u.userName,
+      role: DEFAULT_ROLES[u.userName] ?? u.jobGradeCode ?? '',
+      org: u.orgTypeCode === '협력사' ? `협력사${u.partnerCompany ? ` (${u.partnerCompany})` : ''}` : '자사',
+    }))
+  MEMBERS.splice(0, MEMBERS.length, ...list)
+}
 
 /** 분석 → 설계 → 개발 → 테스트 : 기능(요구사항) 단위로 이 순서가 지켜져야 한다. */
 export const CHAIN = ['분석', '설계', '개발', '테스트']

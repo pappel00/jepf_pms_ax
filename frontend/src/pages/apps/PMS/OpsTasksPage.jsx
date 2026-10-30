@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Modal from '../../../components/Modal'
 import './pms.css'
+import { SortTh, useSort } from './sortUtil'
 import { dday, useOpsProject } from './OpsProjectBar'
 import { MEMBERS, ME, TODAY } from './pmsStore'
 import { PRIORITIES, REPEATS, TASK_CATEGORIES, TASK_STATUSES, deleteTask, emptyTask, saveTask, setTaskStatus, useOpsTasks } from './opsStore'
@@ -76,6 +77,16 @@ export default function OpsTasksPage() {
   const rows = list
     .filter((t) => (!f.status || t.status === f.status) && (!f.category || t.category === f.category) && (!f.assignee || t.assignee === f.assignee) && (!f.mine || t.assignee === ME) && (!f.keyword || `${t.title} ${t.memo}`.includes(f.keyword)))
     .sort((a, b) => (a.status === '완료') - (b.status === '완료') || a.due.localeCompare(b.due))
+  const { sort, onSort, sorted } = useSort(rows, {
+    id: (t) => t.id,
+    category: (t) => t.category,
+    title: (t) => t.title,
+    priority: (t) => PRIORITIES.indexOf(t.priority),
+    assignee: (t) => t.assignee,
+    due: (t) => t.due,
+    repeat: (t) => t.repeat,
+    status: (t) => TASK_STATUSES.indexOf(t.status),
+  })
   const open = list.filter((t) => t.status !== '완료')
   const showSpawn = (spawn) => setNotice(spawn ?? null)
 
@@ -86,7 +97,7 @@ export default function OpsTasksPage() {
           <h2>운영 업무 관리</h2>
           <p className="page-description">운영 중인 프로젝트의 정기 점검, 패치·배포, 장애 조치, 요청 작업, 보고 같은 업무를 등록하고 담당자·기한·진행 상태를 관리합니다. 반복 업무와 운영 이슈에서 만든 업무도 여기서 봅니다.</p>
         </div>
-        <button className="primary" disabled={!project} onClick={() => setEdit(emptyTask(project.id, ME))}>＋ 업무 등록</button>
+        <button className="primary small" disabled={!project} onClick={() => setEdit(emptyTask(project.id, ME))}>＋ 업무 등록</button>
       </div>
       {bar}
       {edit && <TaskForm initial={edit} opsEnd={project?.operation?.endDate} onClose={() => setEdit(null)} onSaved={showSpawn} />}
@@ -137,11 +148,11 @@ export default function OpsTasksPage() {
           </div>
           <table className="data-table pms-wbs">
             <thead>
-              <tr><th>코드</th><th>구분</th><th>업무명</th><th>우선순위</th><th>담당자</th><th>기한</th><th>반복</th><th>상태</th><th></th></tr>
+              <tr><SortTh k="id" sort={sort} onSort={onSort}>코드</SortTh><SortTh k="category" sort={sort} onSort={onSort}>구분</SortTh><SortTh k="title" sort={sort} onSort={onSort}>업무명</SortTh><SortTh k="priority" sort={sort} onSort={onSort}>우선순위</SortTh><SortTh k="assignee" sort={sort} onSort={onSort}>담당자</SortTh><SortTh k="due" sort={sort} onSort={onSort}>기한</SortTh><SortTh k="repeat" sort={sort} onSort={onSort}>반복</SortTh><SortTh k="status" sort={sort} onSort={onSort}>상태</SortTh><th></th></tr>
             </thead>
             <tbody>
               {rows.length === 0 && <tr><td className="empty-cell" colSpan={9}>등록된 운영 업무가 없습니다.</td></tr>}
-              {rows.map((t) => (
+              {sorted.map((t) => (
                 <tr key={t.id} style={t.status === '완료' ? { opacity: 0.6 } : undefined}>
                   <td>{t.id}</td>
                   <td>{t.category}</td>

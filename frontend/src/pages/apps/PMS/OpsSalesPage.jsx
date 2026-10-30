@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Modal from '../../../components/Modal'
 import './pms.css'
+import { SortTh, useSort } from './sortUtil'
 import { customerOf, useCustomerState } from './customerStore'
 import { dday, useOpsProject } from './OpsProjectBar'
 import { MEMBERS, ME, TODAY } from './pmsStore'
@@ -92,6 +93,17 @@ export default function OpsSalesPage() {
 
   const list = all.filter((o) => o.projectId === project?.id)
   const rows = list.filter((o) => !stage || o.stage === stage)
+  const { sort, onSort, sorted } = useSort(rows, {
+    id: (o) => o.id,
+    kind: (o) => o.kind,
+    title: (o) => o.title,
+    stage: (o) => OPP_STAGES.indexOf(o.stage),
+    amount: (o) => o.amount || 0,
+    probability: (o) => o.probability,
+    owner: (o) => o.owner,
+    expected: (o) => o.expectedDate,
+    next: (o) => o.nextDate,
+  })
   const active = list.filter((o) => !['수주', '실패/보류'].includes(o.stage))
   const won = list.filter((o) => o.stage === '수주')
   const decided = list.filter((o) => ['수주', '실패/보류'].includes(o.stage))
@@ -105,7 +117,7 @@ export default function OpsSalesPage() {
           <h2>운영 영업 관리</h2>
           <p className="page-description">운영 중에 생기는 재계약·갱신, 추가 개발, 유상 개선, 증설 같은 영업 기회를 발굴 → 제안 → 협상 → 수주 단계로 관리합니다. 운영 이슈의 개선 요청에서 바로 등록할 수 있고, 운영 종료일이 다가오면 재계약 등록을 안내합니다.</p>
         </div>
-        <button className="primary" disabled={!project} onClick={() => setEdit(emptyOpp(project.id, ME))}>＋ 영업 기회 등록</button>
+        <button className="primary small" disabled={!project} onClick={() => setEdit(emptyOpp(project.id, ME))}>＋ 영업 기회 등록</button>
       </div>
       {bar}
       {edit && <OppForm initial={edit} project={project} onClose={() => setEdit(null)} />}
@@ -132,11 +144,11 @@ export default function OpsSalesPage() {
           </div>
           <table className="data-table pms-wbs">
             <thead>
-              <tr><th>코드</th><th>유형</th><th>건명</th><th>단계</th><th style={{ textAlign: 'right' }}>예상 금액(원)</th><th>확률</th><th>담당</th><th>예상 계약일</th><th>다음 할 일</th><th></th></tr>
+              <tr><SortTh k="id" sort={sort} onSort={onSort}>코드</SortTh><SortTh k="kind" sort={sort} onSort={onSort}>유형</SortTh><SortTh k="title" sort={sort} onSort={onSort}>건명</SortTh><SortTh k="stage" sort={sort} onSort={onSort}>단계</SortTh><SortTh k="amount" sort={sort} onSort={onSort} style={{ textAlign: 'right' }}>예상 금액(원)</SortTh><SortTh k="probability" sort={sort} onSort={onSort}>확률</SortTh><SortTh k="owner" sort={sort} onSort={onSort}>담당</SortTh><SortTh k="expected" sort={sort} onSort={onSort}>예상 계약일</SortTh><SortTh k="next" sort={sort} onSort={onSort}>다음 할 일</SortTh><th></th></tr>
             </thead>
             <tbody>
               {rows.length === 0 && <tr><td className="empty-cell" colSpan={10}>영업 기회가 없습니다.</td></tr>}
-              {rows.map((o) => (
+              {sorted.map((o) => (
                 <tr key={o.id}>
                   <td>{o.id}</td>
                   <td><span className="pms-tag copy">{o.kind}</span></td>

@@ -42,3 +42,10 @@ framework:
       # 첨부파일이 실제로 저장되는 위치. 상대경로면 앱 실행 디렉터리(bootRun 기준 프로젝트 루트)
       # 기준이다. 운영 배포 시에는 반드시 절대경로(마운트된 볼륨 등)로 바꿔야 한다.
       base-path: ./storage/files
+
+pms:
+  notify:
+    mattermost:
+      base-url: https://mmtt.dxworks.kr
+      # 봇 액세스 토큰은 소스에 두지 않고 환경변수로 넣는다. 비어 있으면 연결 상태 확인(ping)만 된다.
+      token: ${PMS_MATTERMOST_TOKEN:}

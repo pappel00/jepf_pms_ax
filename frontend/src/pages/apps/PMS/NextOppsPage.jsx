@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Modal from '../../../components/Modal'
 import './pms.css'
+import { SortTh, useSort } from './sortUtil'
 import { customerOf, useCustomerState } from './customerStore'
 import { useIssues } from './issueStore'
 import { MEMBERS, ME, TODAY } from './pmsStore'
@@ -148,6 +149,16 @@ export default function NextOppsPage() {
   const list = all.filter((o) => o.projectId === project?.id)
   const rows = list.filter((o) => (!stage || o.stage === stage) && (!kind || o.kind === kind))
   const active = list.filter(isOpenNext)
+  const { sort, onSort, sorted } = useSort(rows, {
+    id: (o) => o.id,
+    kind: (o) => o.kind,
+    title: (o) => o.title,
+    contact: (o) => contacts.find((t) => t.id === o.contactId)?.name,
+    stage: (o) => NEXT_STAGES.indexOf(o.stage),
+    amount: (o) => o.amount || 0,
+    quarter: (o) => o.quarter,
+    next: (o) => o.nextDate,
+  })
   const ct = (id) => contacts.find((t) => t.id === id)
 
   return (
@@ -159,7 +170,7 @@ export default function NextOppsPage() {
             수행 중 고객이 요청했지만 현재 요구사항 범위에 넣지 못한 추가 사항, 후속 단계, 확산 가능성을 모아 다음 사업 기회로 관리합니다. 요청자·의사결정자 같은 고객사 담당자 정보를 함께 남기고, 운영단계전환 때 선택한 기회를 운영 영업 관리로 이관합니다.
           </p>
         </div>
-        <button className="primary" disabled={!project} onClick={() => setEdit(emptyNext(project.id, ME))}>＋ 기회 등록</button>
+        <button className="primary small" disabled={!project} onClick={() => setEdit(emptyNext(project.id, ME))}>＋ 기회 등록</button>
       </div>
       <div className="search-bar">
         <div className="search-field">
@@ -192,11 +203,11 @@ export default function NextOppsPage() {
           </div>
           <table className="data-table pms-wbs">
             <thead>
-              <tr><th>코드</th><th>유형</th><th>건명 · 요구 내용</th><th>고객 담당자</th><th>단계</th><th style={{ textAlign: 'right' }}>예상 금액(원)</th><th>시기</th><th>다음 할 일</th><th></th></tr>
+              <tr><SortTh k="id" sort={sort} onSort={onSort}>코드</SortTh><SortTh k="kind" sort={sort} onSort={onSort}>유형</SortTh><SortTh k="title" sort={sort} onSort={onSort}>건명 · 요구 내용</SortTh><SortTh k="contact" sort={sort} onSort={onSort}>고객 담당자</SortTh><SortTh k="stage" sort={sort} onSort={onSort}>단계</SortTh><SortTh k="amount" sort={sort} onSort={onSort} style={{ textAlign: 'right' }}>예상 금액(원)</SortTh><SortTh k="quarter" sort={sort} onSort={onSort}>시기</SortTh><SortTh k="next" sort={sort} onSort={onSort}>다음 할 일</SortTh><th></th></tr>
             </thead>
             <tbody>
               {rows.length === 0 && <tr><td className="empty-cell" colSpan={9}>등록된 기회가 없습니다.</td></tr>}
-              {rows.map((o) => (
+              {sorted.map((o) => (
                 <tr key={o.id} style={o.stage === '이관 완료' || o.stage === '보류/실패' ? { opacity: 0.65 } : undefined}>
                   <td>{o.id}</td>
                   <td><span className="pms-tag copy">{o.kind}</span><div className="muted">{o.source}</div></td>

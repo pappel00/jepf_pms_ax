@@ -33,6 +33,17 @@ export const pmsUserProfilesApi = {
   get: (userId) => apiFetch(`/api/v1/pms/user-profiles/${userId}`),
   upsert: (userId, body) => apiFetch(`/api/v1/pms/user-profiles/${userId}`, { method: 'PUT', body }),
 }
+export const pmsStaffApi = {
+  list: () => apiFetch('/api/v1/pms/staff'),
+  create: (body) => apiFetch('/api/v1/pms/staff', { method: 'POST', body }),
+  update: (userId, body) => apiFetch(`/api/v1/pms/staff/${userId}`, { method: 'PUT', body }),
+}
+export const pmsNotifyApi = {
+  status: () => apiFetch('/api/v1/pms/notify/status'),
+  resolve: (userId) => apiFetch(`/api/v1/pms/notify/resolve/${userId}`),
+  test: (userId) => apiFetch('/api/v1/pms/notify/test', { method: 'POST', body: { userId } }),
+  logs: () => apiFetch('/api/v1/pms/notify/logs'),
+}
 export const pmsTeamsApi = {
   list: (kind = 'EXEC') => apiFetch(`/api/v1/pms/teams?kind=${kind}`),
   get: (projectId, kind = 'EXEC') => apiFetch(`/api/v1/pms/projects/${projectId}/team?kind=${kind}`),

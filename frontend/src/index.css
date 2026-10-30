@@ -703,3 +703,9 @@ button.secondary.small {
 .tree-page-row {
   color: #555;
 }
+
+/* 페이지 머리의 등록 버튼: 글자 수에 맞춰 늘어나되 줄바꿈하지 않는다 */
+.page-header > button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}

@@ -36,6 +36,7 @@ import ReportPage from './pages/apps/PMS/ReportPage'
 import TransitionPage from './pages/apps/PMS/TransitionPage'
 import ExecProjectPage from './pages/apps/PMS/ExecProjectPage'
 import StaffingPage from './pages/apps/PMS/StaffingPage'
+import StaffManagePage from './pages/apps/PMS/StaffManagePage'
 import NextOppsPage from './pages/apps/PMS/NextOppsPage'
 import OpsTasksPage from './pages/apps/PMS/OpsTasksPage'
 import OpsIssuesPage from './pages/apps/PMS/OpsIssuesPage'
@@ -137,6 +138,7 @@ export default function App() {
             <Route path="PMS/ops-sales" element={<OpsSalesPage />} />
             <Route path="PMS/exec-project" element={<ExecProjectPage />} />
             <Route path="PMS/staffing" element={<StaffingPage />} />
+            <Route path="PMS/staff" element={<StaffManagePage />} />
             <Route path="PMS/rates" element={<RatesPage />} />
             <Route path="PMS/doc-tailoring" element={<DocTailoringPage />} />
             <Route path="PMS/dashboard" element={<MyDashboardPage />} />

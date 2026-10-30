@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { usersApi } from '../../../api/entities'
 import Modal from '../../../components/Modal'
 import './pms.css'
+import { SortTh, useSort } from './sortUtil'
 import { contactOf, useCustomerState } from './customerStore'
 import { ME, MEMBERS, TODAY } from './pmsStore'
 import { PIPELINE_STATUSES, saveProject, useProjects } from './projectStore'
@@ -206,6 +207,14 @@ export default function SalesNotesPage() {
         .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)),
     [notes, f],
   )
+  const { sort, onSort, sorted } = useSort(rows, {
+    date: (n) => n.date,
+    type: (n) => n.type,
+    project: (n) => pname(n.projectId),
+    title: (n) => n.title,
+    author: (n) => n.author,
+    next: (n) => n.nextDate || (n.nextAction ? '9999' : ''),
+  })
   const todo = notes.filter((n) => n.nextAction && !n.done).sort((a, b) => (a.nextDate || '9').localeCompare(b.nextDate || '9'))
   const overdue = todo.filter((n) => n.nextDate && n.nextDate < TODAY)
   const set = (patch) => setF((p) => ({ ...p, ...patch }))
@@ -220,8 +229,8 @@ export default function SalesNotesPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="secondary" onClick={() => setHandover(true)}>🔁 담당자 인수인계</button>
-          <button className="primary" onClick={() => setEdit(emptyNote(ME, TODAY))}>＋ 노트 작성</button>
+          <button className="secondary small" onClick={() => setHandover(true)}>🔁 담당자 인수인계</button>
+          <button className="primary small" onClick={() => setEdit(emptyNote(ME, TODAY))}>＋ 노트 작성</button>
         </div>
       </div>
       {edit && <NoteForm initial={edit} projects={projects} customers={customers} contacts={contacts} onClose={() => setEdit(null)} />}
@@ -290,18 +299,18 @@ export default function SalesNotesPage() {
       <table className="data-table pms-wbs">
         <thead>
           <tr>
-            <th>활동일</th>
-            <th>유형</th>
-            <th>프로젝트 / 고객사</th>
-            <th>제목</th>
-            <th>작성자</th>
-            <th>다음 할 일</th>
+            <SortTh k="date" sort={sort} onSort={onSort}>활동일</SortTh>
+            <SortTh k="type" sort={sort} onSort={onSort}>유형</SortTh>
+            <SortTh k="project" sort={sort} onSort={onSort}>프로젝트 / 고객사</SortTh>
+            <SortTh k="title" sort={sort} onSort={onSort}>제목</SortTh>
+            <SortTh k="author" sort={sort} onSort={onSort}>작성자</SortTh>
+            <SortTh k="next" sort={sort} onSort={onSort}>다음 할 일</SortTh>
             <th></th>
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 && <tr><td className="empty-cell" colSpan={7}>기록이 없습니다.</td></tr>}
-          {rows.map((n) => (
+          {sorted.map((n) => (
             <Fragment key={n.id}>
               <tr style={{ cursor: 'pointer' }} onClick={() => setOpen(open === n.id ? null : n.id)}>
                 <td>{n.date}</td>

@@ -92,7 +92,7 @@ export function loadProjects() {
   loading = Promise.all([ensureCustomersLoaded(), ensurePmsUsersLoaded()])
     .then(() =>
       Promise.all([
-        pmsProjectsApi.list('?size=1000&sort=projectCode'),
+        pmsProjectsApi.list('?size=1000&sort=createdDate,desc&sort=projectCode,desc'),
         pmsTeamsApi.list('EXEC').catch(() => ({ data: [] })),
         pmsTransitionsApi.list('?status=승인&kind=EXEC').catch(() => ({ data: [] })),
         pmsTeamsApi.list('OPS').catch(() => ({ data: [] })),

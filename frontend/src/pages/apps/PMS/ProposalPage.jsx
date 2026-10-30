@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Modal from '../../../components/Modal'
 import './pms.css'
+import { SortTh, useSort } from './sortUtil'
 import { ProcessButton } from './ProcessModal'
 import { proposalProcess } from './processModels'
 import { MEMBERS, TODAY } from './pmsStore'
@@ -556,6 +557,22 @@ export default function ProposalPage() {
   const projectOf = (id) => projects.find((p) => p.id === id)
   const rfpOf = (id) => rfps.find((r) => r.id === id)
 
+  const { sort, onSort, sorted } = useSort(filtered, {
+    id: (p) => p.id,
+    project: (p) => projectOf(p.projectId)?.name,
+    title: (p) => p.title,
+    ver: (p) => p.versions[p.versions.length - 1]?.ver,
+    owner: (p) => p.owner,
+    due: (p) => p.dueDate,
+    price: (p) => p.price,
+    margin: (p) => marginOf(p),
+    response: (p) => {
+      const rfp = rfpOf(p.rfpId)
+      return rfp?.items.length ? rfp.items.filter((i) => p.mapping[i.id]?.response).length / rfp.items.length : 0
+    },
+    status: (p) => p.status,
+  })
+
   const newProposal = () => ({
     id: nextProposalId(proposals),
     projectId: '',
@@ -603,16 +620,16 @@ export default function ProposalPage() {
       <table className="data-table pms-wbs">
         <thead>
           <tr>
-            <th>제안서 번호</th>
-            <th>프로젝트</th>
-            <th>제안서명</th>
-            <th>최신 버전</th>
-            <th>책임</th>
-            <th>제출 마감</th>
-            <th style={{ textAlign: 'right' }}>제안 금액(원)</th>
-            <th>이익률</th>
-            <th>RFP 대응</th>
-            <th>상태</th>
+            <SortTh k="id" sort={sort} onSort={onSort}>제안서 번호</SortTh>
+            <SortTh k="project" sort={sort} onSort={onSort}>프로젝트</SortTh>
+            <SortTh k="title" sort={sort} onSort={onSort}>제안서명</SortTh>
+            <SortTh k="ver" sort={sort} onSort={onSort}>최신 버전</SortTh>
+            <SortTh k="owner" sort={sort} onSort={onSort}>책임</SortTh>
+            <SortTh k="due" sort={sort} onSort={onSort}>제출 마감</SortTh>
+            <SortTh k="price" sort={sort} onSort={onSort} style={{ textAlign: 'right' }}>제안 금액(원)</SortTh>
+            <SortTh k="margin" sort={sort} onSort={onSort}>이익률</SortTh>
+            <SortTh k="response" sort={sort} onSort={onSort}>RFP 대응</SortTh>
+            <SortTh k="status" sort={sort} onSort={onSort}>상태</SortTh>
           </tr>
         </thead>
         <tbody>
@@ -623,7 +640,7 @@ export default function ProposalPage() {
               </td>
             </tr>
           )}
-          {filtered.map((p) => {
+          {sorted.map((p) => {
             const rfp = rfpOf(p.rfpId)
             const total = rfp?.items.length ?? 0
             const done = rfp ? rfp.items.filter((i) => p.mapping[i.id]?.response).length : 0

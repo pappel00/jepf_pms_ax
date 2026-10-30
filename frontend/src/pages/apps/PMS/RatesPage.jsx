@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Modal from '../../../components/Modal'
 import './pms.css'
+import { SortTh, useSort } from './sortUtil'
 import { collectAssignments } from './assignmentStore'
 import { MEMBERS, TODAY } from './pmsStore'
 import { formatKoreanWon, saveProject, useProjects } from './projectStore'
@@ -81,6 +82,13 @@ function RateTab({ state }) {
   const [edit, setEdit] = useState(null)
   const rows = state.rates.filter((r) => (!job || r.job === job) && (!onlyActive || isActive(r)))
   const d = state.difficulty
+  const { sort, onSort, sorted } = useSort(rows, {
+    job: (r) => RATE_JOBS.indexOf(r.job),
+    grade: (r) => GRADES.indexOf(r.grade),
+    unit: (r) => r.unit,
+    from: (r) => r.from,
+    status: (r) => (isActive(r) ? 0 : r.from > TODAY ? 1 : 2),
+  })
 
   return (
     <div>
@@ -102,17 +110,17 @@ function RateTab({ state }) {
       <table className="data-table pms-wbs">
         <thead>
           <tr>
-            <th>직무</th>
-            <th>등급</th>
-            <th style={{ textAlign: 'right' }}>M/M 단가</th>
-            <th>적용 기간</th>
-            <th>상태</th>
+            <SortTh k="job" sort={sort} onSort={onSort}>직무</SortTh>
+            <SortTh k="grade" sort={sort} onSort={onSort}>등급</SortTh>
+            <SortTh k="unit" sort={sort} onSort={onSort} style={{ textAlign: 'right' }}>M/M 단가</SortTh>
+            <SortTh k="from" sort={sort} onSort={onSort}>적용 기간</SortTh>
+            <SortTh k="status" sort={sort} onSort={onSort}>상태</SortTh>
             <th></th>
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 && <tr><td className="empty-cell" colSpan={6}>단가가 없습니다.</td></tr>}
-          {rows.map((r) => (
+          {sorted.map((r) => (
             <tr key={r.id}>
               <td><b>{r.job}</b></td>
               <td>{r.grade}</td>
@@ -152,6 +160,14 @@ function RateTab({ state }) {
 
 /* ---------- 탭 2: 인력 등급 ---------- */
 function GradeTab({ state, assignments }) {
+  const members = [...MEMBERS]
+  const { sort, onSort, sorted } = useSort(members, {
+    name: (m) => m.name,
+    org: (m) => orgOf(m.name),
+    role: (m) => m.role,
+    grade: (m) => GRADES.indexOf(state.grades[m.name] ?? ''),
+    projects: (m) => assignments.filter((a) => a.name === m.name).length,
+  })
   return (
     <div>
       <p className="muted" style={{ marginTop: 0 }}>
@@ -160,16 +176,16 @@ function GradeTab({ state, assignments }) {
       <table className="data-table pms-wbs">
         <thead>
           <tr>
-            <th>인력</th>
-            <th>소속</th>
-            <th>기본 직무</th>
-            <th>등급</th>
-            <th>투입 중 프로젝트</th>
+            <SortTh k="name" sort={sort} onSort={onSort}>인력</SortTh>
+            <SortTh k="org" sort={sort} onSort={onSort}>소속</SortTh>
+            <SortTh k="role" sort={sort} onSort={onSort}>기본 직무</SortTh>
+            <SortTh k="grade" sort={sort} onSort={onSort}>등급</SortTh>
+            <SortTh k="projects" sort={sort} onSort={onSort}>투입 중 프로젝트</SortTh>
             <th>단가 적용 현황</th>
           </tr>
         </thead>
         <tbody>
-          {MEMBERS.map((m) => {
+          {sorted.map((m) => {
             const mine = assignments.filter((a) => a.name === m.name)
             const grade = state.grades[m.name] ?? ''
             const missing = mine.filter((a) => costOf(a, state.rates, state.grades).missing > 0)

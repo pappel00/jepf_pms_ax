@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './pms.css'
+import { SortTh, useSort } from './sortUtil'
 import { DEFAULT_PROJECT_ID } from './docStore'
 import { isHighPriority, isOpenStatus, useIssues } from './issueStore'
 import { ME, TODAY, blockedBy, isLeaf, plannedProgress, projectProgress, statusOf, targetProgressOf, useTasks } from './pmsStore'
@@ -163,6 +164,12 @@ function ProjectReport({ project, data, mode, period, next, mineOnly, memoKey })
   const doing = tasks
     .filter((t) => t.progress < 100 && t.start <= period.end)
     .sort((a, b) => Number(b.late) - Number(a.late) || a.end.localeCompare(b.end))
+  const { sort, onSort, sorted: doingSorted } = useSort(doing, {
+    name: (t) => t.name,
+    assignee: (t) => t.assignee,
+    end: (t) => t.end,
+    progress: (t) => t.progress,
+  })
   const doneThis = tasks.filter((t) => t.progress >= 100 && inRange(t.end, period))
   const upcoming = tasks
     .filter((t) => t.progress < 100 && overlaps(t, next))
@@ -292,10 +299,10 @@ function ProjectReport({ project, data, mode, period, next, mineOnly, memoKey })
           <table className="data-table pms-wbs">
             <thead>
               <tr>
-                <th>업무</th>
-                <th>담당</th>
-                <th>기한</th>
-                <th>진척</th>
+                <SortTh k="name" sort={sort} onSort={onSort}>업무</SortTh>
+                <SortTh k="assignee" sort={sort} onSort={onSort}>담당</SortTh>
+                <SortTh k="end" sort={sort} onSort={onSort}>기한</SortTh>
+                <SortTh k="progress" sort={sort} onSort={onSort}>진척</SortTh>
               </tr>
             </thead>
             <tbody>
@@ -306,7 +313,7 @@ function ProjectReport({ project, data, mode, period, next, mineOnly, memoKey })
                   </td>
                 </tr>
               )}
-              {doing.map((t) => (
+              {doingSorted.map((t) => (
                 <tr key={t.id}>
                   <td className="name-cell">
                     <b>{t.name}</b>{' '}

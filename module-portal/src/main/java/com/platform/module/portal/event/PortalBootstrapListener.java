@@ -173,6 +173,7 @@ public class PortalBootstrapListener {
                             new PageSeed("PMS_PAGE_OPS_SALES", "운영 영업 관리", "/workspace/PMS/ops-sales"))),
                     // 인력관리 — 프로젝트의 투입 인력(프로젝트 멤버)을 인력 기준으로 모아 투입 계획·실적을 관리
                     new FolderSeed("PMS_MENU_HR", "인력관리", List.of(
+                            new PageSeed("PMS_PAGE_STAFF", "인력 관리", "/workspace/PMS/staff"),
                             new PageSeed("PMS_PAGE_STAFFING", "투입 관리", "/workspace/PMS/staffing"),
                             new PageSeed("PMS_PAGE_RATES", "단가 관리", "/workspace/PMS/rates")))))
     );
@@ -213,6 +214,7 @@ public class PortalBootstrapListener {
             Map.entry("PMS_PAGE_OPS_TASKS", List.of(PMS_PM, PMS_OPS, PMS_MANAGER)),
             Map.entry("PMS_PAGE_OPS_ISSUES", List.of(PMS_PM, PMS_OPS, PMS_MANAGER)),
             Map.entry("PMS_PAGE_OPS_SALES", List.of(PMS_SALES, PMS_OPS, PMS_MANAGER)),
+            Map.entry("PMS_PAGE_STAFF", List.of(PMS_PM, PMS_MANAGER)),
             Map.entry("PMS_PAGE_STAFFING", List.of(PMS_PM, PMS_MEMBER, PMS_MANAGER)),
             Map.entry("PMS_PAGE_RATES", List.of(PMS_MANAGER)));
 

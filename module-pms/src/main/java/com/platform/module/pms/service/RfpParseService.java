@@ -31,7 +31,7 @@ public class RfpParseService {
     private static final Pattern BULLET = Pattern.compile("^[\\s\\u3000\\-–·ㆍ•○●◦▪■□※*▶>]+");
 
     /** 문서 고유번호 접두어 → 우리 요구사항 분류 코드. 목록에 없으면 접두어를 그대로 분류로 쓴다. */
-    private static final Map<String, String> CATEGORY = Map.of("FUN", "SFR");
+    private static final Map<String, String> CATEGORY = Map.of("FUN", "SFR", "IFR", "SIR");
 
     public RfpParseDto.Response parse(MultipartFile file, boolean splitLines) {
         if (file == null || file.isEmpty()) {
@@ -179,58 +179,70 @@ public class RfpParseService {
     }
 
     private static boolean isHeader(List<HwpxTableReader.Cell> c) {
-        return c.stream().anyMatch(x -> norm(x.text()).equals("고유번호"));
+        return c.stream().anyMatch(x -> CODE_KEYS.contains(norm(x.text())));
     }
 
-    /** 카드표면 읽어서 돌려주고, 아니면 null. */
+    /** 카드에서 값을 읽을 라벨(공백 제거 후 비교). 문서마다 표기가 달라 여러 이름을 받는다. */
+    private static final java.util.Set<String> CATEGORY_KEYS = java.util.Set.of("구분", "요구사항분류", "분류");
+    private static final java.util.Set<String> CODE_KEYS = java.util.Set.of("고유번호", "요구사항번호", "요구사항고유번호", "요구사항ID", "번호");
+    private static final java.util.Set<String> NAME_KEYS = java.util.Set.of("명칭", "요구사항명칭", "요구사항명", "제목");
+    private static final java.util.Set<String> DEFINITION_KEYS = java.util.Set.of("요구사항", "요구사항상세설명", "요구사항설명", "설명");
+    private static final java.util.Set<String> DETAIL_KEYS = java.util.Set.of("세부내용", "상세내용", "세부사항");
+    private static final java.util.Set<String> OUTPUT_KEYS = java.util.Set.of("산출문서", "산출정보", "산출물");
+
+    /**
+     * 카드표면 읽어서 돌려주고, 아니면 null. 라벨 셀 바로 오른쪽 셀이 값이다.
+     *  - 가로형: [구분 | 기능 요구사항 | 고유번호 | FUN-001]
+     *  - 세로형: [요구사항 분류 | …], [요구사항 번호 | SFR-001], [요구사항 명칭 | …], [요구사항 상세설명 | 정의 | …], [세부 내용 | …], [산출정보 | …]
+     * 요구사항 코드(영문 2~4자-숫자)가 있는 표만 카드로 본다.
+     */
     private static Card readCard(HwpxTableReader.Table t) {
-        if (t.rows().isEmpty()) {
-            return null;
-        }
-        List<HwpxTableReader.Cell> first = t.rows().get(0).cells();
-        if (first.size() < 4 || !norm(first.get(0).text()).equals("구분")) {
+        if (t.rows().isEmpty() || t.rows().size() > 40) {
             return null;
         }
         String code = null;
-        for (int i = 0; i < first.size() - 1; i++) {
-            if (norm(first.get(i).text()).equals("고유번호")) {
-                String v = first.get(i + 1).text().trim();
-                if (CODE.matcher(v).matches()) {
-                    code = v;
-                }
-            }
-        }
-        if (code == null) {
-            return null;
-        }
-        String category = clean(first.get(1).text());
+        String category = "";
         String name = "";
         String definition = "";
         String outputDoc = "";
         List<String> lines = new ArrayList<>();
         boolean inDetail = false;
-        for (int r = 1; r < t.rows().size(); r++) {
-            List<HwpxTableReader.Cell> cells = t.rows().get(r).cells();
+        for (HwpxTableReader.Row row : t.rows()) {
+            List<HwpxTableReader.Cell> cells = row.cells();
             if (cells.isEmpty()) {
                 continue;
             }
+            // 같은 행에 라벨-값 쌍이 여러 개일 수 있다(구분 | 값 | 고유번호 | 값).
+            boolean handled = false;
+            for (int i = 0; i < cells.size() - 1; i++) {
+                String key = norm(cells.get(i).text());
+                String value = cells.get(i + 1).text().replace('\n', ' ').trim();
+                if (CODE_KEYS.contains(key) && CODE.matcher(value).matches()) {
+                    code = value;
+                    handled = true;
+                } else if (CATEGORY_KEYS.contains(key) && i == 0) {
+                    category = clean(value);
+                    handled = true;
+                }
+            }
             String key = norm(cells.get(0).text());
-            if (key.equals("명칭")) {
-                name = cells.size() > 1 ? cells.get(1).text().replace('\n', ' ').trim() : "";
+            if (NAME_KEYS.contains(key) && cells.size() > 1) {
+                name = cells.get(1).text().replace('\n', ' ').trim();
                 inDetail = false;
-            } else if (key.equals("요구사항")) {
+            } else if (DEFINITION_KEYS.contains(key) && cells.size() > 1) {
                 // [요구사항 | 정의 | 값] 또는 [요구사항 | 값]
                 definition = cells.get(cells.size() - 1).text().replace('\n', ' ').trim();
                 inDetail = false;
-            } else if (key.equals("세부내용")) {
+            } else if (DETAIL_KEYS.contains(key)) {
                 inDetail = true;
                 for (int i = 1; i < cells.size(); i++) {
                     addLines(lines, cells.get(i));
                 }
-            } else if (key.equals("산출문서")) {
-                outputDoc = cells.size() > 1 ? cells.get(cells.size() - 1).text().replace('\n', ' ').trim() : "";
+            } else if (OUTPUT_KEYS.contains(key)) {
+                String v = cells.size() > 1 ? cells.get(cells.size() - 1).text().replace('\n', ' ').trim() : "";
+                outputDoc = norm(v).equals("해당없음") || norm(v).equals("-") ? "" : v;
                 inDetail = false;
-            } else if (inDetail) {
+            } else if (inDetail && !handled) {
                 // 세부내용 뒤의 추가 행(예: DW DB / OLAP / ETL) — 「라벨: 내용」 줄로 합친다.
                 String label = cells.get(0).text().replace('\n', ' ').trim();
                 for (int i = 1; i < cells.size(); i++) {
@@ -239,6 +251,9 @@ public class RfpParseService {
                     }
                 }
             }
+        }
+        if (code == null || (name.isBlank() && lines.isEmpty() && definition.isBlank())) {
+            return null;
         }
         return new Card(code, name, category, definition, lines, outputDoc);
     }

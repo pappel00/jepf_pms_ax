@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import './pms.css'
+import { SortTh, useSort } from './sortUtil'
 import IssueForm from './IssueForm'
 import { ProcessButton } from './ProcessModal'
 import ScheduleProposalPanel from './ScheduleProposalPanel'
@@ -77,6 +78,19 @@ export default function IssuesPage() {
       (!linkFilter || (linkFilter === 'linked' ? i.taskIds.length > 0 : i.taskIds.length === 0)) &&
       (!keyword || `${i.id} ${i.title} ${i.content}`.toLowerCase().includes(keyword.toLowerCase())),
   )
+
+  const { sort, onSort, sorted } = useSort(filtered, {
+    id: (i) => i.id,
+    project: (i) => projectName(i.projectId),
+    title: (i) => i.title,
+    type: (i) => i.type,
+    priority: (i) => PRIORITIES.indexOf(i.priority),
+    status: (i) => ISSUE_STATUSES.indexOf(i.status),
+    assignee: (i) => i.assignee,
+    due: (i) => i.dueDate,
+    linked: (i) => i.taskIds.length,
+    impact: (i) => i.impactDays || 0,
+  })
 
   return (
     <div>
@@ -205,16 +219,16 @@ export default function IssuesPage() {
       <table className="data-table pms-wbs">
         <thead>
           <tr>
-            <th>ID</th>
-            <th>프로젝트</th>
-            <th>제목</th>
-            <th>유형</th>
-            <th>우선순위</th>
-            <th>상태</th>
-            <th>담당</th>
-            <th>조치 기한</th>
-            <th>연결 업무 (WBS)</th>
-            <th style={{ textAlign: 'right' }}>일정 영향</th>
+            <SortTh k="id" sort={sort} onSort={onSort}>ID</SortTh>
+            <SortTh k="project" sort={sort} onSort={onSort}>프로젝트</SortTh>
+            <SortTh k="title" sort={sort} onSort={onSort}>제목</SortTh>
+            <SortTh k="type" sort={sort} onSort={onSort}>유형</SortTh>
+            <SortTh k="priority" sort={sort} onSort={onSort}>우선순위</SortTh>
+            <SortTh k="status" sort={sort} onSort={onSort}>상태</SortTh>
+            <SortTh k="assignee" sort={sort} onSort={onSort}>담당</SortTh>
+            <SortTh k="due" sort={sort} onSort={onSort}>조치 기한</SortTh>
+            <SortTh k="linked" sort={sort} onSort={onSort}>연결 업무 (WBS)</SortTh>
+            <SortTh k="impact" sort={sort} onSort={onSort} style={{ textAlign: 'right' }}>일정 영향</SortTh>
           </tr>
         </thead>
         <tbody>
@@ -225,7 +239,7 @@ export default function IssuesPage() {
               </td>
             </tr>
           )}
-          {filtered.map((i) => {
+          {sorted.map((i) => {
             const linkedTasks = i.taskIds.map(taskName).filter(Boolean)
             const late = isOpenStatus(i.status) && i.dueDate && i.dueDate < TODAY
             return (

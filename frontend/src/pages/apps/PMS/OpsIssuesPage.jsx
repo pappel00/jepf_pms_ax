@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Modal from '../../../components/Modal'
 import './pms.css'
+import { SortTh, useSort } from './sortUtil'
 import { useOpsProject } from './OpsProjectBar'
 import { MEMBERS, ME, TODAY } from './pmsStore'
 import {
@@ -80,6 +81,17 @@ export default function OpsIssuesPage() {
   const list = all.filter((i) => i.projectId === project?.id)
   const withSla = list.map((i) => ({ i, sla: slaOf(i, project?.operation.sla) }))
   const rows = withSla.filter(({ i }) => (!f.status || (f.status === '미해결' ? isOpenIncident(i.status) : i.status === f.status)) && (!f.type || i.type === f.type) && (!f.priority || i.priority === f.priority) && (!f.keyword || `${i.title} ${i.content}`.includes(f.keyword)))
+  const { sort, onSort, sorted } = useSort(rows, {
+    id: ({ i }) => i.id,
+    type: ({ i }) => i.type,
+    title: ({ i }) => i.title,
+    priority: ({ i }) => PRIORITIES.indexOf(i.priority),
+    status: ({ i }) => INCIDENT_STATUSES.indexOf(i.status),
+    received: ({ i }) => i.receivedAt,
+    assignee: ({ i }) => i.assignee,
+    respond: ({ sla }) => sla?.respondDue,
+    resolve: ({ sla }) => sla?.resolveDue,
+  })
   const open = withSla.filter(({ i }) => isOpenIncident(i.status))
   const violated = withSla.filter(({ sla }) => sla && (sla.respond === '위반' || sla.resolve === '위반'))
   const done = withSla.filter(({ sla, i }) => sla && !isOpenIncident(i.status))
@@ -102,7 +114,7 @@ export default function OpsIssuesPage() {
           <h2>운영 이슈 관리</h2>
           <p className="page-description">운영 중 들어오는 장애·문의·개선 요청을 접수해 분석 → 조치 → 해결 → 종결로 처리합니다. 운영 정보의 SLA(응답·해결 목표 시간)로 시한을 계산해 위반·임박을 표시하고, 이슈에서 운영 업무나 영업 기회를 바로 만들 수 있습니다.</p>
         </div>
-        <button className="primary" disabled={!project} onClick={() => setEdit(emptyIncident(project.id, project.client))}>＋ 이슈 접수</button>
+        <button className="primary small" disabled={!project} onClick={() => setEdit(emptyIncident(project.id, project.client))}>＋ 이슈 접수</button>
       </div>
       {bar}
       {edit && <IssueForm initial={edit} onClose={() => setEdit(null)} />}
@@ -145,11 +157,11 @@ export default function OpsIssuesPage() {
           </div>
           <table className="data-table pms-wbs">
             <thead>
-              <tr><th>코드</th><th>유형</th><th>제목</th><th>우선순위</th><th>상태</th><th>접수 일시</th><th>담당</th><th>SLA 응답</th><th>SLA 해결</th><th></th></tr>
+              <tr><SortTh k="id" sort={sort} onSort={onSort}>코드</SortTh><SortTh k="type" sort={sort} onSort={onSort}>유형</SortTh><SortTh k="title" sort={sort} onSort={onSort}>제목</SortTh><SortTh k="priority" sort={sort} onSort={onSort}>우선순위</SortTh><SortTh k="status" sort={sort} onSort={onSort}>상태</SortTh><SortTh k="received" sort={sort} onSort={onSort}>접수 일시</SortTh><SortTh k="assignee" sort={sort} onSort={onSort}>담당</SortTh><SortTh k="respond" sort={sort} onSort={onSort}>SLA 응답</SortTh><SortTh k="resolve" sort={sort} onSort={onSort}>SLA 해결</SortTh><th></th></tr>
             </thead>
             <tbody>
               {rows.length === 0 && <tr><td className="empty-cell" colSpan={10}>운영 이슈가 없습니다.</td></tr>}
-              {rows.map(({ i, sla }) => (
+              {sorted.map(({ i, sla }) => (
                 <tr key={i.id}>
                   <td>{i.id}</td>
                   <td>{i.type}</td>

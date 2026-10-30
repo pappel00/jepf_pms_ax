@@ -128,8 +128,9 @@ export function loadRfps() {
 }
 
 export function useRfps() {
+  // 화면에 들어올 때마다 다시 읽는다 — 다른 화면(RFP 평가 등)에서 저장한 평가 진행 현황(evalDone)이 바로 반영되도록.
   useEffect(() => {
-    if (!loaded) loadRfps()
+    loadRfps()
   }, [])
   return useSyncExternalStore(subscribe, () => rfps)
 }

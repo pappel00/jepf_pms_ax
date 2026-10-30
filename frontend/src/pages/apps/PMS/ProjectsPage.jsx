@@ -5,6 +5,7 @@ import './pms.css'
 import ProjectNotesModal from './ProjectNotesModal'
 import { contactOf, customerOf, useCustomerState } from './customerStore'
 import { TODAY } from './pmsStore'
+import { SortTh, useSort } from './sortUtil'
 import {
   BID_TYPES,
   BUSINESS_TYPES,
@@ -420,6 +421,19 @@ export default function ProjectsPage() {
       (!keyword || `${p.name} ${p.client} ${p.id}`.toLowerCase().includes(keyword.toLowerCase())),
   )
 
+  const { sort, onSort, sorted } = useSort(filtered, {
+    id: (p) => p.id,
+    name: (p) => p.name,
+    client: (p) => p.client,
+    period: (p) => p.start,
+    amount: (p) => p.amount,
+    probability: (p) => p.probability,
+    status: (p) => STATUSES.findIndex((s) => s.name === p.status),
+    sales: (p) => p.salesName,
+    contact: (p) => p.contactName,
+    due: (p) => p.dueDate,
+  })
+
   const pipeline = all.filter((p) => PIPELINE_STATUSES.includes(p.status))
   const pipelineAmount = pipeline.reduce((s, p) => s + (p.amount || 0), 0)
   const weightedAmount = pipeline.reduce((s, p) => s + ((p.amount || 0) * p.probability) / 100, 0)
@@ -496,16 +510,16 @@ export default function ProjectsPage() {
       <table className="data-table pms-wbs">
         <thead>
           <tr>
-            <th>코드</th>
-            <th>프로젝트명</th>
-            <th>발주사</th>
-            <th>기간</th>
-            <th style={{ textAlign: 'right' }}>발주금액(원)</th>
-            <th>확률도</th>
-            <th>상태</th>
-            <th>영업 담당</th>
-            <th>발주사 담당자</th>
-            <th>제안 마감</th>
+            <SortTh k="id" sort={sort} onSort={onSort}>코드</SortTh>
+            <SortTh k="name" sort={sort} onSort={onSort}>프로젝트명</SortTh>
+            <SortTh k="client" sort={sort} onSort={onSort}>발주사</SortTh>
+            <SortTh k="period" sort={sort} onSort={onSort}>기간</SortTh>
+            <SortTh k="amount" sort={sort} onSort={onSort} style={{ textAlign: 'right' }}>발주금액(원)</SortTh>
+            <SortTh k="probability" sort={sort} onSort={onSort}>확률도</SortTh>
+            <SortTh k="status" sort={sort} onSort={onSort}>상태</SortTh>
+            <SortTh k="sales" sort={sort} onSort={onSort}>영업 담당</SortTh>
+            <SortTh k="contact" sort={sort} onSort={onSort}>발주사 담당자</SortTh>
+            <SortTh k="due" sort={sort} onSort={onSort}>제안 마감</SortTh>
             <th>영업 노트</th>
           </tr>
         </thead>
@@ -517,7 +531,7 @@ export default function ProjectsPage() {
               </td>
             </tr>
           )}
-          {filtered.map((p) => {
+          {sorted.map((p) => {
             const stage = STATUSES.find((s) => s.name === p.status)?.stage
             return (
               <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => setEditing({ project: p, isNew: false })}>

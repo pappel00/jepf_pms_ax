@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Modal from '../../../components/Modal'
 import './pms.css'
+import { SortTh, useSort } from './sortUtil'
 import { evalDoneOf, useEvals } from './evalStore'
 import { MEMBERS, TODAY } from './pmsStore'
 import { useProjects } from './projectStore'
@@ -598,6 +599,19 @@ export default function RfpPage() {
   const projectOf = (id) => projects.find((p) => p.id === id)
   const salesProjects = projects.filter((p) => !['수행 종료', '운영 중', '실패', '보류/취소'].includes(p.status))
 
+  const { sort, onSort, sorted } = useSort(rfps, {
+    id: (r) => r.id,
+    project: (r) => projectOf(r.projectId)?.name,
+    title: (r) => r.title,
+    round: (r) => r.round,
+    received: (r) => r.receivedDate,
+    due: (r) => r.dueDate,
+    items: (r) => r.items.length,
+    evaluators: (r) => r.evaluators.length,
+    progress: (r) => evalProgressOf(r),
+    status: (r) => rfpStatusOf(r),
+  })
+
   const newRfp = () => ({
     id: nextRfpId(rfps),
     projectId: '',
@@ -631,16 +645,16 @@ export default function RfpPage() {
       <table className="data-table pms-wbs">
         <thead>
           <tr>
-            <th>RFP 번호</th>
-            <th>프로젝트</th>
-            <th>RFP명</th>
-            <th>차수</th>
-            <th>접수일</th>
-            <th>제출 마감</th>
-            <th style={{ textAlign: 'right' }}>항목</th>
-            <th>평가자</th>
-            <th>평가 진행</th>
-            <th>상태</th>
+            <SortTh k="id" sort={sort} onSort={onSort}>RFP 번호</SortTh>
+            <SortTh k="project" sort={sort} onSort={onSort}>프로젝트</SortTh>
+            <SortTh k="title" sort={sort} onSort={onSort}>RFP명</SortTh>
+            <SortTh k="round" sort={sort} onSort={onSort}>차수</SortTh>
+            <SortTh k="received" sort={sort} onSort={onSort}>접수일</SortTh>
+            <SortTh k="due" sort={sort} onSort={onSort}>제출 마감</SortTh>
+            <SortTh k="items" sort={sort} onSort={onSort} style={{ textAlign: 'right' }}>항목</SortTh>
+            <SortTh k="evaluators" sort={sort} onSort={onSort}>평가자</SortTh>
+            <SortTh k="progress" sort={sort} onSort={onSort}>평가 진행</SortTh>
+            <SortTh k="status" sort={sort} onSort={onSort}>상태</SortTh>
           </tr>
         </thead>
         <tbody>
@@ -651,7 +665,7 @@ export default function RfpPage() {
               </td>
             </tr>
           )}
-          {rfps.map((r) => {
+          {sorted.map((r) => {
             const st = rfpStatusOf(r)
             return (
               <tr key={r.id} className={r.id === selectedId ? 'row-selected' : ''} style={{ cursor: 'pointer' }} onClick={() => setSelectedId(r.id)}>

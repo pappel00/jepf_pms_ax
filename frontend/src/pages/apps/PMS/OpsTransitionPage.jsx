@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './pms.css'
+import { SortTh, useSort } from './sortUtil'
 import { DEFAULT_PROJECT_ID, docOf, tailoringOf, useDocs } from './docStore'
 import { isOpenStatus, useIssues } from './issueStore'
 import { isOpenNext, nextDbIdOf, useNextOpps } from './nextOppStore'
@@ -26,6 +27,15 @@ export default function OpsTransitionPage() {
   const navigate = useNavigate()
 
   const candidates = projects.filter((p) => p.status === '수행 종료' && !p.operation)
+  const { sort, onSort, sorted } = useSort(candidates, {
+    id: (p) => p.id,
+    name: (p) => p.name,
+    client: (p) => p.client,
+    start: (p) => p.start,
+    done: (p) => p.completed?.date,
+    manager: (p) => p.transitioned?.manager.name,
+    features: (p) => p.completed?.features?.length ?? 0,
+  })
   const history = projects.filter((p) => p.operation)
 
   const [projectId, setProjectId] = useState(null)
@@ -147,13 +157,13 @@ export default function OpsTransitionPage() {
           <thead>
             <tr>
               <th></th>
-              <th>코드</th>
-              <th>프로젝트명</th>
-              <th>발주사</th>
-              <th>수행 기간</th>
-              <th>수행 종료일</th>
-              <th>수행 관리자</th>
-              <th>운영 대상 기능</th>
+              <SortTh k="id" sort={sort} onSort={onSort}>코드</SortTh>
+              <SortTh k="name" sort={sort} onSort={onSort}>프로젝트명</SortTh>
+              <SortTh k="client" sort={sort} onSort={onSort}>발주사</SortTh>
+              <SortTh k="start" sort={sort} onSort={onSort}>수행 기간</SortTh>
+              <SortTh k="done" sort={sort} onSort={onSort}>수행 종료일</SortTh>
+              <SortTh k="manager" sort={sort} onSort={onSort}>수행 관리자</SortTh>
+              <SortTh k="features" sort={sort} onSort={onSort}>운영 대상 기능</SortTh>
               <th>인수 산출물</th>
               <th>미해결 이슈</th>
             </tr>
@@ -166,7 +176,7 @@ export default function OpsTransitionPage() {
                 </td>
               </tr>
             )}
-            {candidates.map((p) => (
+            {sorted.map((p) => (
               <tr key={p.id} className={p.id === projectId ? 'row-selected' : ''} style={{ cursor: 'pointer' }} onClick={() => select(p)}>
                 <td>
                   <input type="radio" readOnly checked={p.id === projectId} />

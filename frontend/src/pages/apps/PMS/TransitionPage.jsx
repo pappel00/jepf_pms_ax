@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './pms.css'
+import { SortTh, useSort } from './sortUtil'
 import { useAuth } from '../../../context/AuthContext'
 import { ProcessButton } from './ProcessModal'
 import { transitionProcess } from './processModels'
@@ -50,6 +51,14 @@ export default function TransitionPage() {
   const canApprove = hasApproveRole(auth) // 승인 권한(PMS_APPROVE·admin)만 승인·반려·롤백 (서버도 같은 권한을 검사)
 
   const candidates = projects.filter((p) => p.status === '수주' && !tasks.some((t) => t.projectId === p.id) && !pendingTransitionOf(requests, p.id))
+  const { sort, onSort, sorted } = useSort(candidates, {
+    id: (p) => p.id,
+    name: (p) => p.name,
+    client: (p) => p.client,
+    start: (p) => p.start,
+    amount: (p) => p.amount,
+    sales: (p) => p.salesName,
+  })
   const history = projects.filter((p) => p.transitioned)
   const pendingRequests = requests.filter((r) => r.status === '승인 대기')
   const decidedRequests = requests.filter((r) => r.status !== '승인 대기')
@@ -268,12 +277,12 @@ export default function TransitionPage() {
           <thead>
             <tr>
               <th></th>
-              <th>코드</th>
-              <th>프로젝트명</th>
-              <th>발주사</th>
-              <th>기간 (예정)</th>
-              <th style={{ textAlign: 'right' }}>발주금액(원)</th>
-              <th>영업 담당</th>
+              <SortTh k="id" sort={sort} onSort={onSort}>코드</SortTh>
+              <SortTh k="name" sort={sort} onSort={onSort}>프로젝트명</SortTh>
+              <SortTh k="client" sort={sort} onSort={onSort}>발주사</SortTh>
+              <SortTh k="start" sort={sort} onSort={onSort}>기간 (예정)</SortTh>
+              <SortTh k="amount" sort={sort} onSort={onSort} style={{ textAlign: 'right' }}>발주금액(원)</SortTh>
+              <SortTh k="sales" sort={sort} onSort={onSort}>영업 담당</SortTh>
               <th>RFP / 항목</th>
               <th>RFP 평가</th>
             </tr>
@@ -286,7 +295,7 @@ export default function TransitionPage() {
                 </td>
               </tr>
             )}
-            {candidates.map((p) => {
+            {sorted.map((p) => {
               const prs = rfps.filter((r) => r.projectId === p.id)
               const itemCount = prs.reduce((s, r) => s + r.items.length, 0)
               const evaluators = prs[0]?.evaluators ?? []

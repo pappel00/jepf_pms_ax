@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Modal from '../../../components/Modal'
 import './pms.css'
+import { SortTh, useSort } from './sortUtil'
 import { contactOf, deleteContact, emptyContact, saveContact, useCustomerState } from './customerStore'
 import { useProjects } from './projectStore'
 
@@ -85,6 +86,17 @@ export default function CustomerContactsPage() {
       (!keyword || `${t.name} ${t.dept} ${t.phone} ${t.email}`.toLowerCase().includes(keyword.toLowerCase())),
   )
   const projectCount = (t) => projects.filter((p) => contactOf(contacts, p)?.id === t.id).length
+  const { sort, onSort, sorted } = useSort(rows, {
+    id: (t) => t.id,
+    customer: (t) => nameOf(t.customerId),
+    name: (t) => t.name,
+    title: (t) => t.title,
+    dept: (t) => t.dept,
+    phone: (t) => t.phone,
+    email: (t) => t.email,
+    use: (t) => t.useYn,
+    projects: (t) => projectCount(t),
+  })
   const remove = (t) => {
     const n = projectCount(t)
     if (n > 0) return window.alert(`프로젝트 ${n}건에서 사용 중이라 삭제할 수 없습니다. 사용 여부를 「미사용」으로 바꾸세요.`)
@@ -102,7 +114,7 @@ export default function CustomerContactsPage() {
             고객사별 담당자(이름·직책·연락처)를 관리합니다. 프로젝트 관리에서 발주사를 고르면 해당 고객사의 담당자 중에서 선택합니다.
           </p>
         </div>
-        <button className="primary" onClick={() => setEdit(emptyContact(customerId))}>
+        <button className="primary small" onClick={() => setEdit(emptyContact(customerId))}>
           ＋ 담당자 등록
         </button>
       </div>
@@ -127,15 +139,15 @@ export default function CustomerContactsPage() {
       <table className="data-table pms-wbs">
         <thead>
           <tr>
-            <th>코드</th>
-            <th>고객사</th>
-            <th>담당자</th>
-            <th>직책</th>
-            <th>부서</th>
-            <th>연락처</th>
-            <th>이메일</th>
-            <th>사용</th>
-            <th style={{ textAlign: 'right' }}>프로젝트</th>
+            <SortTh k="id" sort={sort} onSort={onSort}>코드</SortTh>
+            <SortTh k="customer" sort={sort} onSort={onSort}>고객사</SortTh>
+            <SortTh k="name" sort={sort} onSort={onSort}>담당자</SortTh>
+            <SortTh k="title" sort={sort} onSort={onSort}>직책</SortTh>
+            <SortTh k="dept" sort={sort} onSort={onSort}>부서</SortTh>
+            <SortTh k="phone" sort={sort} onSort={onSort}>연락처</SortTh>
+            <SortTh k="email" sort={sort} onSort={onSort}>이메일</SortTh>
+            <SortTh k="use" sort={sort} onSort={onSort}>사용</SortTh>
+            <SortTh k="projects" sort={sort} onSort={onSort} style={{ textAlign: 'right' }}>프로젝트</SortTh>
             <th></th>
           </tr>
         </thead>
@@ -147,7 +159,7 @@ export default function CustomerContactsPage() {
               </td>
             </tr>
           )}
-          {rows.map((t) => (
+          {sorted.map((t) => (
             <tr key={t.id}>
               <td>{t.id}</td>
               <td>{nameOf(t.customerId)}</td>
