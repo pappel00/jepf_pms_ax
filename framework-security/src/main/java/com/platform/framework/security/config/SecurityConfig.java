@@ -42,6 +42,8 @@ public class SecurityConfig {
 
     private static final String[] PERMIT_ALL = {
             "/api/v1/auth/**",
+            // Mattermost 버튼 콜백 — JWT 대신 서명된 토큰으로 검증한다(NotifyTokens).
+            "/api/v1/pms/notify/callback",
             "/actuator/health",
             "/swagger-ui.html",
             "/swagger-ui/**",

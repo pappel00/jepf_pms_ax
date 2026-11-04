@@ -42,6 +42,12 @@ public class NotifyController {
         return ApiResponse.success(notifyService.send(request.userId(), "TEST", "[PMS] 알림 연결 테스트입니다. 이 메시지가 보이면 PMS 알림이 정상 연결된 것입니다."));
     }
 
+    /** 담당자에게 진척 입력 버튼이 달린 알림을 보낸다(매일 알림 발송 연동 전의 수동 발송·검증용). */
+    @PostMapping("/progress-prompt")
+    public ApiResponse<NotifyDto.Result> progressPrompt(@Valid @RequestBody NotifyDto.ProgressPromptRequest request) {
+        return ApiResponse.success(notifyService.sendProgressPrompt(request.taskId()));
+    }
+
     @GetMapping("/logs")
     public ApiResponse<List<NotifyDto.Log>> logs() {
         return ApiResponse.success(notifyService.recentLogs());

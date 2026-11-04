@@ -439,6 +439,35 @@ export async function addProjectTasks(project, newTasks) {
   await loadTasks()
 }
 
+/** 업무 추가·수정 폼 값(화면 업무 모양) → 서버 요청. 담당자는 이름에서 사용자 ID 로 바꾼다. */
+const taskBody = (f) => ({
+  parentId: f.parentId ?? null,
+  taskName: f.name,
+  startDate: f.start || null,
+  endDate: f.end || null,
+  weight: Number(f.weight) || 0,
+  assigneeUserId: f.assignee ? userIdByName(f.assignee) ?? null : null,
+  predTaskId: f.predId || null,
+})
+
+/** 업무 추가(단계·분류 아래 하위 업무). 실패하면 서버 메시지로 예외를 던진다. project 는 projectStore 의 프로젝트(dbId 필요). */
+export async function createTask(project, form) {
+  await pmsWbsApi.create(project.dbId, taskBody(form))
+  await loadTasks()
+}
+
+/** 업무 수정 — 업무명·가중치, 하위 업무는 기간·담당자·선행 업무까지. */
+export async function updateTask(id, form) {
+  await pmsWbsApi.update(id, taskBody(form))
+  await loadTasks()
+}
+
+/** 업무 삭제 — 진척·이슈·후속 업무가 걸린 업무는 서버가 거부한다. */
+export async function deleteTask(id) {
+  await pmsWbsApi.remove(id)
+  await loadTasks()
+}
+
 /**
  * 업무 복사 — 담당자만 바꿔서 같은 업무를 한 명 더 만든다(진척률 0으로 초기화).
  * 가중치는 복사 그룹(원본 + 복사본들)의 합계를 균등 분배한다(요구사항 3.9.2). 계산과 저장은 서버가 한다.

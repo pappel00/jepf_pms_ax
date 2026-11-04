@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useAuth } from '../../../context/AuthContext'
 import Modal from '../../../components/Modal'
 import './pms.css'
 import { stageSummary, useDocs } from './docStore'
@@ -15,7 +16,11 @@ import {
   TODAY,
   WBS_DEFAULT_PROJECT_ID,
   blockedBy,
+  ME,
   copyTask,
+  createTask,
+  deleteTask,
+  updateTask,
   featureMatrix,
   flattenTree,
   isLeaf,
@@ -115,6 +120,130 @@ export default function WbsPage() {
   return <WbsView key={projectId} projectId={projectId} onProjectChange={setProjectId} />
 }
 
+/** 업무 추가·수정 — 하위 업무는 기간·담당자·선행 업무까지, 단계·분류는 이름과 가중치만 다룬다. */
+function TaskFormModal({ mode, task, defaultParentId, all, assignable, issueCount, onSubmit, onClose }) {
+  const isAdd = mode === 'add'
+  const leafEdit = isAdd || isLeaf(all, task)
+  const pathOf = (t) => {
+    const names = []
+    for (let x = t; x; x = all.find((y) => y.id === x.parentId)) names.unshift(x.name)
+    return names.join(' › ')
+  }
+  const parents = all.filter((t) => !isLeaf(all, t) || (t.id === defaultParentId))
+  const parent0 = all.find((t) => t.id === defaultParentId)
+  const range0 = parent0 ? rangeOf(all, parent0) : {}
+  const [f, setF] = useState(
+    isAdd
+      ? { parentId: defaultParentId ?? parents[0]?.id ?? '', name: '', start: range0.start ?? TODAY, end: range0.end ?? TODAY, weight: 10, assignee: '', predId: '' }
+      : { parentId: task.parentId, name: task.name, start: task.start ?? '', end: task.end ?? '', weight: task.weight, assignee: task.assignee ?? '', predId: task.predId ?? '' },
+  )
+  const [saving, setSaving] = useState(false)
+  const set = (patch) => setF((p) => ({ ...p, ...patch }))
+  const siblings = all.filter((t) => t.parentId === f.parentId && (isAdd || t.id !== task.id))
+  const siblingSum = siblings.reduce((s, t) => s + (t.weight || 0), 0)
+  const total = Math.round((siblingSum + (Number(f.weight) || 0)) * 10) / 10
+  const preds = all.filter((t) => isLeaf(all, t) && (isAdd || t.id !== task.id))
+  const err = !f.name.trim()
+    ? '업무명을 입력하세요.'
+    : leafEdit && (!f.start || !f.end)
+      ? '시작일과 종료일을 입력하세요.'
+      : leafEdit && f.end < f.start
+        ? '종료일은 시작일보다 빠를 수 없습니다.'
+        : !(Number(f.weight) >= 0)
+          ? '가중치를 입력하세요.'
+          : ''
+  const submit = async () => {
+    setSaving(true)
+    try {
+      await onSubmit({ ...f, name: f.name.trim() })
+      onClose()
+    } catch (e) {
+      window.alert(e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+  return (
+    <Modal title={isAdd ? '업무 추가' : `업무 수정 — ${task.name}`} onClose={onClose} width={560}>
+      {isAdd && (
+        <div className="field">
+          <label>
+            상위 항목 <span className="req-mark">*</span>
+          </label>
+          <select value={f.parentId} onChange={(e) => set({ parentId: e.target.value })}>
+            {parents.map((t) => (
+              <option key={t.id} value={t.id}>
+                {pathOf(t)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      <div className="field">
+        <label>
+          업무명 <span className="req-mark">*</span>
+        </label>
+        <input value={f.name} onChange={(e) => set({ name: e.target.value })} />
+      </div>
+      {leafEdit && (
+        <>
+          <div className="field">
+            <label>
+              시작일 <span className="req-mark">*</span>
+            </label>
+            <input type="date" value={f.start} onChange={(e) => set({ start: e.target.value })} />
+          </div>
+          <div className="field">
+            <label>
+              종료일 <span className="req-mark">*</span>
+            </label>
+            <input type="date" value={f.end} onChange={(e) => set({ end: e.target.value })} />
+          </div>
+          <div className="field">
+            <label>담당자</label>
+            <select value={f.assignee} onChange={(e) => set({ assignee: e.target.value })}>
+              <option value="">미배정</option>
+              {assignable.map((m) => (
+                <option key={m.name} value={m.name}>
+                  {m.name} ({m.org})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label>선행 업무</label>
+            <select value={f.predId} onChange={(e) => set({ predId: e.target.value })}>
+              <option value="">없음</option>
+              {preds.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {pathOf(t)}
+                </option>
+              ))}
+            </select>
+          </div>
+        </>
+      )}
+      <div className="field">
+        <label>가중치</label>
+        <input type="number" min={0} step={0.1} value={f.weight} onChange={(e) => set({ weight: e.target.value })} />
+        <div className="pms-field-hint">
+          같은 상위 항목 아래 형제 업무 {siblings.length}건의 가중치 합계 {Math.round(siblingSum * 10) / 10} → 저장 후 {total}. 가중치는 형제끼리의 비율로 쓰이므로 합계가 100이 아니어도 저장됩니다.
+        </div>
+      </div>
+      {!isAdd && leafEdit && issueCount > 0 && (
+        <div className="pms-hint" style={{ boxShadow: 'none', background: '#fff4d6' }}>
+          이 업무에 이슈 {issueCount}건이 연결되어 있습니다. 기간을 바꾸면 이슈의 조치 기한·일정 영향도 함께 확인하세요.
+        </div>
+      )}
+      {!isAdd && leafEdit && <div className="pms-field-hint">담당자를 바꿔도 이미 입력된 진척({task.progress ?? 0}%)은 그대로 유지됩니다.</div>}
+      {err && <p style={{ color: '#c0392b' }}>{err}</p>}
+      <button className="primary" disabled={!!err || saving} onClick={submit}>
+        저장
+      </button>
+    </Modal>
+  )
+}
+
 function WbsView({ projectId, onProjectChange }) {
   const allTasks = useTasks()
   const projects = useProjects()
@@ -129,6 +258,8 @@ function WbsView({ projectId, onProjectChange }) {
   const docs = useDocs() // 단계말 산출물 등록 현황이 바뀌면 행의 "산출물 n/m"도 다시 그린다
   const [stageDocs, setStageDocs] = useState(null) // 산출물 관리를 열 단계명
   const [copying, setCopying] = useState(null)
+  const [taskForm, setTaskForm] = useState(null) // { mode: 'add' | 'edit', task?, parentId? }
+  const { auth } = useAuth()
   const [copyAssignee, setCopyAssignee] = useState(MEMBERS[0].name)
 
   // 이슈 관리에서 "WBS ›"로 들어오면(?task=업무ID) 해당 업무까지 트리를 펼치고 강조한다.
@@ -189,6 +320,14 @@ function WbsView({ projectId, onProjectChange }) {
     setCopyAssignee((assignable.find((m) => m.name !== task.assignee) ?? assignable[0] ?? MEMBERS[0]).name)
   }
 
+  // 추가·수정·삭제는 프로젝트 관리자(수행 관리자·수행 PM)와 관리자만 — 서버도 같은 규칙으로 검사한다.
+  const project = projects.find((p) => p.id === projectId)
+  const canEdit = (auth?.roles ?? []).some((r) => ['ROLE_ADMIN', 'ROLE_SYSTEM_ADMIN'].includes(r)) || exec?.manager?.name === ME || project?.pmName === ME
+  const onDelete = (task) => {
+    if (!window.confirm(`「${task.name}」 업무를 삭제할까요?\n같은 상위 항목의 남은 업무는 가중치 합계가 유지되도록 비율대로 다시 맞춥니다.`)) return
+    deleteTask(task.id).catch((e) => window.alert(`삭제하지 못했습니다: ${e.message}`))
+  }
+
   const groupOf = (task) => {
     const rootId = task.copiedFromId ?? task.id
     return all.filter((t) => t.id === rootId || t.copiedFromId === rootId)
@@ -241,9 +380,11 @@ function WbsView({ projectId, onProjectChange }) {
             </button>
           </>
         )}
-        <button className="primary small" disabled title="목업 — 요구사항 화면에서 생성됩니다">
-          + 수동 태스크 추가
-        </button>
+        {canEdit && (
+          <button className="primary small" onClick={() => setTaskForm({ mode: 'add' })}>
+            + 업무 추가
+          </button>
+        )}
       </div>
 
       <div className="pms-summary">
@@ -421,6 +562,16 @@ function WbsView({ projectId, onProjectChange }) {
                           복사
                         </button>
                       )}
+                      {canEdit && (
+                        <button className="link-btn" onClick={() => setTaskForm({ mode: 'edit', task })}>
+                          수정
+                        </button>
+                      )}
+                      {canEdit && leaf && (
+                        <button className="link-btn" onClick={() => onDelete(task)}>
+                          삭제
+                        </button>
+                      )}
                     </td>
                   </tr>
                 )
@@ -433,6 +584,20 @@ function WbsView({ projectId, onProjectChange }) {
       {issueTask && <TaskIssuesModal key={issueTask.id} task={issueTask} onClose={() => setIssueTaskId(null)} />}
 
       {stageDocs && <StageDocsModal projectId={projectId} phase={stageDocs} onClose={() => setStageDocs(null)} />}
+
+      {taskForm && (
+        <TaskFormModal
+          key={taskForm.task?.id ?? 'add'}
+          mode={taskForm.mode}
+          task={taskForm.task}
+          defaultParentId={taskForm.parentId}
+          all={all}
+          assignable={assignable}
+          issueCount={taskForm.task ? issueStats(issues, leafIdsUnder(taskForm.task)).total : 0}
+          onSubmit={(form) => (taskForm.mode === 'add' ? createTask(project, form) : updateTask(taskForm.task.id, form))}
+          onClose={() => setTaskForm(null)}
+        />
+      )}
 
       {copying && (
         <Modal title="업무 복사" onClose={() => setCopying(null)}>

@@ -2,6 +2,13 @@ package com.platform.module.pms.service;
 
 import com.platform.module.pms.domain.NotifyLog;
 import com.platform.module.pms.domain.UserProfile;
+import com.platform.framework.security.tenant.TenantContext;
+import com.platform.module.pms.domain.WbsTask;
+import com.platform.module.pms.repository.ProjectRepository;
+import com.platform.module.pms.repository.WbsTaskRepository;
+import com.platform.module.pms.exception.PmsErrorCode;
+import com.platform.framework.core.common.exception.BusinessException;
+import org.springframework.beans.factory.annotation.Value;
 import com.platform.module.pms.dto.NotifyDto;
 import com.platform.module.pms.repository.NotifyLogRepository;
 import com.platform.module.pms.repository.UserProfileRepository;
@@ -33,9 +40,23 @@ public class NotifyService {
     private final UserRepository userRepository;
     private final UserProfileRepository profileRepository;
     private final NotifyLogRepository logRepository;
+    private final WbsTaskRepository taskRepository;
+    private final ProjectRepository projectRepository;
+    private final NotifyTokens tokens;
+    private final String publicBaseUrl;
+
+    /** 버튼이 달린 메시지의 제목·본문·버튼. */
+    private record Prompt(String title, String detail, List<MattermostClient.Action> actions) {
+    }
 
     public NotifyService(MattermostClient mattermost, UserRepository userRepository,
-                         UserProfileRepository profileRepository, NotifyLogRepository logRepository) {
+                         UserProfileRepository profileRepository, NotifyLogRepository logRepository,
+                         WbsTaskRepository taskRepository, ProjectRepository projectRepository, NotifyTokens tokens,
+                         @Value("${pms.notify.public-base-url:http://localhost:8080}") String publicBaseUrl) {
+        this.taskRepository = taskRepository;
+        this.projectRepository = projectRepository;
+        this.tokens = tokens;
+        this.publicBaseUrl = publicBaseUrl.endsWith("/") ? publicBaseUrl.substring(0, publicBaseUrl.length() - 1) : publicBaseUrl;
         this.mattermost = mattermost;
         this.userRepository = userRepository;
         this.profileRepository = profileRepository;
@@ -99,6 +120,32 @@ public class NotifyService {
     /** 사용자 한 명에게 알림을 보낸다. 결과는 항상 이력에 남기고, 예외는 던지지 않는다. */
     @Transactional
     public NotifyDto.Result send(String userId, String kind, String text) {
+        return deliver(userId, kind, text, null);
+    }
+
+    /** 업무 담당자에게 진척 입력 버튼(0/25/50/75/100%)이 달린 메시지를 보낸다. 버튼을 누르면 콜백으로 진척이 입력된다. */
+    @Transactional
+    public NotifyDto.Result sendProgressPrompt(String taskId) {
+        WbsTask t = taskRepository.findByIdAndDeletedYn(taskId, "N")
+                .orElseThrow(() -> new BusinessException(PmsErrorCode.TASK_NOT_FOUND, "존재하지 않는 업무입니다: " + taskId));
+        if (!"LEAF".equals(t.getNodeTypeCode()) || t.getAssigneeUserId() == null) {
+            throw new BusinessException(PmsErrorCode.STAFF_INVALID, "담당자가 지정된 하위 업무만 진척 입력 알림을 보낼 수 있습니다.");
+        }
+        String project = projectRepository.findByIdAndDeletedYn(t.getProjectId(), "N").map(p -> p.getProjectName()).orElse("");
+        String tenant = TenantContext.getTenantId();
+        String url = publicBaseUrl + "/api/v1/pms/notify/callback";
+        List<MattermostClient.Action> actions = new java.util.ArrayList<>();
+        for (int pct : new int[] {0, 25, 50, 75, 100}) {
+            actions.add(new MattermostClient.Action("pct" + pct, pct + "%", url,
+                    Map.of("token", tokens.sign(tenant, t.getAssigneeUserId(), t.getId(), pct))));
+        }
+        String current = t.getProgressPct() == null ? "0" : t.getProgressPct().stripTrailingZeros().toPlainString();
+        String detail = "프로젝트: " + project + "\n기한: " + t.getEndDate() + " · 현재 진척 " + current + "%\n아래 버튼으로 진척률을 입력하세요.";
+        return deliver(t.getAssigneeUserId(), "PROGRESS_PROMPT", "[PMS] 진척 입력 요청 — " + t.getTaskName(),
+                new Prompt(t.getTaskName(), detail, actions));
+    }
+
+    private NotifyDto.Result deliver(String userId, String kind, String text, Prompt prompt) {
         UserProfile profile = profileRepository.findByUserIdAndDeletedYn(userId, "N").orElse(null);
         String channel = profile == null || profile.getNotifyChannelCode() == null ? "미설정" : profile.getNotifyChannelCode();
         String status;
@@ -116,7 +163,11 @@ public class NotifyService {
                 reason = target.message();
             } else {
                 try {
-                    mattermost.sendDirect(mattermost.me().id(), target.mattermostUserId(), text);
+                    if (prompt == null) {
+                        mattermost.sendDirect(mattermost.me().id(), target.mattermostUserId(), text);
+                    } else {
+                        mattermost.sendDirectWithActions(mattermost.me().id(), target.mattermostUserId(), text, prompt.title(), prompt.detail(), prompt.actions());
+                    }
                     status = SENT;
                 } catch (MattermostException e) {
                     status = FAILED;

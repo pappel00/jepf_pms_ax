@@ -40,6 +40,10 @@ public final class NotifyDto {
     public record TestRequest(@NotBlank String userId) {
     }
 
+    @Schema(name = "PmsNotifyProgressPromptRequest")
+    public record ProgressPromptRequest(@NotBlank String taskId) {
+    }
+
     @Schema(name = "PmsNotifyResult")
     public record Result(String statusCode, String message) {
     }

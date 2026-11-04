@@ -25,6 +25,10 @@ public class MattermostClient {
     public record MmUser(String id, String username, String email) {
     }
 
+    /** 메시지 안의 버튼 하나. 누르면 Mattermost 서버가 url 로 context 를 POST 한다. */
+    public record Action(String id, String name, String url, Map<String, Object> context) {
+    }
+
     /** 호출 실패(HTTP 오류·네트워크 오류). */
     public static class MattermostException extends RuntimeException {
         private final int status;
@@ -83,6 +87,18 @@ public class MattermostClient {
     public void sendDirect(String botUserId, String targetUserId, String text) {
         Map<String, Object> channel = post("/api/v4/channels/direct", List.of(botUserId, targetUserId));
         post("/api/v4/posts", Map.of("channel_id", String.valueOf(channel.get("id")), "message", text));
+    }
+
+    /** 버튼이 달린 메시지(첨부 카드). 버튼을 누르면 actions 의 url 로 콜백이 온다. */
+    public void sendDirectWithActions(String botUserId, String targetUserId, String text, String title, String detail, List<Action> actions) {
+        Map<String, Object> channel = post("/api/v4/channels/direct", List.of(botUserId, targetUserId));
+        List<Map<String, Object>> buttons = actions.stream()
+                .map(a -> Map.<String, Object>of("id", a.id(), "name", a.name(), "type", "button",
+                        "integration", Map.of("url", a.url(), "context", a.context())))
+                .toList();
+        Map<String, Object> card = Map.of("color", "#4468f0", "title", title, "text", detail, "actions", buttons);
+        post("/api/v4/posts", Map.of("channel_id", String.valueOf(channel.get("id")), "message", text,
+                "props", Map.of("attachments", List.of(card))));
     }
 
     private Optional<MmUser> findUser(String path) {

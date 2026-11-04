@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -43,6 +44,23 @@ public class WbsController {
     @PutMapping("/wbs-tasks/{id}/progress")
     public ApiResponse<WbsDto.Response> updateProgress(@PathVariable String id, @Valid @RequestBody WbsDto.ProgressRequest request) {
         return ApiResponse.success("200", "진척률을 저장했습니다.", wbsService.updateProgress(id, request));
+    }
+
+    @PostMapping("/projects/{projectId}/wbs-tasks")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<WbsDto.Response> create(@PathVariable String projectId, @Valid @RequestBody WbsDto.TaskRequest request) {
+        return ApiResponse.success("201", "업무를 추가했습니다.", wbsService.create(projectId, request));
+    }
+
+    @PutMapping("/wbs-tasks/{id}")
+    public ApiResponse<WbsDto.Response> update(@PathVariable String id, @Valid @RequestBody WbsDto.TaskRequest request) {
+        return ApiResponse.success("200", "업무를 수정했습니다.", wbsService.update(id, request));
+    }
+
+    @DeleteMapping("/wbs-tasks/{id}")
+    public ApiResponse<Void> delete(@PathVariable String id) {
+        wbsService.delete(id);
+        return ApiResponse.success("200", "업무를 삭제했습니다.", null);
     }
 
     @PostMapping("/wbs-tasks/{id}/copy")

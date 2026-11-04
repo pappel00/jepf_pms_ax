@@ -49,3 +49,7 @@ pms:
       base-url: https://mmtt.dxworks.kr
       # 봇 액세스 토큰은 소스에 두지 않고 환경변수로 넣는다. 비어 있으면 연결 상태 확인(ping)만 된다.
       token: ${PMS_MATTERMOST_TOKEN:}
+    # Mattermost 서버가 PMS 백엔드를 호출할 때 쓰는 주소(메시지 버튼 콜백). 운영에서는 Mattermost 에서 접근 가능한 주소로 바꾼다.
+    public-base-url: ${PMS_PUBLIC_BASE_URL:http://localhost:8080}
+    # 버튼 콜백 서명 비밀키. 비어 있으면 JWT 비밀키에서 파생한다.
+    callback-secret: ${PMS_NOTIFY_SECRET:}

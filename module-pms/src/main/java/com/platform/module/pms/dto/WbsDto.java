@@ -51,6 +51,22 @@ public final class WbsDto {
     ) {
     }
 
+    /**
+     * 업무 추가·수정. 추가는 parentId(단계 또는 분류)가 필요하고 하위 업무(리프)가 만들어진다. 수정은 parentId 를 쓰지 않으며,
+     * 상위 항목(단계·분류)은 업무명·가중치만 바뀐다(기간은 하위 업무에서 계산).
+     */
+    @Schema(name = "PmsWbsTaskRequest")
+    public record TaskRequest(
+            String parentId,
+            @NotBlank @Size(max = 300) String taskName,
+            LocalDate startDate,
+            LocalDate endDate,
+            @NotNull @DecimalMin("0") @DecimalMax("1000") BigDecimal weight,
+            String assigneeUserId,
+            String predTaskId
+    ) {
+    }
+
     @Schema(name = "PmsWbsCopyRequest")
     public record CopyRequest(String assigneeUserId) {
     }

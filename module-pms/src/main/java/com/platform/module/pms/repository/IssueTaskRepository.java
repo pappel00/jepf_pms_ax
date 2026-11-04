@@ -12,4 +12,6 @@ public interface IssueTaskRepository extends JpaRepository<IssueTask, String> {
     List<IssueTask> findAllByIssueIdInAndDeletedYnOrderByLinkedAtAsc(Collection<String> issueIds, String deletedYn);
 
     List<IssueTask> findAllByIssueIdAndDeletedYn(String issueId, String deletedYn);
+
+    boolean existsByTaskIdAndDeletedYn(String taskId, String deletedYn);
 }

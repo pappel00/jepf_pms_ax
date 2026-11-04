@@ -69,6 +69,9 @@ export const pmsWbsApi = {
   updateProgress: (id, progressPct, note) =>
     apiFetch(`/api/v1/pms/wbs-tasks/${id}/progress`, { method: 'PUT', body: { progressPct, note: note || null } }),
   copy: (id, assigneeUserId) => apiFetch(`/api/v1/pms/wbs-tasks/${id}/copy`, { method: 'POST', body: { assigneeUserId } }),
+  create: (projectId, body) => apiFetch(`/api/v1/pms/projects/${projectId}/wbs-tasks`, { method: 'POST', body }),
+  update: (id, body) => apiFetch(`/api/v1/pms/wbs-tasks/${id}`, { method: 'PUT', body }),
+  remove: (id) => apiFetch(`/api/v1/pms/wbs-tasks/${id}`, { method: 'DELETE' }),
 }
 export const pmsIssuesApi = {
   list: (projectId = '') => apiFetch(`/api/v1/pms/issues${projectId ? `?projectId=${projectId}` : ''}`),
