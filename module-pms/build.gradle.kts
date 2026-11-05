@@ -16,6 +16,8 @@ dependencies {
     implementation(project(":module-user"))
 
     implementation("org.springframework.boot:spring-boot-autoconfigure")
+    // 알림 이메일 발송(SMTP) — EmailClient 가 JavaMailSenderImpl 을 직접 만들어 쓴다.
+    implementation("org.springframework.boot:spring-boot-starter-mail")
 
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")

@@ -97,7 +97,9 @@ function ProposalForm({ initial, isNew, projects, rfps, onClose, onSaved }) {
             disabled={!isNew}
             onChange={(e) => {
               const r = rfps.find((x) => x.projectId === e.target.value)
-              setP((prev) => ({ ...prev, projectId: e.target.value, rfpId: r?.id ?? '', dueDate: r?.dueDate || prev.dueDate }))
+              // 제안서 제출 마감일의 기본값은 프로젝트의 제안 마감일(RFP 의 마감일은 평가 마감일이라 쓰지 않는다).
+              const proj = projects.find((x) => x.id === e.target.value)
+              setP((prev) => ({ ...prev, projectId: e.target.value, rfpId: r?.id ?? '', dueDate: proj?.dueDate || prev.dueDate }))
             }}
           >
             <option value="">선택하세요</option>
@@ -113,8 +115,7 @@ function ProposalForm({ initial, isNew, projects, rfps, onClose, onSaved }) {
             value={p.rfpId}
             disabled={!isNew}
             onChange={(e) => {
-              const r = rfps.find((x) => x.id === e.target.value)
-              setP((prev) => ({ ...prev, rfpId: e.target.value, dueDate: r?.dueDate || prev.dueDate }))
+              setP((prev) => ({ ...prev, rfpId: e.target.value }))
             }}
           >
             <option value="">선택하세요</option>

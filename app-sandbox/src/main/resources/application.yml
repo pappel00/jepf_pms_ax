@@ -47,8 +47,25 @@ pms:
   notify:
     mattermost:
       base-url: https://mmtt.dxworks.kr
-      # 봇 액세스 토큰은 소스에 두지 않고 환경변수로 넣는다. 비어 있으면 연결 상태 확인(ping)만 된다.
-      token: ${PMS_MATTERMOST_TOKEN:}
+      # 봇 액세스 토큰(암호화됨). 환경변수 PMS_MATTERMOST_TOKEN 에 평문을 주면 그 값이 우선하고, 없으면 아래 ENC(...) 를 복호화해 쓴다.
+      # 비어 있으면 연결 상태 확인(ping)만 된다. 암호화 방법은 docs/framework-secret-encryption.md 참고.
+      token: ${PMS_MATTERMOST_TOKEN:ENC(AUPGbyj3SbBSdC-14abCbxWdBkgf1S3cgP8P9FqEPn5XqS53WyeLTAOuHdpQes6rynwoVYn7Av59ccd7RcbFWVE8t17jwfI)}
+    email:
+      # 알림 이메일 SMTP(하이웍스). host·계정이 비어 있으면 이메일 채널은 발송을 건너뛴다.
+      # 비밀번호는 ENC(...) 로 암호화해 password 기본값에 넣는다(docs/framework-secret-encryption.md).
+      host: ${PMS_SMTP_HOST:smtps.hiworks.com}
+      port: ${PMS_SMTP_PORT:465}
+      # 465 는 SSL, 587 은 ssl=false(STARTTLS)
+      ssl: ${PMS_SMTP_SSL:true}
+      username: ${PMS_SMTP_USERNAME:seon.bae@dxworks.kr}
+      password: ${PMS_SMTP_PASSWORD:ENC(AbLSVCtPyXgt5zdq8Us5BrjrRxeGP5OmQYToSSx3275JOwyNFU3sk8z6xlS4faaK88pDKUhg3w)}
+      # 보내는 사람 주소(비우면 계정과 같음)
+      from: ${PMS_SMTP_FROM:seon.bae@dxworks.kr}
+    telegram:
+      # 텔레그램 봇 토큰(@dxw_pms_bot, 암호화됨). 환경변수 PMS_TELEGRAM_TOKEN 에 평문을 주면 그 값이 우선한다.
+      token: ${PMS_TELEGRAM_TOKEN:ENC(AYE5Kia4U0s3TUn0cacgQDBKwIlWUnYodYfd4bs-Tj61iqHVrp_hnrnI6MksbNigzXSuKl-ynXa14HByZ7Pr0jmyOwp0zop6YxjyyiD2nSHX-c0TmbwsAVhtxg)}
+      # 새 메시지·버튼 클릭을 가져오는 중인지. 같은 봇을 가져오는 서버는 한 대만 켠다(다른 서버는 false).
+      polling: ${PMS_TELEGRAM_POLLING:true}
     # Mattermost 서버가 PMS 백엔드를 호출할 때 쓰는 주소(메시지 버튼 콜백). 운영에서는 Mattermost 에서 접근 가능한 주소로 바꾼다.
     public-base-url: ${PMS_PUBLIC_BASE_URL:http://localhost:8080}
     # 버튼 콜백 서명 비밀키. 비어 있으면 JWT 비밀키에서 파생한다.

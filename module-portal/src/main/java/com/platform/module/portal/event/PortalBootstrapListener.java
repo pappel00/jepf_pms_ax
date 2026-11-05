@@ -175,7 +175,10 @@ public class PortalBootstrapListener {
                     new FolderSeed("PMS_MENU_HR", "인력관리", List.of(
                             new PageSeed("PMS_PAGE_STAFF", "인력 관리", "/workspace/PMS/staff"),
                             new PageSeed("PMS_PAGE_STAFFING", "투입 관리", "/workspace/PMS/staffing"),
-                            new PageSeed("PMS_PAGE_RATES", "단가 관리", "/workspace/PMS/rates")))))
+                            new PageSeed("PMS_PAGE_RATES", "단가 관리", "/workspace/PMS/rates"))),
+                    // 알림 관리 — Mattermost 연결 상태, 기한 알림 종류·발송 시각 설정, 발송 이력
+                    new FolderSeed("PMS_MENU_NOTIFY", "알림 관리", List.of(
+                            new PageSeed("PMS_PAGE_NOTIFY", "알림 관리", "/workspace/PMS/notify")))))
     );
 
     // PMS 메뉴 접근 Role(docs/pms/04-권한-매트릭스.md). Role 자체는 module-pms 의 PmsAccessBootstrapListener 가 만든다.
@@ -215,6 +218,7 @@ public class PortalBootstrapListener {
             Map.entry("PMS_PAGE_OPS_ISSUES", List.of(PMS_PM, PMS_OPS, PMS_MANAGER)),
             Map.entry("PMS_PAGE_OPS_SALES", List.of(PMS_SALES, PMS_OPS, PMS_MANAGER)),
             Map.entry("PMS_PAGE_STAFF", List.of(PMS_PM, PMS_MANAGER)),
+            Map.entry("PMS_PAGE_NOTIFY", List.of(PMS_PM, PMS_MANAGER)),
             Map.entry("PMS_PAGE_STAFFING", List.of(PMS_PM, PMS_MEMBER, PMS_MANAGER)),
             Map.entry("PMS_PAGE_RATES", List.of(PMS_MANAGER)));
 

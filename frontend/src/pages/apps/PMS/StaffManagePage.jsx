@@ -35,6 +35,80 @@ const emptyStaff = () => ({
   groupCodes: [],
 })
 
+/** 텔레그램 연결 — 연결 코드를 발급하면 사용자가 봇에게 「/start 코드」를 보내 chat ID 가 저장된다. 연결되면 자동으로 감지한다. */
+function TelegramLink({ s, set }) {
+  const [link, setLink] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!link || s.telegramChatId) return undefined
+    const timer = setInterval(async () => {
+      try {
+        const me = ((await pmsStaffApi.list()).data || []).find((u) => u.userId === s.userId)
+        if (me?.telegramChatId) {
+          set({ telegramChatId: me.telegramChatId })
+          setLink(null)
+        }
+      } catch {
+        // 다음 주기에 다시 확인한다.
+      }
+    }, 3000)
+    return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [link, s.telegramChatId, s.userId])
+
+  const issue = async () => {
+    setBusy(true)
+    try {
+      setLink((await pmsNotifyApi.telegramLinkCode(s.userId)).data)
+    } catch (e) {
+      window.alert(e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+  const unlink = async () => {
+    if (!window.confirm('텔레그램 연결을 해제할까요? 해제하면 알림이 가지 않습니다.')) return
+    try {
+      await pmsNotifyApi.telegramUnlink(s.userId)
+      set({ telegramChatId: '' })
+    } catch (e) {
+      window.alert(e.message)
+    }
+  }
+
+  return (
+    <div className="field">
+      <label>텔레그램 연결</label>
+      {!s.userId ? (
+        <div className="pms-field-hint">저장한 뒤 다시 열어 연결 코드를 발급할 수 있습니다.</div>
+      ) : s.telegramChatId ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="pms-tag done">연결됨</span> <span className="muted">chat {s.telegramChatId}</span>
+          <button className="link-btn" onClick={unlink}>
+            연결 해제
+          </button>
+        </div>
+      ) : (
+        <div>
+          <button className="secondary small" disabled={busy} onClick={issue}>
+            {link ? '코드 다시 발급' : '연결 코드 발급'}
+          </button>
+          {link && (
+            <div className="pms-hint" style={{ boxShadow: 'none', background: '#f4f5f7', marginTop: 8 }}>
+              연결 코드 <b style={{ fontSize: 16, letterSpacing: 2 }}>{link.code}</b> ({link.expiresInMinutes}분간 유효)
+              <br />
+              사용자가 텔레그램에서 <a href={link.link} target="_blank" rel="noreferrer">이 링크</a>를 열고 「시작」을 누르거나, 봇에게 <code>/start {link.code}</code> 를 보내면 연결됩니다.
+              <br />
+              <span className="muted">연결 대기 중… 연결되면 자동으로 표시됩니다.</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function StaffForm({ initial, canGrantManager, onClose, onSaved }) {
   const [s, setS] = useState(initial)
   const [saving, setSaving] = useState(false)
@@ -119,7 +193,7 @@ function StaffForm({ initial, canGrantManager, onClose, onSaved }) {
         </select>
       </div>
       {s.notifyChannelCode === 'Mattermost' && f('Mattermost ID', 'mattermostUserId')}
-      {s.notifyChannelCode === '텔레그램' && f('텔레그램 Chat ID', 'telegramChatId')}
+      {s.notifyChannelCode === '텔레그램' && <TelegramLink s={s} set={set} />}
       <div className="field">
         <label>PMS 역할 (여러 개 선택 가능)</label>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px' }}>
@@ -147,85 +221,6 @@ function StaffForm({ initial, canGrantManager, onClose, onSaved }) {
         저장
       </button>
     </Modal>
-  )
-}
-
-/** Mattermost 연결 상태 — 서버 응답·봇 토큰·봇 인증을 확인하고 최근 발송 결과를 보여 준다. */
-function NotifyPanel() {
-  const [status, setStatus] = useState(null)
-  const [logs, setLogs] = useState([])
-  const [busy, setBusy] = useState(false)
-  const [showLogs, setShowLogs] = useState(false)
-
-  const check = useCallback(async () => {
-    setBusy(true)
-    try {
-      setStatus((await pmsNotifyApi.status()).data)
-      setLogs((await pmsNotifyApi.logs()).data || [])
-    } catch (e) {
-      setStatus({ serverReachable: false, message: e.message })
-    } finally {
-      setBusy(false)
-    }
-  }, [])
-  useEffect(() => {
-    check()
-  }, [check])
-
-  const tone = !status ? '' : status.botReady ? 'done' : status.serverReachable ? 'manual' : 'late'
-  const label = !status ? '확인 중...' : status.botReady ? '연결됨' : status.serverReachable ? '서버 정상 · 봇 미설정' : '서버 연결 실패'
-  return (
-    <div className="pms-panel" style={{ marginBottom: 14 }}>
-      <h3 style={{ fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
-        Mattermost 연결 <span className={`pms-tag ${tone}`}>{label}</span>
-        <button className="secondary small" style={{ marginLeft: 'auto' }} disabled={busy} onClick={check}>
-          연결 확인
-        </button>
-        <button className="secondary small" onClick={() => setShowLogs((v) => !v)}>
-          발송 이력 {logs.length}
-        </button>
-      </h3>
-      {status && (
-        <p className="muted" style={{ margin: '4px 0 0' }}>
-          {status.baseUrl} {status.serverVersion ? `· 서버 ${status.serverVersion}` : ''} {status.botName ? `· 봇 @${status.botName}` : ''} — {status.message}
-        </p>
-      )}
-      {showLogs && (
-        <table className="data-table pms-wbs" style={{ marginTop: 8 }}>
-          <thead>
-            <tr>
-              <th>일시</th>
-              <th>받는 사람</th>
-              <th>채널</th>
-              <th>종류</th>
-              <th>결과</th>
-              <th>사유</th>
-            </tr>
-          </thead>
-          <tbody>
-            {logs.length === 0 && (
-              <tr>
-                <td className="empty-cell" colSpan={6}>
-                  발송 이력이 없습니다.
-                </td>
-              </tr>
-            )}
-            {logs.map((l) => (
-              <tr key={l.id}>
-                <td style={{ whiteSpace: 'nowrap' }}>{(l.createdDate ?? '').replace('T', ' ').slice(0, 16)}</td>
-                <td>{l.userName}</td>
-                <td>{l.channelCode}</td>
-                <td>{l.kindCode}</td>
-                <td>
-                  <span className={`pms-tag ${l.statusCode === 'SENT' ? 'done' : l.statusCode === 'FAILED' ? 'late' : ''}`}>{{ SENT: '발송', FAILED: '실패', SKIPPED: '건너뜀' }[l.statusCode] ?? l.statusCode}</span>
-                </td>
-                <td className="muted">{l.errorMessage || '-'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
   )
 }
 
@@ -302,7 +297,6 @@ export default function StaffManagePage() {
         </button>
       </div>
 
-      <NotifyPanel />
 
       <div className="search-bar">
         <div className="search-field">
@@ -348,30 +342,48 @@ export default function StaffManagePage() {
               </td>
               <td>{u.orgTypeCode === '협력사' ? `협력사${u.partnerCompany ? ` (${u.partnerCompany})` : ''}` : '자사'}</td>
               <td>{u.jobGradeCode || <span className="muted">미지정</span>}</td>
-              <td>{u.notifyChannelCode || <span className="muted">미설정</span>}</td>
+              <td style={{ whiteSpace: 'nowrap' }}>
+                {u.notifyChannelCode && u.notifyChannelCode !== '미설정' ? u.notifyChannelCode : <span className="muted">미설정</span>}
+                {u.notifyChannelCode === '텔레그램' &&
+                  (u.telegramChatId ? (
+                    <span className="pms-tag done" style={{ marginLeft: 6 }}>연결됨</span>
+                  ) : (
+                    <span className="pms-tag late" style={{ marginLeft: 6 }}>미연결</span>
+                  ))}
+              </td>
               <td>
                 {u.groupCodes.length ? u.groupCodes.map((c) => (
                   <span key={c} className="pms-tag manual" style={{ marginRight: 4 }}>{groupLabel(c)}</span>
                 )) : <span className="muted">-</span>}
               </td>
               <td>{u.useYn === 'Y' ? <span className="pms-tag done">사용</span> : <span className="pms-tag">중지</span>}</td>
-              <td>
+              <td style={{ whiteSpace: 'nowrap' }}>
                 <button className="link-btn" onClick={() => open(u)}>
                   수정
-                </button>{' '}
-                <button className="link-btn" onClick={() => checkMapping(u)}>
-                  Mattermost 확인
-                </button>{' '}
-                <button className="link-btn" onClick={() => sendTest(u)}>
-                  테스트 발송
                 </button>
+                {/* 알림 채널에 맞는 확인·테스트 버튼만 보여 준다 */}
+                {['Mattermost', '텔레그램', '이메일'].includes(u.notifyChannelCode) ? (
+                  <>
+                    {' '}
+                    <button className="link-btn" onClick={() => checkMapping(u)}>
+                      {u.notifyChannelCode === '텔레그램' ? '연결 확인' : u.notifyChannelCode === '이메일' ? '주소 확인' : 'Mattermost 확인'}
+                    </button>{' '}
+                    <button className="link-btn" onClick={() => sendTest(u)}>
+                      테스트 발송
+                    </button>
+                  </>
+                ) : (
+                  <span className="muted" style={{ marginLeft: 8 }}>
+                    채널 미설정
+                  </span>
+                )}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
       <div className="pms-field-hint">
-        시스템 관리자 권한은 시스템 관리 &gt; 사용자그룹 관리에서 지정합니다. 계정 삭제·비밀번호 초기화도 시스템 관리 화면에서 합니다.
+        알림 연결 상태·발송 설정은 「알림 관리」 메뉴에서 합니다. 시스템 관리자 권한은 시스템 관리 &gt; 사용자그룹 관리에서 지정합니다. 계정 삭제·비밀번호 초기화도 시스템 관리 화면에서 합니다.
       </div>
 
       {edit && <StaffForm key={edit.userId || 'new'} initial={edit} canGrantManager={canGrantManager} onClose={() => setEdit(null)} onSaved={reload} />}

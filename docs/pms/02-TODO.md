@@ -39,6 +39,8 @@
 
 ### P2. 기능 보완
 - ☑ WBS 업무 추가·수정·삭제(프로젝트 관리자만): 하위 업무 추가, 업무명·가중치(단계·분류 포함)·기간·담당자·선행 업무 수정, 진척 0%·이슈 미연결·후속 업무 없는 하위 업무 삭제(남은 형제 가중치는 합계 유지하며 비율 재조정)
+- ☑ WBS 간트 보기(1차): 일·주·월 눈금, 진척 채움 막대, 단계·분류 요약 막대, 선행 업무 화살표, 오늘선, 왼쪽 항목 전체/작업명만/숨김, 막대 클릭 수정, 트리의 펼침·오늘 업무 보기 공유
+- ☐ 간트 2차: 막대 드래그로 기간 변경(선행 업무·이슈 영향 확인 포함), 다중 프로젝트 포트폴리오 간트(별도 페이지), 인쇄/이미지 내보내기
 - ☐ **WBS 생성을 서버로**: 지금은 단계전환 승인 직후 화면이 만든 WBS를 일괄 저장 → `selection_json`·RFP 서버 데이터로 서버가 생성
 - ☐ **RFP 확정 M/D → 프로젝트 예상 원가 환산 연동**(결정 필요)
 - ☐ **진척 스냅샷 자동 저장 스케줄러**(주 1회, `TODAY` 교체 후)
@@ -52,8 +54,21 @@
 - ☐ 텔레그램 봇, 이메일 발송(협력사 인력 채널) 연결 — 지금은 건너뛰고 이력에 남김
 - ☐ 프로젝트별 채널 설정(`pms_notify_setting`)·콜백 토큰 설계 (ERD 13절 3번), PMS 서버 주소 확정(Mattermost → PMS 콜백)
 - ☑ 진척 입력 버튼 콜백: 담당자에게 0/25/50/75/100% 버튼 메시지 발송(`POST /api/v1/pms/notify/progress-prompt`) → 버튼 클릭 시 `/api/v1/pms/notify/callback` 이 서명 토큰(HMAC·3일 유효)을 검증하고 웹 입력과 같은 규칙(담당자 본인·선행 업무)으로 진척 반영, 입력 경로 `MATTERMOST` 로 이력 기록 (로컬에서 콜백 직접 호출로 검증, 실제 Mattermost 클릭은 봇·PMS 서버 주소 확정 후)
-- ☐ 운영 설정: `PMS_PUBLIC_BASE_URL`(Mattermost 에서 접근 가능한 PMS 주소), `PMS_NOTIFY_SECRET`, Mattermost "신뢰할 수 있는 내부 연결 허용"(사설 주소일 때)
-- ☐ 알림 발송 연동: 업무 시작·마감 도래(매일 스케줄러 → 진척 입력 버튼 발송), 이슈 배정, 투입 변경·단계전환 승인
+- ☐ **개발서버 배포 후 Mattermost 버튼 콜백 테스트** (로컬 PC 는 Mattermost 서버에서 접근할 수 없어 개발서버에서 진행)
+  - ☐ `pms.notify.public-base-url`(또는 `PMS_PUBLIC_BASE_URL`)을 개발서버의 Mattermost 접근 가능 주소로 지정 (슬래시 없이, 예: https://pms-dev.example.com)
+  - ☐ 사설 주소·IP 라면 Mattermost 시스템 콘솔 > Environment > Developer > "Allow untrusted internal connections to" 에 호스트 추가
+  - ☐ 개발서버에서 `POST /api/v1/pms/notify/progress-prompt` 로 새 메시지 발송(기존 메시지 버튼엔 localhost 주소가 박혀 있어 재사용 불가) → 버튼 클릭 → 진척 반영·입력 경로 `MATTERMOST` 이력 확인
+  - ☐ 확인 후 테스트용 업무 「Mattermost 연동 테스트」(PRJ-2026-001 분석 > 그룹웨어) 삭제
+  - ☐ 운영 반영 시 `PMS_NOTIFY_SECRET`(콜백 서명 키) 지정, 소스에 포함된 봇 토큰(application.yml) 공개 범위 점검·필요 시 재발급
+- ☑ 기한 알림 배치 + 알림 관리 메뉴(PMS 관리): 매시 스케줄러가 회사별 설정(`pms_setting` notify.*)에 따라 11종 알림 발송 — 수행 업무(WBS)·영업 노트·프로젝트 제안 마감·제안서 마감·이슈 조치 기한·운영 업무 기한(기본 발송), RFP 평가 제출 마감·운영 영업 기회·차기 사업 기회·운영 계약 종료(D-30/7/1)·운영 이슈 SLA 시한(매시, 기본 안 보냄). 같은 날 중복 방지(`pms_notify_log.ref_id`). 알림 관리 화면: 연결 상태·종류별 설정·대상 미리보기·지금 실행·발송 이력
+- ☑ RFP 평가 마감일: RFP 등록의 「제안서 제출 마감일」을 「평가 마감일」로 용도 변경(`pms_rfp.due_date` 그대로 사용, DB 변경 없음). 제안서 제출 마감일 기본값은 프로젝트 제안 마감일. 「RFP 관리 : 평가 마감일」 알림이 이 값 사용
+- ☐ 알림 남은 것: 영업 노트·운영 업무 알림에 「완료 처리」 버튼(콜백 확장), 이슈 배정, 투입 변경·단계전환 승인 알림, 지연 업무 알림 정책, 서버 다중화 시 분산 락(ShedLock)
+- ☑ 텔레그램 채널(@dxw_pms_bot): 연결 코드(10분) → 사용자가 봇에 /start 코드 → chat ID 자동 저장, 알림 발송·진척 입력 버튼(getUpdates 폴링이라 외부 주소 불필요), 알림 관리·인력 관리 화면 연동. 봇 토큰은 application.yml 기본값(PMS_TELEGRAM_TOKEN 우선), 폴링은 서버 1대만(PMS_TELEGRAM_POLLING)
+- ☑ 텔레그램 실사용 확인(연결 → 테스트 발송 → 버튼·직접 입력 진척). 직접 입력은 텔레그램만, Mattermost 는 개발서버 배포 후 대화상자 방식으로
+- ☑ 이메일 채널 코드(SMTP, 텍스트 메일, 받는 주소=계정 이메일, 알림 관리 연결 확인) — SMTP 미설정 시 발송 건너뜀
+- ☑ 설정값 암호화 공통 기능(framework-core, AES-256-GCM, ENC(...) 자동 복호화, 마스터 키 JEPF_SECRET_KEY 또는 ~/.jepf/secret.key, 도구 :framework-core:secretTool) — 상세 docs/framework-secret-encryption.md. Mattermost·텔레그램 토큰 암호화 적용
+- ☐ **이메일 SMTP 실발송 확인**: 발송용 계정 생성 후 비밀번호를 secretTool 로 암호화해 application.yml password 기본값(ENC)에 넣기, username·from 지정. host=smtps.hiworks.com·465·SSL 은 설정 완료
+- ☐ **개발·운영 서버 반영 시 마스터 키 설정**(JEPF_SECRET_KEY 환경변수 또는 키 파일 — 같은 키를 서버마다 한 번). 이 대화에 노출된 토큰은 운영 전 재발급 권장. 기존 framework-core 단위 테스트(ApiResponseTest 포함)는 테스트 실행 환경 오류로 실행 안 됨 — 별도 점검 필요
 - ☐ 협력사 인력: 내 업무 알림에서 진척·이슈 등록(관리자 대리 입력 포함)
 - ☐ 보고서 제출·후속 조치·이슈 알림 연동
 

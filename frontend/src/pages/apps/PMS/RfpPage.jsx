@@ -126,7 +126,7 @@ ${err.message}`)
         <Field label="접수일" required error={errors.receivedDate}>
           <input type="date" value={r.receivedDate} onChange={(e) => set('receivedDate', e.target.value)} />
         </Field>
-        <Field label="제안서 제출 마감일">
+        <Field label="평가 마감일">
           <input type="date" value={r.dueDate} onChange={(e) => set('dueDate', e.target.value)} />
         </Field>
       </div>
@@ -405,7 +405,7 @@ function RfpDetail({ rfp, project, onDeleted, onEditRfp }) {
           </h3>
           <div className="muted">
             {rfp.id} · {project ? `${project.id} ${project.name} (${project.client})` : '프로젝트 미지정'} · {rfp.round} · 접수{' '}
-            {rfp.receivedDate} · 제출 마감 {rfp.dueDate || '-'} {rfp.dueDate && `(${dday(rfp.dueDate)})`}
+            {rfp.receivedDate} · 평가 마감 {rfp.dueDate || '-'} {rfp.dueDate && `(${dday(rfp.dueDate)})`}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -650,7 +650,7 @@ export default function RfpPage() {
             <SortTh k="title" sort={sort} onSort={onSort}>RFP명</SortTh>
             <SortTh k="round" sort={sort} onSort={onSort}>차수</SortTh>
             <SortTh k="received" sort={sort} onSort={onSort}>접수일</SortTh>
-            <SortTh k="due" sort={sort} onSort={onSort}>제출 마감</SortTh>
+            <SortTh k="due" sort={sort} onSort={onSort}>평가 마감</SortTh>
             <SortTh k="items" sort={sort} onSort={onSort} style={{ textAlign: 'right' }}>항목</SortTh>
             <SortTh k="evaluators" sort={sort} onSort={onSort}>평가자</SortTh>
             <SortTh k="progress" sort={sort} onSort={onSort}>평가 진행</SortTh>

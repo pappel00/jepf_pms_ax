@@ -84,8 +84,10 @@ public class StaffService {
         userService.update(userId, new UserDto.UpdateRequest(
                 PmsSupport.blankToNull(r.email()), r.userName().trim(), cur.departmentId(), r.useYn()));
         applyGroups(userId, wanted);
+        // 텔레그램 연결은 봇이 저장하므로, 화면이 오래된 값(빈 칸)으로 저장해도 기존 연결을 지우지 않는다. 해제는 전용 API 로만 한다.
+        String chatId = PmsSupport.blankToNull(r.telegramChatId()) != null ? r.telegramChatId() : profileService.get(userId).telegramChatId();
         var profile = profileService.upsert(userId, new UserProfileDto.Request(
-                r.orgTypeCode(), r.partnerCompany(), r.notifyChannelCode(), r.telegramChatId(), r.mattermostUserId(), r.jobGradeCode()));
+                r.orgTypeCode(), r.partnerCompany(), r.notifyChannelCode(), chatId, r.mattermostUserId(), r.jobGradeCode()));
         return toResponse(userRepository.findById(userId).orElseThrow(), profile, groupsOf(userId));
     }
 

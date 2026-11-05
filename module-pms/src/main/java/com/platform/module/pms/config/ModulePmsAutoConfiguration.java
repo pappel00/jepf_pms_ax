@@ -5,6 +5,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 /**
@@ -16,5 +17,6 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @EntityScan(basePackages = "com.platform.module.pms.domain")
 @EnableJpaRepositories(basePackages = "com.platform.module.pms.repository")
 @ComponentScan(basePackages = "com.platform.module.pms")
+@EnableScheduling
 public class ModulePmsAutoConfiguration {
 }

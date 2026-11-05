@@ -27,3 +27,12 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
+
+// 설정값 암호화 도구(마스터 키 생성·값 암호화): ./gradlew -q :framework-core:secretTool --args="generate-key|encrypt|decrypt"
+tasks.register<JavaExec>("secretTool") {
+    group = "security"
+    description = "설정값(토큰·비밀번호) 암호화 도구 — 값은 표준입력으로 받는다"
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.platform.framework.core.crypto.SecretCipherTool")
+    standardInput = System.`in`
+}

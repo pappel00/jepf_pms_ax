@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../../context/AuthContext'
 import Modal from '../../../components/Modal'
 import './pms.css'
+import GanttView from './GanttView'
 import { stageSummary, useDocs } from './docStore'
 import { issueStats, useIssues } from './issueStore'
 import { useProjects } from './projectStore'
@@ -258,6 +259,7 @@ function WbsView({ projectId, onProjectChange }) {
   const docs = useDocs() // 단계말 산출물 등록 현황이 바뀌면 행의 "산출물 n/m"도 다시 그린다
   const [stageDocs, setStageDocs] = useState(null) // 산출물 관리를 열 단계명
   const [copying, setCopying] = useState(null)
+  const [todayKeep, setTodayKeep] = useState(null) // 「오늘 업무」 보기일 때 보여 줄 업무 ID 집합(null 이면 전체)
   const [taskForm, setTaskForm] = useState(null) // { mode: 'add' | 'edit', task?, parentId? }
   const { auth } = useAuth()
   const [copyAssignee, setCopyAssignee] = useState(MEMBERS[0].name)
@@ -288,7 +290,36 @@ function WbsView({ projectId, onProjectChange }) {
   }
   const issueTask = issueTaskId ? all.find((t) => t.id === issueTaskId) : null
 
-  const rows = flattenTree(all, expanded)
+  const rows = flattenTree(all, expanded).filter(({ task, depth }) => !todayKeep || depth === 0 || todayKeep.has(task.id))
+
+  // 담당자별 보기 — 담당자를 최상위 묶음(미배정은 맨 뒤)으로, 그 아래 담당 하위 업무를 시작일순으로 둔다. 업무 사본은 같은 ID 를 써서
+  // 선행 업무 화살표가 이어지고, 묶음의 진척·기간은 소속 업무의 단순 평균·합계로 계산된다.
+  const byAssignee = useMemo(() => {
+    const groups = new Map()
+    all.filter((t) => isLeaf(all, t)).forEach((t) => {
+      const key = t.assignee || '미배정'
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key).push(t)
+    })
+    const names = [...groups.keys()].sort((a, b) => (a === '미배정') - (b === '미배정') || a.localeCompare(b, 'ko'))
+    const out = []
+    names.forEach((n) => {
+      const list = groups.get(n).sort((a, b) => (a.start || '').localeCompare(b.start || ''))
+      out.push({ id: `asg:${n}`, parentId: null, name: `${n} (${list.length}건)`, weight: 1, projectId })
+      list.forEach((t) => out.push({ ...t, parentId: `asg:${n}`, weight: 1 }))
+    })
+    return out
+  }, [all, projectId])
+  const [collapsedAsg, setCollapsedAsg] = useState(() => new Set())
+  const asgGroupIds = byAssignee.filter((t) => !t.parentId).map((t) => t.id)
+  const expandedAsg = new Set(asgGroupIds.filter((id) => !collapsedAsg.has(id)))
+  const toggleAsg = (id) =>
+    setCollapsedAsg((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  const rowsAsg = flattenTree(byAssignee, expandedAsg).filter(({ task, depth }) => !todayKeep || depth === 0 || todayKeep.has(task.id))
   const overall = projectProgress(all)
   const roots = all.filter((t) => !t.parentId)
   const rootWeight = roots.reduce((s, t) => s + t.weight, 0)
@@ -306,6 +337,24 @@ function WbsView({ projectId, onProjectChange }) {
   const collapseAll = () => setExpanded(new Set())
   // 단계(Level1)만 펼쳐서 분류 목록까지만 보기
   const expandPhases = () => setExpanded(new Set(roots.map((t) => t.id)))
+  // 오늘 진행하는 업무(시작일 ≤ 오늘 ≤ 종료일인 하위 업무)가 보이도록 그 상위 단계·분류만 펼친다. 해당 업무가 없는 단계는 접힌 채 둔다.
+  // 목업 기준일(TODAY)이 아니라 실제 오늘 날짜를 쓴다.
+  const expandToday = () => {
+    const d = new Date()
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const active = all.filter((t) => isLeaf(all, t) && t.start && t.end && t.start <= today && today <= t.end)
+    const open = new Set()
+    active.forEach((t) => {
+      for (let p = all.find((x) => x.id === t.parentId); p; p = all.find((x) => x.id === p.parentId)) open.add(p.id)
+    })
+    setView((v) => (v === 'matrix' ? 'tree' : v))
+    setCollapsedAsg(new Set())
+    setExpanded(open)
+    // 오늘 업무만 보기 — 진행 업무와 그 상위 항목만 남기고(최상위 단계는 항상 표시) 나머지 형제 업무는 숨긴다.
+    setTodayKeep(new Set([...open, ...active.map((t) => t.id)]))
+    if (active.length === 0) window.alert(`오늘(${today}) 진행하는 업무가 없습니다.`)
+    else setTimeout(() => document.getElementById(`wbs-row-${active[0].id}`)?.scrollIntoView({ block: 'center' }), 100)
+  }
 
   const onProgress = (task, value) => {
     const res = setProgress(task.id, value)
@@ -366,16 +415,31 @@ function WbsView({ projectId, onProjectChange }) {
           <button className={view === 'matrix' ? 'on' : ''} onClick={() => setView('matrix')}>
             기능 × 단계
           </button>
+          <button className={view === 'gantt' ? 'on' : ''} onClick={() => setView('gantt')}>
+            간트
+          </button>
+          <button className={view === 'assignee' ? 'on' : ''} onClick={() => setView('assignee')}>
+            담당자별
+          </button>
         </div>
-        {view === 'tree' && (
+        {view !== 'matrix' && (
           <>
-            <button className="secondary small" onClick={expandAll}>
+            <button className="secondary small" onClick={view === 'assignee' ? () => setCollapsedAsg(new Set()) : expandAll}>
               모두 펼치기
             </button>
-            <button className="secondary small" onClick={expandPhases}>
-              분류까지
+            {view !== 'assignee' && (
+              <button className="secondary small" onClick={expandPhases}>
+                분류까지
+              </button>
+            )}
+            <button
+              className={todayKeep ? 'primary small' : 'secondary small'}
+              onClick={() => (todayKeep ? setTodayKeep(null) : expandToday())}
+              title="오늘 진행하는 업무와 그 상위 단계·분류만 보여 줍니다 (다시 누르면 전체 보기)"
+            >
+              {todayKeep ? '오늘 업무 해제' : '오늘 업무'}
             </button>
-            <button className="secondary small" onClick={collapseAll}>
+            <button className="secondary small" onClick={view === 'assignee' ? () => setCollapsedAsg(new Set(asgGroupIds)) : collapseAll}>
               모두 접기
             </button>
           </>
@@ -407,6 +471,27 @@ function WbsView({ projectId, onProjectChange }) {
 
       {view === 'matrix' ? (
         <MatrixView all={all} />
+      ) : view === 'assignee' ? (
+        <GanttView
+          all={byAssignee}
+          rows={rowsAsg}
+          expanded={expandedAsg}
+          toggle={toggleAsg}
+          canEdit={canEdit}
+          onEdit={(t) => {
+            const orig = all.find((x) => x.id === t.id)
+            if (orig) setTaskForm({ mode: 'edit', task: orig })
+          }}
+        />
+      ) : view === 'gantt' ? (
+        <GanttView
+          all={all}
+          rows={rows}
+          expanded={expanded}
+          toggle={toggle}
+          canEdit={canEdit}
+          onEdit={(task) => setTaskForm({ mode: 'edit', task })}
+        />
       ) : (
         <>
           <div className="pms-hint">

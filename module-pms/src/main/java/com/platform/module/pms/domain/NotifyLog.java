@@ -33,6 +33,10 @@ public class NotifyLog extends TenantAwareEntity {
     @Column(name = "status_code", length = 20, nullable = false)
     private String statusCode;
 
+    /** 알림이 가리키는 대상(예: 업무 ID). 같은 날 같은 알림을 두 번 보내지 않는 판단에 쓴다. */
+    @Column(name = "ref_id", length = 64)
+    private String refId;
+
     /** 실패·건너뜀 사유 */
     @Column(name = "error_message", length = 500)
     private String errorMessage;
@@ -75,6 +79,11 @@ public class NotifyLog extends TenantAwareEntity {
 
     public NotifyLog withErrorMessage(String value) {
         this.errorMessage = value == null || value.length() <= 500 ? value : value.substring(0, 500);
+        return this;
+    }
+
+    public NotifyLog withRefId(String value) {
+        this.refId = value;
         return this;
     }
 

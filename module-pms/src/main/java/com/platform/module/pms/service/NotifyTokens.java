@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.HexFormat;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
@@ -59,6 +60,43 @@ public class NotifyTokens {
             }
             return new Payload(p[0], p[1], p[2], Integer.parseInt(p[3]));
         } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /** 텔레그램 버튼 내용. */
+    public record TelegramPayload(String taskId, int progressPct) {
+    }
+
+    /**
+     * 텔레그램 버튼의 callback_data(최대 64바이트): p|진척률|업무ID|만료일(36진수)|서명(12자). 서명에 chat ID 를 넣어 그 사람의 대화에서만 유효하다.
+     * 테넌트·사용자는 데이터에 담지 않고 chat ID 로 찾는다(TelegramLinkService).
+     */
+    public String signTelegram(String chatId, String taskId, int progressPct) {
+        String exp = Long.toString((Instant.now().getEpochSecond() + VALID_SECONDS) / 86400, 36);
+        String sig = HexFormat.of().formatHex(hmac(chatId + "|" + taskId + "|" + progressPct + "|" + exp)).substring(0, 12);
+        return "p|" + progressPct + "|" + taskId + "|" + exp + "|" + sig;
+    }
+
+    /** 서명·만료를 확인해 내용을 돌려준다. 잘못되었거나 만료되었으면 null. */
+    public TelegramPayload verifyTelegram(String chatId, String data) {
+        if (data == null) {
+            return null;
+        }
+        String[] p = data.split("\\|", -1);
+        if (p.length != 5 || !"p".equals(p[0])) {
+            return null;
+        }
+        try {
+            String expect = HexFormat.of().formatHex(hmac(chatId + "|" + p[2] + "|" + p[1] + "|" + p[3])).substring(0, 12);
+            if (!MessageDigest.isEqual(expect.getBytes(StandardCharsets.UTF_8), p[4].getBytes(StandardCharsets.UTF_8))) {
+                return null;
+            }
+            if (Long.parseLong(p[3], 36) < Instant.now().getEpochSecond() / 86400) {
+                return null;
+            }
+            return new TelegramPayload(p[2], Integer.parseInt(p[1]));
+        } catch (NumberFormatException e) {
             return null;
         }
     }

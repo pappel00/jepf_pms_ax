@@ -35,6 +35,32 @@ public class NotifyCallbackService {
         this.effectiveRoleService = effectiveRoleService;
     }
 
+    /**
+     * 담당자 본인(userId)으로 잠시 로그인한 상태에서 진척을 입력한다 — 웹 입력과 같은 규칙(담당자 본인·선행 업무)이 적용된다.
+     * 규칙에 어긋나면 BusinessException 을 던진다. 성공하면 사용자에게 보여 줄 완료 문구를 돌려준다.
+     */
+    public String applyProgress(String tenantId, String userId, String taskId, int pct, String channel) {
+        return applyProgress(tenantId, userId, taskId, BigDecimal.valueOf(pct), channel);
+    }
+
+    /** 직접 입력한 값(소수 가능)으로 진척을 입력한다. 범위(0~100)는 요청 검증이 아니라 여기서 확인한다. */
+    public String applyProgress(String tenantId, String userId, String taskId, BigDecimal pct, String channel) {
+        if (pct.signum() < 0 || pct.compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new BusinessException("ERR-PMS-0016", "진척률은 0~100 사이여야 합니다.");
+        }
+        try {
+            TenantContext.setTenantId(tenantId);
+            List<GrantedAuthority> authorities = effectiveRoleService.resolveRoles(userId).stream()
+                    .map(SimpleGrantedAuthority::new).map(GrantedAuthority.class::cast).toList();
+            SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(userId, null, authorities));
+            wbsService.updateProgress(taskId, new WbsDto.ProgressRequest(pct, null), channel);
+            return "[PMS] ✅ 진척 " + pct.setScale(1, java.math.RoundingMode.HALF_UP).stripTrailingZeros().toPlainString() + "% 입력 완료";
+        } finally {
+            SecurityContextHolder.clearContext();
+            TenantContext.clear();
+        }
+    }
+
     /** Mattermost 가 기대하는 응답(update: 메시지 교체, ephemeral_text: 누른 사람에게만 보이는 안내)을 돌려준다. */
     public Map<String, Object> handle(Map<String, Object> body) {
         Object ctx = body == null ? null : body.get("context");
@@ -44,12 +70,7 @@ public class NotifyCallbackService {
             return Map.of("ephemeral_text", "만료되었거나 유효하지 않은 버튼입니다. PMS 에서 직접 입력해 주세요.");
         }
         try {
-            TenantContext.setTenantId(p.tenantId());
-            List<GrantedAuthority> authorities = effectiveRoleService.resolveRoles(p.userId()).stream()
-                    .map(SimpleGrantedAuthority::new).map(GrantedAuthority.class::cast).toList();
-            SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(p.userId(), null, authorities));
-            wbsService.updateProgress(p.taskId(), new WbsDto.ProgressRequest(BigDecimal.valueOf(p.progressPct()), null), "MATTERMOST");
-            String done = "[PMS] ✅ 진척 " + p.progressPct() + "% 입력 완료";
+            String done = applyProgress(p.tenantId(), p.userId(), p.taskId(), p.progressPct(), "MATTERMOST");
             return Map.of("update", Map.of("message", done, "props", Map.of("attachments", List.of())), "ephemeral_text", done);
         } catch (BusinessException e) {
             return Map.of("ephemeral_text", "입력하지 못했습니다: " + e.getMessage());

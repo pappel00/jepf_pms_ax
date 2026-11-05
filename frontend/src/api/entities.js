@@ -43,6 +43,14 @@ export const pmsNotifyApi = {
   resolve: (userId) => apiFetch(`/api/v1/pms/notify/resolve/${userId}`),
   test: (userId) => apiFetch('/api/v1/pms/notify/test', { method: 'POST', body: { userId } }),
   logs: () => apiFetch('/api/v1/pms/notify/logs'),
+  types: () => apiFetch('/api/v1/pms/notify/types'),
+  emailStatus: () => apiFetch('/api/v1/pms/notify/email/status'),
+  telegramStatus: () => apiFetch('/api/v1/pms/notify/telegram/status'),
+  telegramLinkCode: (userId) => apiFetch(`/api/v1/pms/notify/telegram/link-code/${userId}`, { method: 'POST' }),
+  telegramUnlink: (userId) => apiFetch(`/api/v1/pms/notify/telegram/link/${userId}`, { method: 'DELETE' }),
+  settings: () => apiFetch('/api/v1/pms/notify/settings'),
+  saveSettings: (body) => apiFetch('/api/v1/pms/notify/settings', { method: 'PUT', body }),
+  run: (dryRun) => apiFetch(`/api/v1/pms/notify/run?dryRun=${dryRun}`, { method: 'POST' }),
 }
 export const pmsTeamsApi = {
   list: (kind = 'EXEC') => apiFetch(`/api/v1/pms/teams?kind=${kind}`),

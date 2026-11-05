@@ -11,4 +11,6 @@ public interface UserProfileRepository extends JpaRepository<UserProfile, String
     Optional<UserProfile> findByUserIdAndDeletedYn(String userId, String deletedYn);
 
     List<UserProfile> findAllByDeletedYn(String deletedYn);
+
+    List<UserProfile> findAllByTelegramChatIdAndDeletedYn(String telegramChatId, String deletedYn);
 }
